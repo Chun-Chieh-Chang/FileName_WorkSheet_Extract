@@ -1,0 +1,180 @@
+Sub ExtractFileAndSheetNames_FolderAsSheet()
+    Dim folderPath As String
+    Dim folderName As String
+    Dim fileName As String
+    Dim wbOpen As Workbook
+    Dim ws As Worksheet
+    Dim destSheet As Worksheet
+    Dim rowCounter As Long
+    Dim fd As FileDialog
+    Dim fso As Object
+    Dim shtToCheck As Worksheet
+    
+    ' 新增變數：用於處理 QC 表單編碼與正則表達式搜尋
+    Dim dictMap As Object
+    Dim regEx As Object
+    Dim matches As Object
+    Dim foundCell As Range
+    Dim foundCode As String
+    Dim foundName As String
+    
+    ' 1. 選擇資料夾
+    Set fd = Application.FileDialog(msoFileDialogFolderPicker)
+    With fd
+        .Title = "請選擇包含 Excel 檔案的資料夾"
+        .AllowMultiSelect = False
+        If .Show = -1 Then
+            folderPath = .SelectedItems(1) & "\"
+        Else
+            MsgBox "未選擇資料夾，程式已取消。", vbExclamation
+            Exit Sub
+        End If
+    End With
+    
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    
+    ' --- 內建 QC表單編碼對照表 ---
+    Set dictMap = CreateObject("Scripting.Dictionary")
+    
+    ' 請在此處維護表單編碼與名稱
+    dictMap.Add "QC10001-R01", "樣品卡"
+    dictMap.Add "QC10002-R01", "入庫品檢驗收單"
+    dictMap.Add "QC10002-R02", "原物料品檢表"
+    dictMap.Add "QC10002-R03", "原料進料審查規格"
+    dictMap.Add "QC10004-R02", "QUALITY INSPECTION PLAN RECORD"
+    dictMap.Add "QC10005-R01", "押出機每日巡檢表"
+    dictMap.Add "QC10006-R01", "裝配對樣巡檢記錄表"
+    dictMap.Add "QC10006-R02", "半成品品檢表"
+    dictMap.Add "QC10007-R01", "完成品品檢表(首頁)"
+    dictMap.Add "QC10007-R02", "完成品品檢表(續頁)"
+    dictMap.Add "QC10007-R03", "零組件入庫品檢表 (射出零件品檢表?)"
+    dictMap.Add "QC10008-R02", "出貨檢驗報告"
+    ' --------------------------------
+    
+    ' 初始化正則表達式物件 (用於搜尋 QCxxxxx-Rxx 格式)
+    Set regEx = CreateObject("VBScript.RegExp")
+    With regEx
+        .Global = False
+        .IgnoreCase = True
+        .Pattern = "QC\d{5}-R\d{2}" ' 匹配 QC + 5位數字 + -R + 2位數字
+    End With
+    
+    ' 2. 取得資料夾名稱
+    folderName = fso.GetFolder(folderPath).Name
+    
+    ' 3. 處理 Excel 工作表命名限制
+    folderName = Replace(folderName, ":", "_")
+    folderName = Replace(folderName, "\", "_")
+    folderName = Replace(folderName, "/", "_")
+    folderName = Replace(folderName, "?", "_")
+    folderName = Replace(folderName, "*", "_")
+    folderName = Replace(folderName, "[", "(")
+    folderName = Replace(folderName, "]", ")")
+    
+    If Len(folderName) > 31 Then
+        folderName = Left(folderName, 31)
+    End If
+    
+    ' 4. 優化效能設定
+    Application.ScreenUpdating = False
+    Application.DisplayAlerts = False
+    Application.EnableEvents = False
+    
+    ' 5. 檢查並重建工作表
+    On Error Resume Next
+    Set shtToCheck = ThisWorkbook.Sheets(folderName)
+    On Error GoTo 0
+    
+    If Not shtToCheck Is Nothing Then
+        shtToCheck.Delete
+    End If
+    
+    Set destSheet = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+    
+    On Error Resume Next
+    destSheet.Name = folderName
+    If Err.Number <> 0 Then
+        destSheet.Name = "ExtractedData_" & Format(Now, "hhmmss")
+        Err.Clear
+    End If
+    On Error GoTo 0
+    
+    ' 7. 設定標題 (使用 A, B, C, D 欄)
+    destSheet.Columns("A:D").NumberFormat = "@"
+    destSheet.Range("A1").Value = "檔案名稱"
+    destSheet.Range("B1").Value = "工作表名稱"
+    destSheet.Range("C1").Value = "表單編碼"
+    destSheet.Range("D1").Value = "表單名稱"
+    destSheet.Range("A1:D1").Font.Bold = True
+    
+    rowCounter = 2
+    
+    ' 8. 開始遍歷檔案
+    fileName = Dir(folderPath & "*.xls*")
+    
+    Do While fileName <> ""
+        If fileName <> ThisWorkbook.Name Then
+            
+            On Error Resume Next
+            Set wbOpen = Workbooks.Open(folderPath & fileName, ReadOnly:=True, UpdateLinks:=False)
+            
+            If Err.Number = 0 Then
+                On Error GoTo 0
+                
+                For Each ws In wbOpen.Worksheets
+                    foundCode = ""
+                    foundName = ""
+                    
+                    ' --- 搜尋表單編碼 ---
+                    ' 先用 Excel Find 快速定位可能的儲存格 (效能優化)
+                    Set foundCell = ws.UsedRange.Find("QC?????-R??", LookIn:=xlValues, LookAt:=xlPart)
+                    
+                    If Not foundCell Is Nothing Then
+                        ' 若找到，再用正則表達式精確提取編碼
+                        If regEx.Test(foundCell.Value) Then
+                            Set matches = regEx.Execute(foundCell.Value)
+                            foundCode = matches(0).Value
+                            
+                            ' 比對內建字典取得名稱
+                            If dictMap.Exists(foundCode) Then
+                                foundName = dictMap(foundCode)
+                            End If
+                        End If
+                    End If
+                    ' --------------------------
+                
+                    ' 寫入資料
+                    destSheet.Cells(rowCounter, 1).Value = fileName
+                    destSheet.Cells(rowCounter, 2).Value = ws.Name
+                    destSheet.Cells(rowCounter, 3).Value = foundCode
+                    destSheet.Cells(rowCounter, 4).Value = foundName
+                    
+                    rowCounter = rowCounter + 1
+                Next ws
+                
+                wbOpen.Close SaveChanges:=False
+            Else
+                destSheet.Cells(rowCounter, 1).Value = fileName
+                destSheet.Cells(rowCounter, 2).Value = "無法開啟 (可能損壞或有密碼)"
+                rowCounter = rowCounter + 1
+                Err.Clear
+                On Error GoTo 0
+            End If
+        End If
+        
+        fileName = Dir
+    Loop
+    
+    ' 9. 收尾工作
+    destSheet.Columns("A:D").AutoFit
+    Application.ScreenUpdating = True
+    Application.DisplayAlerts = True
+    Application.EnableEvents = True
+    Set fso = Nothing
+    Set dictMap = Nothing
+    Set regEx = Nothing
+    
+    MsgBox "完成！已提取資料至工作表：[" & destSheet.Name & "]" & vbCrLf & _
+           "共處理 " & rowCounter - 2 & " 筆記錄。", vbInformation, "執行成功"
+
+End Sub

@@ -22,3 +22,41 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# AI Editor / IDE configs (project-local, not repo)
+.antigravity.md
+.clinerules
+.cursorrules
+.windsurfrules
+.rules
+.gitmodules
+.claude-plugin/
+.codex-plugin/
+.continue/
+.cursor-plugin/
+.kiro/
+.opencode/
+.qoder/
+.trae/
+
+# Generated Excel output files
+DataExtract/
+# But keep the snapshot reference files if any
+!DataExtract/*.png
+
+# Temp debug scripts (single-use investigative files)
+_debug_*.cjs
+_find_*.cjs
+_check_*.cjs
+_verify_*.cjs
+_test_*.cjs
+
+# Raw input data (large, not part of repo)
+RawData/
+RawData_*.xlsx
+
+# Local git hooks
+hooks/
+
+# Session state
+.omo/

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "disabled_providers": [],
+  "mcp": {
+    "agnes": {
+      "command": ["cmd", "/c", "npx", "-y", "agnes"],
+      "enabled": true,
+      "type": "local"
+    },
+    "pencil": {
+      "command": ["c:\\Users\\3kids\\.antigravity\\extensions\\highagency.pencildev-0.6.36-universal\\out\\mcp-server-windows-x64.exe", "--app", "antigravity"],
+      "enabled": true,
+      "type": "local"
+    }
+  },
+  "model": "opencode/claude-sonnet-4-5",
+  "plugin": [
+    "oh-my-openagent",
+    "superpowers@git+https://github.com/obra/superpowers.git"
+  ],
+  "provider": {
+    "agnes": {
+      "models": {
+        "agnes-2.0-flash": {
+          "name": "Agnes 2.0 Flash"
+        },
+        "agnes-image-2.1-flash": {
+          "name": "Agnes Image 2.1 Flash"
+        }
+      },
+      "name": "Agnes AI",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "apiKey": "sk-SMfdNFc2SalcdSeqvOqajT1xldoMSdNSOAZ1ra1KyeyYfAuu",
+        "baseURL": "https://apihub.agnes-ai.com/v1"
+      }
+    }
+  },
+  "skills": {
+    "paths": [
+      "F:/Self-developed_Apps/SkillsBuilder/skills"
+    ]
+  }
+}

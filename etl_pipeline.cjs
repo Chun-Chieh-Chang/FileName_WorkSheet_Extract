@@ -474,7 +474,7 @@ function writeSummaryExcel(counts, year) {
   }
   
   // Build 原物料品檢 main section
-  var rawRows = [['月份','原料','物料','紙箱','過濾網連蓋','標籤','射出D','小計','','','月份','B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40*50','小計']];
+  var rawRows = [['月份','原料','物料','紙箱','過濾網連蓋','標籤','射出D','小計','','','月份','B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40X50','小計']];
   MONTHS.forEach(function(m) {
     var row = [m];
     var total = 0;
@@ -488,7 +488,7 @@ function writeSummaryExcel(counts, year) {
     // Sub-section for 物料 sub-items
     // We need to extract 物料 sub-item data from the raw QC
     // These are from 進料檢驗 file with specific sub-categories
-    var subCols = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40*50'];
+    var subCols = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40X50'];
     var subTotal = 0;
     subCols.forEach(function(label) {
       var subCatName = '物料-' + label;
@@ -510,7 +510,7 @@ function writeSummaryExcel(counts, year) {
   });
   rawTotalRow.push(rawGrandTotal);
   rawTotalRow.push(''); rawTotalRow.push(''); rawTotalRow.push('小計');
-  var subCols2 = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40*50'];
+  var subCols2 = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40X50'];
   var subGrandTotal = 0;
   subCols2.forEach(function(label) {
     var subCatName = '物料-' + label;
@@ -788,8 +788,8 @@ function writeSummaryExcel(counts, year) {
   
   // Section 1: 原物料進料品檢
   aggRows.push(['原物料進料品檢(QC10002-R02)','','','','','','','','','','','','','','','','','','']);
-  aggRows.push(['月份','原料','物料','紙箱','過濾網連蓋','標籤','射出D','小計','','','月份','B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40*50','小計']);
-  var subColsList = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40*50'];
+  aggRows.push(['月份','原料','物料','紙箱','過濾網連蓋','標籤','射出D','小計','','','月份','B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40X50','小計']);
+  var subColsList = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40X50'];
   MONTHS.forEach(function(m) {
     var vals = [];
     rawMainCols.forEach(function(c, ci) { vals.push(rawMainData[ci][m] || 0); });

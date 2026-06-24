@@ -44,6 +44,12 @@ DataExtract/
 # But keep the snapshot reference files if any
 !DataExtract/*.png
 
+# Generated HTML analysis reports
+*品檢報表*.html
+
+# API keys and local agent config
+opencode.json
+
 # Temp debug scripts (single-use investigative files)
 _debug_*.cjs
 _find_*.cjs

@@ -1,16 +1,62 @@
-# React + Vite
+# 品檢報表統計 ETL Pipeline
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+自動化 ETL 管線，從 `RawData/` 目錄中的原始 Excel 品檢記錄提取、轉換、彙總資料，產出年度品檢統計 Excel 報表及 HTML 分析報告。
 
-Currently, two official plugins are available:
+## 功能
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **多來源資料彙整**：自動掃描 RawData 目錄，辨識 8 大類 QC 檢驗記錄
+  - 原物料進料品檢 (QC10002-R02)
+  - QIP 尺寸檢驗 (QC10004-R02)
+  - 裝配對樣巡檢 (QC10006-R01)
+  - 半成品品檢 (QC10006-R02)
+  - 完成品品檢 (QC10007-R01)
+  - 零組件入庫品檢 (QC10007-R03)
+  - 出貨檢驗 (QC10008-R02)
+- **智能分類統計**：按月份、品項/類別自動統計筆數
+- **雙欄位 layout**：支援主+副表併列（如原物料主分類 + B膠/收縮膜等子分類）
+- **彙總表**：單一工作表彙整全部檢驗類別的每月趨勢
+- **HTML 分析報告**：含圖表（圓餅圖、長條圖、折線圖）之年報與跨年比較
+- **多年度支援**：2025、2026
 
-## React Compiler
+## 使用方式
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# 安裝依賴（僅首次）
+npm install
 
-## Expanding the ESLint configuration
+# 執行 ETL（產出 DataExtract/ 目錄下的 Excel + HTML）
+node etl_pipeline.cjs
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 目錄結構
+
+```
+├── etl_pipeline.cjs        # ETL 主程式
+├── src/                     # React SPA（舊版 VBA 替代介面）
+├── RawData/                 # 原始品檢 Excel 輸入檔（gitignored）
+│   ├── 2025/
+│   └── 2026/
+├── DataExtract/             # 產出 Excel + HTML（gitignored）
+├── package.json
+└── .gitignore
+```
+
+## 技術棧
+
+- **Node.js** + **SheetJS (xlsx)** — Excel 讀寫
+- **ES5 語法** — 相容性考量
+- **React + Vite** — 前端 SPA（輔助查詢介面）
+
+## 輸出 Excel 報表結構
+
+| 工作表 | 內容 |
+|---|---|
+| 品檢地圖 | 各 QC 類別的 Sheet 索引 |
+| 原物料品檢(QC10002-R02) | 主表(8分類) + 副表(7子項) 併列 |
+| QIP(QC10004-R02) | 押出/射出 Setup + 巡檢 併列 |
+| 裝配對樣巡檢(QC10006-R01) | 月度統計 |
+| 半成品品檢(QC10006-R02) | 9 子類月度統計 |
+| 完成品品檢(QC10007-R01 R02) | 4 客戶別月度統計 |
+| 零組件入庫品檢(QC10007-R03) | 8 子類月度統計 |
+| 出貨檢驗(QC10008-R02) | ICU + 其他月度統計 |
+| 彙總表 | 全類別年度彙總 |

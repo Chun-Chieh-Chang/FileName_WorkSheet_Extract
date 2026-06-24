@@ -276,6 +276,10 @@ function processRawFiles(year) {
         var row = json[r];
         if (!isDataRow(row)) continue; // skip empty rows
         
+        // Skip blank/template sheet names (these are empty forms, not actual records)
+        var rowSheetName = String(row[1] || '').trim();
+        if (rowSheetName === '空白' || rowSheetName === '範例') continue;
+        
         // Determine QC code from the actual 表單編碼 column (index 2)
         var actualQC = String(row[2] || '').trim();
         var rowQC = null;

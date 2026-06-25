@@ -1425,8 +1425,11 @@ function main() {
     console.log('Step 2: Writing summary Excel...');
     writeSummaryExcel(counts, year);
     
-    console.log('Step 3: Generating HTML report...');
-    generateReport('DataExtract/' + year + '品檢報表統計.xlsx', year, false);
+    console.log('Step 3: Generating styled HTML report...');
+    var styledReportScript = require('child_process').spawnSync('node', ['generate_styled_reports.cjs', String(year)], {cwd: process.cwd(), stdio: 'inherit'});
+    if (styledReportScript.status !== 0) {
+      console.log('  Warning: Failed to generate styled HTML report');
+    }
   });
   
   // Generate comparison report if both years processed

@@ -1,14 +1,14 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Template 3 — GitHub 分析面板 (橫式)</title>
+<title>Template 3 — GitHub 分析面板 (直式)</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#F6F8FA;font-family:Inter,'Noto Sans TC',sans-serif;color:#24292F;height:100vh;overflow:hidden;display:flex}
-.sidebar{width:180px;background:#fff;border-right:1px solid #D0D7DE;padding:16px 12px;flex-shrink:0;display:flex;flex-direction:column}
+body{background:#F6F8FA;font-family:Inter,'Noto Sans TC',sans-serif;color:#24292F;padding:24px 32px;}
+.sidebar{width:160px;background:#fff;border-right:1px solid #D0D7DE;padding:16px 12px;flex-shrink:0;display:flex;flex-direction:column}
 .sidebar .logo{font-size:14px;font-weight:700;margin-bottom:16px;color:#24292F}
 .sidebar .nav-item{display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:12px;color:#656D76;border-radius:6px;margin-bottom:2px;cursor:pointer}
 .sidebar .nav-item.active{background:#F6F8FA;color:#24292F;font-weight:500}
@@ -28,7 +28,7 @@ body{background:#F6F8FA;font-family:Inter,'Noto Sans TC',sans-serif;color:#24292
 .kpi-card .kd{font-size:11px}
 .kd-up{color:#1A7F37}
 .kd-down{color:#CF222E}
-.content-row{display:grid;grid-template-columns:1.2fr 1fr 1.2fr;gap:8px;flex:1;min-height:0}
+.content-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
 .bento{background:#fff;border:1px solid #D0D7DE;border-radius:6px;padding:12px;display:flex;flex-direction:column}
 .bento-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;font-weight:600;color:#24292F;flex-shrink:0}
 .badge{display:inline-flex;font-size:10px;font-weight:600;padding:2px 6px;border-radius:20px;line-height:1}

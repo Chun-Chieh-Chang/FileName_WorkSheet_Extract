@@ -103,227 +103,364 @@ function extractMonth(row, sheetName, fileName) {
 }
 
 // ============================================================
-// 2. RAW FILE PROCESSOR
+// 2. RawData SCANNER (directly reads RawData/{year}/)
 // ============================================================
 
-// Known month column positions by file name patterns
-function getMonthColIdx(fileName, headerRow) {
-  // 進料檢驗 files have 月份 in column 4 (0-indexed)
-  if (fileName.indexOf('進料檢驗') >= 0) {
-    for (var i = 0; i < headerRow.length; i++) {
-      if (typeof headerRow[i] === 'string' && headerRow[i].indexOf('月份') >= 0) return i;
-    }
-    return 4; // default for 進料檢驗
-  }
-  // 零組件入庫-2026_綜合.xlsx has 月份 in column 4
-  if (fileName.indexOf('綜合') >= 0) {
-    for (var i = 0; i < headerRow.length; i++) {
-      if (typeof headerRow[i] === 'string' && headerRow[i].indexOf('月份') >= 0) return i;
-    }
-    return 4;
-  }
-  return -1; // no month column
-}
+// Map folder name prefix to QC code
+var QC_FOLDER_MAP = {
+  '進料檢驗': 'QC10002-R02',
+  '出貨檢驗': 'QC10008-R02',
+  '裝配檢驗': 'QC10006-R02',
+  '裝配巡檢': 'QC10006-R01',
+  '零組件入庫': 'QC10007-R03',
+  'QIP尺寸檢驗': 'QC10004-R02',
+  '射出檢驗': 'QC10004-R02',
+  '押出檢驗': 'QC10004-R02',
+};
 
-// Determine if a row is a data row (at least one non-empty cell beyond index 0)
-function isDataRow(row) {
-  for (var i = 0; i < row.length; i++) {
-    if (row[i] !== '' && row[i] !== undefined) return true;
+function detectQCFromFolder(dirname) {
+  for (var prefix in QC_FOLDER_MAP) {
+    if (dirname.indexOf(prefix) >= 0) return QC_FOLDER_MAP[prefix];
   }
-  return false;
-}
-
-// Extract sub-category from sheet name
-function getSubCategory(fileName, sheetName) {
-  // For 進料檢驗 files, the sub-category IS the sheet name
-  if (fileName.indexOf('進料檢驗') >= 0) {
-    return sheetName.trim();
-  }
-  
-  // For 零組件入庫 files:
-  if (fileName.indexOf('零組件入庫') >= 0) {
-    // Skip placeholder sheets
-    if (sheetName === 'placeholder') return null;
-    
-    // For 零組件入庫-2026_綜合.xlsx, sheet names are the sub-categories directly
-    if (fileName.indexOf('綜合') >= 0) return sheetName.trim();
-    
-    // For other 零組件入庫 files, clean up the sheet name
-    var cleaned = sheetName
-      .replace(/-\d{4}(-\d+)?$/, '')   // remove "-2026" or "-2026-01" style year-month suffixes
-      .replace(/[_-][A-L]$/, '')        // remove letter suffix (A-L)
-      .replace(/-\d+$/, '')             // remove remaining trailing numbers
-      .trim();
-    
-    // Map common cleaned names to standard sub-categories
-    var catMap = {
-      '射出': '射出', 'Tubing': 'Tubing',
-      '射出A': '射出A', '射出C': '射出C',
-      '射出D(組件)': '射出D(組件)', '射出D': '射出D',
-      '裝配A': '裝配A', '裝配B': '裝配B', '裝配C': '裝配C',
-      '東林易': '射出D',  // 東林易 is the supplier for 射出D
-    };
-    if (catMap[cleaned]) cleaned = catMap[cleaned];
-    
-    // If cleaned is empty, use base name from filename
-    if (!cleaned || cleaned === '') {
-      var base = fileName.replace(/\.xlsx$/,'').replace(/^零組件入庫-/, '');
-      return base;
-    }
-    return cleaned;
-  }
-  
-  // For 裝配檢驗 files:
-  if (fileName.indexOf('裝配檢驗') >= 0) {
-    return sheetName.replace('-2025','').replace('-2026','').replace(/^裝配檢驗-/,'').trim();
-  }
-  
-  // For 裝配巡檢 files: extract month range but all go to "裝配巡檢" category
-  if (fileName.indexOf('裝配巡檢') >= 0) {
-    return '裝配巡檢';
-  }
-  
-  // For 射出檢驗 QIP files
-  if (fileName.indexOf('射出檢驗') >= 0 || fileName.indexOf('QIP尺寸檢驗') >= 0) {
-    // Determine if Setup or Patrol
-    var type = '';
-    if (sheetName.indexOf('Setup') >= 0 || sheetName.indexOf('SET UP') >= 0) type = 'Setup';
-    else if (sheetName.indexOf('Patrol') >= 0) type = 'Patrol';
-    else {
-      // For QIP-2026(1~10) sheet without Setup/Patrol distinction
-      return null; // skip, handled by QIP尺寸檢驗
-    }
-    return 'QIP-' + type;
-  }
-  
-  // For 押出檢驗 files
-  if (fileName.indexOf('押出檢驗') >= 0) {
-    var type = '';
-    if (sheetName.indexOf('Setup') >= 0) type = 'Setup';
-    else if (sheetName.indexOf('Patrol') >= 0) type = 'Patrol';
-    else return null;
-    return '押出-' + type;
-  }
-  
-  // For 出貨檢驗 files
-  if (fileName.indexOf('出貨檢驗') >= 0) {
-    return sheetName.replace('-2025','').replace('-2026','').trim();
-  }
-  
-  return sheetName.trim();
-}
-
-// Map sub-category to QC code based on file
-function inferQCCode(fileName, sheetName) {
-  if (fileName.indexOf('進料檢驗') >= 0) return 'QC10002-R02';
-  if (fileName.indexOf('裝配巡檢') >= 0) return 'QC10006-R01';
-  if (fileName.indexOf('裝配檢驗') >= 0) return 'QC10006-R02'; // default, may also be QC10007-R01
-  if (fileName.indexOf('出貨檢驗') >= 0) return 'QC10008-R02';
-  if (fileName.indexOf('零組件入庫') >= 0) {
-    // 零組件入庫-*_射出D.xlsx has QC10002-R02 (checked from actual data)
-    if (fileName.indexOf('射出D') >= 0) return 'QC10002-R02';
-    return 'QC10007-R03';
-  }
-  if (fileName.indexOf('射出檢驗') >= 0) return 'QC10004-R02';
-  if (fileName.indexOf('QIP尺寸檢驗') >= 0) return 'QC10004-R02';
-  if (fileName.indexOf('押出檢驗') >= 0) return 'QC10004-R02';
   return null;
 }
 
-function processRawFiles(year) {
-  var dir = 'DataExtract/' + year;
-  var files = fs.readdirSync(dir).filter(function(f) {
-    // Skip temp files, existing summaries, and consolidated intermediate files
-    return f.endsWith('.xlsx') 
-      && f.indexOf('品檢報表統計') === -1 
-      && f.indexOf('~$') === -1
-      && f.indexOf('綜合') === -1; // skip consolidated intermediate files (redundant with individual files)
+// Mapping of form title text → QC code
+var FORM_TITLE_MAP = {
+  '原物料品檢表': 'QC10002-R02',
+  'RAW MATERIAL QUALITY INSPECTION PLAN': 'QC10002-R02',
+  '零組件入庫品檢表': 'QC10007-R03',
+  'COMPONENT QUALITY INSPECTION PLAN FOR WAREHOUSING': 'QC10007-R03',
+  '出貨檢驗報告': 'QC10008-R02',
+  'OUTGOING INSPECTION REPORT': 'QC10008-R02',
+  '半成品品檢表': 'QC10006-R02',
+  'SUB-ASSEMBLED SETS QUALITY INSPECTION PLAN': 'QC10006-R02',
+  '完成品品檢表': 'QC10007-R01',
+  'FINISHED PRODUCT QUALITY INSPECTION PLAN': 'QC10007-R01',
+  '裝配對樣巡檢記錄表': 'QC10006-R01',
+  'QUALITY INSPECTION PLAN RECORD': 'QC10004-R02',
+};
+
+function determineQCFromSheet(json, initialQC, relPath) {
+  // Priority 1: Search first 15 rows × 8 cols for explicit QC codes or form titles
+  var limit = Math.min(15, json.length);
+  for (var r = 0; r < limit; r++) {
+    var row = json[r];
+    if (!row || !row.length) continue;
+    for (var c = 0; c < Math.min(row.length, 8); c++) {
+      var v = String(row[c] || '').trim();
+      
+      // Check for explicit QC code pattern
+      if (v.indexOf('QC10002') >= 0) return 'QC10002-R02';
+      if (v.indexOf('QC10004') >= 0) return 'QC10004-R02';
+      if (v.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
+      if (v.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
+      if (v.indexOf('QC10007-R01') >= 0) return 'QC10007-R01';
+      if (v.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
+      if (v.indexOf('QC10008') >= 0) return 'QC10008-R02';
+      
+      // Check for form title
+      for (var title in FORM_TITLE_MAP) {
+        if (v.indexOf(title) >= 0) return FORM_TITLE_MAP[title];
+      }
+    }
+  }
+  
+  // Priority 2: For 零組件入庫/射出D, override to QC10002-R02
+  if (initialQC === 'QC10007-R03' && relPath && relPath.indexOf('射出D') >= 0) {
+    return 'QC10002-R02';
+  }
+  
+  // Priority 3: Fall back to folder-based QC code
+  return initialQC;
+}
+
+function findDateInSheet(json) {
+  var limit = Math.min(10, json.length);
+  for (var r = 0; r < limit; r++) {
+    var row = json[r];
+    if (!row || !row.length) continue;
+    for (var c = 0; c < Math.min(row.length, 5); c++) {
+      var v = String(row[c] || '');
+      var d = v.match(/(20\d{2})\/(\d{1,2})\/\d{1,2}/);
+      if (d) { var mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
+      d = v.match(/(20\d{2})-(\d{1,2})-\d{1,2}/);
+      if (d) { var mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
+    }
+  }
+  return null;
+}
+
+function extractRawMonth(fileName, sheetName, year, relPath, json) {
+  var y = String(year);
+  var n, mn;
+
+  // Strategy 1: YYYY-MM or YYYY_MM before .xlsx at end of filename
+  // e.g., "原料-2025-01.xlsx", "2025-01.xlsx", "2025_01.xlsx"
+  n = fileName.match(/(\d{4})[-_](\d{1,2})\.xlsx$/i);
+  if (n) {
+    var yr = parseInt(n[1], 10);
+    if (yr === year || yr === parseInt(y, 10)) {
+      mn = parseInt(n[2], 10);
+      if (mn >= 1 && mn <= 12) return mn;
+    }
+  }
+
+  // Strategy 2: YYYYMMDD in filename (consecutive 8 digits)
+  // e.g., "BD-20250107.xlsx", "Biometrix-20250107.xlsx"
+  n = fileName.match(/(\d{4})(\d{2})\d{2}(?=[^\/\\]*\.xlsx)/i);
+  if (n) {
+    var yr = parseInt(n[1], 10);
+    if (yr === year || yr === parseInt(y, 10)) {
+      mn = parseInt(n[2], 10);
+      if (mn >= 1 && mn <= 12) return mn;
+    }
+  }
+
+  // Strategy 3: YYMMDD in filename (6 consecutive digits, any year)
+  // e.g., "ICU-250102.xlsx", "其他-250103.xlsx", "射出-250102.xlsx"
+  n = fileName.match(/(\d{2})(\d{2})\d{2}(?=[^\/\\]*\.xlsx)/);
+  if (n) {
+    mn = parseInt(n[2], 10);
+    if (mn >= 1 && mn <= 12) return mn;
+  }
+
+  // Strategy 3b: YYMM in filename (4 digits, YY matches year suffix)
+  // e.g., "Tubing-2501.xlsx" → month 1
+  n = fileName.match(/(?:^|[^\d])(\d{2})(\d{2})\.xlsx$/i);
+  if (n && n[1] === String(year).slice(-2)) {
+    mn = parseInt(n[2], 10);
+    if (mn >= 1 && mn <= 12) return mn;
+  }
+
+  // Strategy 4: Filename ends with simple -MM or _MM suffix
+  // e.g., 標籤 files like "2025-02.xlsx" would be caught by strategy 1 already
+  n = fileName.match(/[-_](\d{1,2})\.xlsx$/i);
+  if (n) {
+    mn = parseInt(n[1], 10);
+    if (mn >= 1 && mn <= 12) return mn;
+  }
+
+  // Strategy 5: Sheet name has YYMMDD pattern (6 consecutive digits, any year)
+  // e.g., "PE004 250106" → 250106, "250106", "RM066 250206"
+  n = sheetName.match(/(\d{2})(\d{2})\d{2}/);
+  if (n) {
+    mn = parseInt(n[2], 10);
+    if (mn >= 1 && mn <= 12) return mn;
+  }
+
+  // Strategy 6: Sheet name has Chinese month format
+  n = sheetName.match(/(\d{1,2})月/);
+  if (n) {
+    mn = parseInt(n[1], 10);
+    if (mn >= 1 && mn <= 12) return mn;
+  }
+
+  // Strategy 7: Folder/relPath name has month suffix
+  if (relPath) {
+    n = relPath.match(/[-_](\d{1,2})$/);
+    if (n) {
+      mn = parseInt(n[1], 10);
+      if (mn >= 1 && mn <= 12) return mn;
+    }
+    n = relPath.match(/(\d{1,2})月/);
+    if (n) {
+      mn = parseInt(n[1], 10);
+      if (mn >= 1 && mn <= 12) return mn;
+    }
+  }
+
+  // Strategy 8: Scan sheet content for date patterns
+  if (json) {
+    mn = findDateInSheet(json);
+    if (mn) return mn;
+  }
+
+  return null;
+}
+
+function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
+  if (qc === 'QC10002-R02') {
+    // 進料檢驗
+    // relPath examples: "原料", "物料/紙箱", "物料/B膠"
+    // Also handles 射出D from 零組件入庫 folder (actual QC overrides to QC10002-R02)
+    var parts = relPath.split('/');
+    if (parts[0] === '原料') return '原料';
+    if (parts[0] === '物料') {
+      if (parts.length > 1) {
+        // Normalize: remove spaces around special chars
+        var sub = parts[1].replace(/\s+/g, '');
+        if (sub) return '物料-' + sub;
+        return '物料-' + parts[1];
+      }
+      // File directly in 物料/ (e.g., B膠.xlsx, 塑膠袋.xlsx)
+      var name = path.basename(fileName, '.xlsx');
+      name = name.replace(/[-_]\d{4}[-_]\d{1,2}$/, '');
+      name = name.replace(/[-_]\d{1,2}$/, '');
+      name = name.replace(/\s+/g, ''); // normalize spaces
+      return '物料-' + name;
+    }
+    // 射出D from 零組件入庫 folder
+    if (parts[0].indexOf('射出D') >= 0) return '射出D';
+    return null;
+  }
+
+  if (qc === 'QC10008-R02') {
+    // 出貨檢驗: relPath = "ICU-2025", "其他-2025"
+    return relPath.replace(/[-_](20\d{2})$/, '');
+  }
+
+  if (qc === 'QC10006-R02' || qc === 'QC10007-R01') {
+    // 裝配檢驗 or 完成品品檢: relPath = "BD-2025", "Biometrix-2025"
+    var name = relPath.replace(/[-_](20\d{2})$/, '');
+    // Map also known 完成品 customer names
+    var finMap = { 'MarMed': 'MarMed', 'Saxon': 'Saxon' };
+    if (finMap[name]) return name;
+    // For other 裝配檢驗 subdirs, check if file is 半成品 or 完成品 based on qc
+    return name;
+  }
+
+  if (qc === 'QC10006-R01') {
+    // 裝配巡檢: always "裝配巡檢"
+    return '裝配巡檢';
+  }
+
+  if (qc === 'QC10007-R03') {
+    // 零組件入庫: relPath first segment = sub-category folder
+    var parts = relPath.split('/');
+    var name = parts[0].replace(/[-_](20\d{2})$/, '');
+    var catMap = {
+      '射出': '射出', '射出A': '射出A', '射出C': '射出C',
+      '射出D(組件)': '射出D(組件)', '射出D': '射出D',
+      'Tubing': 'Tubing',
+      '裝配A': '裝配A', '裝配B': '裝配B', '裝配C': '裝配C',
+    };
+    return catMap[name] || name;
+  }
+
+  if (qc === 'QC10004-R02') {
+    // QIP: determine Setup/Patrol from sheet name AND filename (case-insensitive)
+    var snLower = sheetName.toLowerCase();
+    var fnLower = fileName.toLowerCase();
+    var type = '';
+    if (snLower.indexOf('setup') >= 0 || snLower.indexOf('set up') >= 0 || snLower.indexOf('set-up') >= 0 || snLower === 'setup') {
+      type = 'Setup';
+    } else if (snLower.indexOf('patrol') >= 0) {
+      type = 'Patrol';
+    } else if (fnLower.indexOf('setup') >= 0 || fnLower.indexOf('set up') >= 0 || fnLower.indexOf('set-up') >= 0 || fnLower.indexOf('set_up') >= 0) {
+      type = 'Setup';
+    } else if (fnLower.indexOf('patrol') >= 0) {
+      type = 'Patrol';
+    } else {
+      return null; // skip if can't determine Setup/Patrol
+    }
+    var folderLower = (qcFolder || '').toLowerCase();
+    if (folderLower.indexOf('押出') >= 0) return '押出-' + type;
+    if (folderLower.indexOf('射出') >= 0) return 'QIP-' + type;
+    if (folderLower.indexOf('qip') >= 0) return 'QIP-' + type;
+    if (relPath && relPath.toLowerCase().indexOf('押出') >= 0) return '押出-' + type;
+    return 'QIP-' + type;
+  }
+
+  return null;
+}
+
+function walkRawDataDir(dirPath, relPath, initialQC, qcFolder, year, counts) {
+  var entries;
+  try { entries = fs.readdirSync(dirPath); } catch(e) { return; }
+
+  entries.forEach(function(entry) {
+    if (entry.startsWith('~$')) return;
+    var full = dirPath + '/' + entry;
+    var st;
+    try { st = fs.statSync(full); } catch(e) { return; }
+
+    if (st.isDirectory()) {
+      var newRel = relPath ? relPath + '/' + entry : entry;
+      walkRawDataDir(full, newRel, initialQC, qcFolder, year, counts);
+    } else if (entry.toLowerCase().indexOf('.xlsx') > 0) {
+      processRawDataFile(full, relPath, entry, initialQC, qcFolder, year, counts);
+    }
   });
-  
-  // Unified data store: counts[QC_code][subCategory][month] = count
-  var counts = {};
-  
-  // Also track per-file QC code for QC10006-R02 vs QC10007-R01 distinction
-  var fileQCCodes = {}; // fileName_sheetName → QC code to use
-  
-  files.forEach(function(fileName) {
-    var filePath = dir + '/' + fileName;
-    var wb, json;
+}
+
+function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, year, counts) {
+  var wb;
+  try {
+    wb = XLSX.readFile(filePath);
+  } catch(e) {
+    console.log('    ERROR reading: ' + filePath.replace(/\\/g, '/').split('/').slice(-3).join('/') + ' - ' + e.message);
+    return;
+  }
+
+  wb.SheetNames.forEach(function(sheetName) {
+    // Skip non-data sheets
+    if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別') return;
+    if (sheetName.indexOf('Sheet1') === 0) return;
+    if (sheetName.indexOf('.K(') >= 0) return; // skip control plan templates
+    if (sheetName.indexOf('範例樣本') >= 0) return; // skip sample sheets
+
+    var ws = wb.Sheets[sheetName];
+    var json;
     try {
-      wb = XLSX.readFile(filePath);
-    } catch(e) {
-      console.log('  ERROR reading ' + fileName + ': ' + e.message);
+      json = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ''});
+    } catch(e) { return; }
+
+    if (!json || json.length < 1) return;
+
+    // Verify the sheet has content (at least one non-empty cell beyond header row)
+    var hasContent = false;
+    for (var r = 0; r < json.length; r++) {
+      var row = json[r];
+      if (!row) continue;
+      for (var c = 0; c < row.length; c++) {
+        if (row[c] !== '' && row[c] !== undefined && row[c] !== null) { hasContent = true; break; }
+      }
+      if (hasContent) break;
+    }
+    if (!hasContent) return;
+
+    // Determine QC code from form title or folder fallback
+    var actualQC = determineQCFromSheet(json, initialQC, relPath);
+    if (!actualQC) return;
+
+    // Determine sub-category using the actual QC code
+    var subCat = getRawSubCategory(actualQC, relPath, fileName, sheetName, qcFolder);
+    if (!subCat) return;
+
+    // Extract month
+    var month = extractRawMonth(fileName, sheetName, year, relPath, json);
+    if (!month || month < 1 || month > 12) month = 1; // default to Jan to preserve data
+
+    // Increment count
+    if (!counts[actualQC]) counts[actualQC] = {};
+    if (!counts[actualQC][subCat]) counts[actualQC][subCat] = {};
+    counts[actualQC][subCat][month] = (counts[actualQC][subCat][month] || 0) + 1;
+  });
+}
+
+function scanRawData(year) {
+  var base = 'RawData/' + year;
+  if (!fs.existsSync(base)) {
+    console.log('  RawData/' + year + ' not found, skipping');
+    return {};
+  }
+
+  var counts = {};
+  var topDirs = fs.readdirSync(base).filter(function(d) {
+    try { return fs.statSync(base + '/' + d).isDirectory(); } catch(e) { return false; }
+  });
+
+  topDirs.forEach(function(dirname) {
+    var qc = detectQCFromFolder(dirname);
+    if (!qc) {
+      console.log('  SKIP (unknown QC type): ' + dirname);
       return;
     }
-    
-    wb.SheetNames.forEach(function(sheetName) {
-      // Skip empty/placeholder sheets
-      if (sheetName === 'placeholder' || sheetName === '(root)') return;
-      
-      var ws = wb.Sheets[sheetName];
-      json = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-      if (json.length < 2) return; // header only or empty
-      
-      var header = json[0];
-      var monthColIdx = getMonthColIdx(fileName, header);
-      var subCat = getSubCategory(fileName, sheetName);
-      if (subCat === null) return; // skip non-data sheets
-      
-      // Initialize counts structure placeholder
-      
-      // Iterate data rows (skip header)
-      for (var r = 1; r < json.length; r++) {
-        var row = json[r];
-        if (!isDataRow(row)) continue; // skip empty rows
-        
-        // Skip blank/template sheet names (these are empty forms, not actual records)
-        var rowSheetName = String(row[1] || '').trim();
-        if (rowSheetName === '空白' || rowSheetName === '範例') continue;
-        
-        // Determine QC code from the actual 表單編碼 column (index 2)
-        var actualQC = String(row[2] || '').trim();
-        var rowQC = null;
-        // Map QC codes to standard identifiers
-        if (actualQC.indexOf('QC10002') >= 0) rowQC = 'QC10002-R02';
-        else if (actualQC.indexOf('QC10004') >= 0) rowQC = 'QC10004-R02';
-        else if (actualQC.indexOf('QC10006-R01') >= 0) rowQC = 'QC10006-R01';
-        else if (actualQC.indexOf('QC10006-R02') >= 0) rowQC = 'QC10006-R02';
-        else if (actualQC.indexOf('QC10007-R01') >= 0) rowQC = 'QC10007-R01';
-        else if (actualQC.indexOf('QC10007-R03') >= 0) rowQC = 'QC10007-R03';
-        else if (actualQC.indexOf('QC10008') >= 0) rowQC = 'QC10008-R02';
-        else continue; // skip rows without a recognized QC code
-        
-        // Extract month
-        var month = null;
-        if (monthColIdx >= 0) {
-          var mv = String(row[monthColIdx] || '').trim();
-          if (mv) {
-            month = parseInt(mv, 10);
-            if (isNaN(month)) month = null;
-          }
-        }
-        if (month === null || month < 1 || month > 12) {
-          month = extractMonth(row, sheetName, fileName);
-        }
-        if (month === null || month < 1 || month > 12) {
-          // Try to extract from filename as last resort
-          var fnMatch = fileName.match(/(\d{4})(\d{2})\d{2}/);
-          if (fnMatch) {
-            // For patterns like "250102" in filename
-            month = parseInt(fnMatch[2], 10);
-          } else {
-            month = 1; // default to Jan if can't determine (rare)
-          }
-        }
-        
-        // Count this record
-        if (!counts[rowQC]) counts[rowQC] = {};
-        if (!counts[rowQC][subCat]) counts[rowQC][subCat] = {};
-        counts[rowQC][subCat][month] = (counts[rowQC][subCat][month] || 0) + 1;
-      }
-    });
+    var fullPath = base + '/' + dirname;
+    walkRawDataDir(fullPath, '', qc, dirname, year, counts);
   });
-  
+
   return counts;
 }
 
@@ -1265,8 +1402,8 @@ function main() {
   
   years.forEach(function(year) {
     console.log('\n=== Processing ' + year + ' ===');
-    console.log('Step 1: Processing raw files...');
-    var counts = processRawFiles(year);
+    console.log('Step 1: Scanning RawData...');
+    var counts = scanRawData(year);
     
     // Print summary
     var totalRecords = 0;

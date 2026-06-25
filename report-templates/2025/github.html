@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2025 品檢報表 — GitHub 分析面板 (橫式)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#F6F8FA;font-family:Inter,'Noto Sans TC',sans-serif;color:#24292F;height:100vh;overflow:hidden;display:flex}
+.sidebar{width:160px;background:#fff;border-right:1px solid #D0D7DE;padding:14px 10px;flex-shrink:0;display:flex;flex-direction:column}
+.sidebar .logo{font-size:13px;font-weight:700;margin-bottom:14px;color:#24292F}
+.sidebar .nav-item{font-size:11px;padding:5px 8px;color:#656D76;border-radius:4px;margin-bottom:2px;cursor:pointer}
+.sidebar .nav-item.active{background:#F6F8FA;color:#24292F;font-weight:500}
+.sidebar .divider{height:1px;background:#D0D7DE;margin:10px 0}
+.sidebar .meta{font-size:10px;color:#656D76;line-height:1.5}
+.main{flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.topbar{display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.topbar h1{font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px}
+.tabs{display:flex;border:1px solid #D0D7DE;border-radius:6px;overflow:hidden}
+.tabs .tab{padding:3px 10px;font-size:10px;font-weight:500;color:#656D76;background:#fff;border:none;cursor:pointer}
+.tabs .tab.active{background:#0969DA;color:#fff}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex-shrink:0}
+.kpi-card{background:#fff;border:1px solid #D0D7DE;border-radius:6px;padding:6px 10px;display:flex;align-items:center;justify-content:space-between}
+.kpi-card .kl{font-size:9px;font-weight:500;color:#656D76}
+.kpi-card .kv{font-size:16px;font-weight:600;color:#24292F}
+.kpi-card .kd{font-size:10px;color:#656D76}
+.content-row{display:grid;grid-template-columns:1.2fr 1fr 1.2fr;gap:6px;flex:1;min-height:0}
+.bento{background:#fff;border:1px solid #D0D7DE;border-radius:6px;padding:10px;display:flex;flex-direction:column}
+.bento-header{font-size:10px;font-weight:600;color:#24292F;margin-bottom:4px;flex-shrink:0}
+.progress-row{display:flex;align-items:center;gap:4px;margin-bottom:3px;font-size:10px}
+.progress-row .pr-label{width:60px;flex-shrink:0;color:#24292F;font-weight:500}
+.progress-row .pr-track{flex:1;height:5px;background:#F6F8FA;border-radius:3px;overflow:hidden}
+.progress-row .pr-fill{height:100%;border-radius:3px}
+.progress-row .pr-val{width:28px;text-align:right;font-weight:600;color:#24292F;font-variant-numeric:tabular-nums}
+.progress{flex:1;overflow-y:auto}
+.diff-bar{display:flex;gap:1px;align-items:flex-end;flex:1}
+.diff-bar .db{width:100%;border-radius:1px 1px 0 0}
+.table-github{width:100%;border-collapse:collapse;font-size:10px}
+.table-github thead th{font-size:9px;font-weight:600;color:#656D76;padding:3px 5px;text-align:left;border-bottom:1px solid #D0D7DE}
+.table-github tbody td{padding:3px 5px;border-bottom:1px solid #F6F8FA;color:#24292F}
+.table-github .num{text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+.table-wrap{flex:1;overflow-y:auto;min-height:0}
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <div class="logo">QC Analytics</div>
+  <div class="nav-item active">📊 Overview</div>
+  <div class="nav-item">📋 類別分布</div>
+  <div class="nav-item">📈 月度趨勢</div>
+  <div class="divider"></div>
+  <div class="meta"><strong>2025</strong><br>9,134 records</div>
+</div>
+<div class="main">
+  <div class="topbar">
+    <h1>2025 品檢分析</h1>
+    <div class="tabs"><button class="tab active">Overview</button><button class="tab">資料表</button></div>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi-card"><div><div class="kl">總記錄</div><div class="kv">9,134</div></div><div class="kd">全年</div></div>
+    <div class="kpi-card"><div><div class="kl">類別數</div><div class="kv">8</div></div><div class="kd">含 0 筆類別</div></div>
+    <div class="kpi-card"><div><div class="kl">月均量</div><div class="kv">761</div></div><div class="kd">最高 8月</div></div>
+    <div class="kpi-card"><div><div class="kl">最大類</div><div class="kv">進料</div></div><div class="kd">31.8%</div></div>
+  </div>
+  <div class="content-row">
+    <div class="bento">
+      <div class="bento-header">類別佔比</div>
+      <div class="progress">
+        <div class="progress-row"><span class="pr-label">進料檢驗</span><div class="pr-track"><div class="pr-fill" style="width:100%;background:#0969DA"></div></div><span class="pr-val">31.8%</span></div>
+        <div class="progress-row"><span class="pr-label">零組件入庫</span><div class="pr-track"><div class="pr-fill" style="width:88%;background:#1A7F37"></div></div><span class="pr-val">28.0%</span></div>
+        <div class="progress-row"><span class="pr-label">出貨檢驗</span><div class="pr-track"><div class="pr-fill" style="width:58%;background:#9A6700"></div></div><span class="pr-val">18.5%</span></div>
+        <div class="progress-row"><span class="pr-label">射出 Setup</span><div class="pr-track"><div class="pr-fill" style="width:56%;background:#8250DF"></div></div><span class="pr-val">17.8%</span></div>
+        <div class="progress-row"><span class="pr-label">裝配巡檢</span><div class="pr-track"><div class="pr-fill" style="width:9%;background:#656D76"></div></div><span class="pr-val">2.7%</span></div>
+      </div>
+    </div>
+    <div class="bento">
+      <div class="bento-header">月度分布</div>
+      <div class="diff-bar">
+        <div class="db" style="height:34px;background:#0969DA" title="520"></div>
+        <div class="db" style="height:34px;background:#0969DA" title="518"></div>
+        <div class="db" style="height:36px;background:#0969DA" title="556"></div>
+        <div class="db" style="height:35px;background:#0969DA" title="535"></div>
+        <div class="db" style="height:36px;background:#0969DA" title="544"></div>
+        <div class="db" style="height:34px;background:#0969DA" title="521"></div>
+        <div class="db" style="height:36px;background:#0969DA" title="540"></div>
+        <div class="db" style="height:37px;background:#0969DA" title="558"></div>
+        <div class="db" style="height:32px;background:#0969DA" title="488"></div>
+        <div class="db" style="height:35px;background:#0969DA" title="534"></div>
+        <div class="db" style="height:29px;background:#0969DA" title="439"></div>
+        <div class="db" style="height:33px;background:#0969DA" title="509"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:8px;color:#656D76">1月 6月 12月</div>
+    </div>
+    <div class="bento">
+      <div class="bento-header">年度明細</div>
+      <div class="table-wrap">
+        <table class="table-github">
+          <thead><tr><th>類別</th><th>總量</th><th>佔比</th></tr></thead>
+          <tbody>
+            <tr><td>原物料進料</td><td class="num">2,906</td><td class="num">31.8%</td></tr>
+            <tr><td>零組件入庫</td><td class="num">2,558</td><td class="num">28.0%</td></tr>
+            <tr><td>出貨檢驗</td><td class="num">1,688</td><td class="num">18.5%</td></tr>
+            <tr><td>射出 Setup</td><td class="num">1,626</td><td class="num">17.8%</td></tr>
+            <tr><td>裝配巡檢</td><td class="num">251</td><td class="num">2.7%</td></tr>
+            <tr><td>半成品</td><td class="num">80</td><td class="num">0.9%</td></tr>
+            <tr><td>完成品</td><td class="num">25</td><td class="num">0.3%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

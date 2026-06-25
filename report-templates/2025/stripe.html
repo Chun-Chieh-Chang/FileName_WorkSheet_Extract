@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2025 品檢報表 — Stripe 儀表板 (橫式)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#F1F5F9;font-family:Inter,'Noto Sans TC',sans-serif;color:#0F172A;height:100vh;overflow:hidden;display:flex;align-items:center;padding:16px 24px}
+.page{width:100%;max-width:1600px;margin:0 auto;height:calc(100vh - 32px);display:flex;flex-direction:column;gap:10px}
+.header{display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.header h1{font-size:18px;font-weight:700;letter-spacing:-0.3px;color:#0F172A}
+.header h1 span{color:#64748B;font-weight:400;font-size:13px;margin-left:10px}
+.header .badge{background:#E0E7FF;color:#4338CA;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;flex-shrink:0}
+.kpi-card{background:#fff;border-radius:8px;padding:10px 16px;box-shadow:0 1px 2px rgba(0,0,0,.05);display:flex;align-items:center;justify-content:space-between}
+.kpi-card .kl{font-size:11px;font-weight:500;color:#64748B;text-transform:uppercase;letter-spacing:.4px}
+.kpi-card .kv{font-size:22px;font-weight:700;color:#0F172A}
+.kpi-card .kd{font-size:11px;font-weight:500;color:#64748B}
+.main{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:10px;flex:1;min-height:0}
+.card{background:#fff;border-radius:8px;padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.05);display:flex;flex-direction:column}
+.card-title{font-size:12px;font-weight:600;color:#1E293B;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.card-title .tag{font-size:10px;font-weight:500;color:#64748B;background:#F1F5F9;padding:1px 6px;border-radius:4px}
+.chart-wrap{flex:1;min-height:0;position:relative}
+.insight-list{list-style:none;flex:1;overflow-y:auto}
+.insight-list li{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #F1F5F9;font-size:12px}
+.insight-list li:last-child{border:none}
+.insight-list .cat{font-weight:500;color:#334155;display:flex;align-items:center;gap:6px}
+.insight-list .cat .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.insight-list .val{font-weight:600;color:#0F172A}
+.insight-list .pct{color:#94A3B8;margin-left:4px;font-size:11px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead th{background:#F8FAFC;color:#64748B;font-weight:600;padding:6px 8px;text-align:left;border-bottom:2px solid #E2E8F0;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:.3px}
+tbody td{padding:5px 8px;border-bottom:1px solid #F1F5F9;color:#334155}
+tbody tr:hover td{background:#F8FAFC}
+tbody .num{font-weight:600;color:#0F172A;text-align:right;font-variant-numeric:tabular-nums}
+.bar-mini{height:3px;background:#E2E8F0;border-radius:2px;overflow:hidden}
+.bar-mini .f{height:100%;border-radius:2px}
+.table-wrap{flex:1;overflow-y:auto;min-height:0}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <h1>2025 品檢報表分析 <span>Landscape Dashboard</span></h1>
+    <span class="badge">全年彙總</span>
+  </div>
+  <div class="kpi">
+    <div class="kpi-card"><div><div class="kl">總筆數</div><div class="kv">9,134</div></div><div class="kd">2025 全年</div></div>
+    <div class="kpi-card"><div><div class="kl">最大類別</div><div class="kv">進料檢驗</div></div><div class="kd">2,906 筆</div></div>
+    <div class="kpi-card"><div><div class="kl">月均量</div><div class="kv">761</div></div><div class="kd">最高 8月 558</div></div>
+    <div class="kpi-card"><div><div class="kl">類別總數</div><div class="kv">8</div></div><div class="kd">1 類為 0</div></div>
+  </div>
+  <div class="main">
+    <div class="card">
+      <div class="card-title">2025 各類別總量 <span class="tag">水平長條圖</span></div>
+      <div class="chart-wrap"><canvas id="c0"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">類別分布 <span class="tag">佔比</span></div>
+      <ul class="insight-list">
+        <li><span class="cat"><span class="dot" style="background:#3B82F6"></span>進料檢驗</span><span><span class="val">2,906</span><span class="pct">(31.8%)</span></span></li>
+        <li><span class="cat"><span class="dot" style="background:#8B5CF6"></span>零組件入庫</span><span><span class="val">2,558</span><span class="pct">(28.0%)</span></span></li>
+        <li><span class="cat"><span class="dot" style="background:#EC4899"></span>出貨檢驗</span><span><span class="val">1,688</span><span class="pct">(18.5%)</span></span></li>
+        <li><span class="cat"><span class="dot" style="background:#10B981"></span>射出 Setup</span><span><span class="val">1,626</span><span class="pct">(17.8%)</span></span></li>
+        <li><span class="cat"><span class="dot" style="background:#F59E0B"></span>射出巡檢</span><span><span class="val">0</span><span class="pct">(0%)</span></span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">細項明細 <span class="tag">備註</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>類別</th><th>數量</th><th>佔比</th><th>備註</th></tr></thead>
+          <tbody>
+            <tr><td>原物料進料</td><td class="num">2,906</td><td class="num">31.8%</td><td>原料 242 + 物料 2,664</td></tr>
+            <tr><td>零組件入庫</td><td class="num">2,558</td><td class="num">28.0%</td><td>射出(廠內) 2,253 + Tubing</td></tr>
+            <tr><td>出貨檢驗</td><td class="num">1,688</td><td class="num">18.5%</td><td>ICU 1,201 + 其他 487</td></tr>
+            <tr><td>射出 Setup</td><td class="num">1,626</td><td class="num">17.8%</td><td>月均 135.5 筆</td></tr>
+            <tr><td>裝配巡檢</td><td class="num">251</td><td class="num">2.7%</td><td>月均 20.9 筆</td></tr>
+            <tr><td>半成品</td><td class="num">80</td><td class="num">0.9%</td><td>裝配 42 + BD 22 + 其他</td></tr>
+            <tr><td>完成品</td><td class="num">25</td><td class="num">0.3%</td><td>Vivus 14 + Biometrix 8</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+new Chart(document.getElementById('c0'),{type:'bar',data:{labels:['進料','射出Set','巡檢','裝配','半成','完成','零組件','出貨'],datasets:[{label:'2025',data:[2906,1626,0,251,80,25,2558,1688],backgroundColor:'#3B82F6',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#F1F5F9'},ticks:{font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:11}}}}}});
+</script>
+</body>
+</html>

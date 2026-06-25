@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2025 品檢報表 — Apple 編輯式報告 (橫式)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#FAFAFA;font-family:Inter,'Noto Sans TC',sans-serif;color:#1D1D1F;height:100vh;overflow:hidden;display:flex;align-items:center;-webkit-font-smoothing:antialiased}
+.container{max-width:1400px;width:100%;margin:0 auto;padding:24px 32px;height:100vh;display:flex;flex-direction:column;gap:12px}
+.hero{display:flex;align-items:flex-end;justify-content:space-between;flex-shrink:0;padding-bottom:10px;border-bottom:1px solid #E8E8ED}
+.hero-left .eyebrow{font-size:10px;font-weight:600;color:#007AFF;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
+.hero-left h1{font-size:24px;font-weight:700;letter-spacing:-0.5px;color:#1D1D1F}
+.hero-left .subtitle{font-size:13px;color:#86868B;margin-top:2px}
+.hero-right{text-align:right;font-size:11px;color:#86868B;line-height:1.5}
+.stat-callout{background:#F5F5F7;border-radius:12px;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.stat-callout .big{font-size:32px;font-weight:800;letter-spacing:-1px;color:#1D1D1F}
+.stat-callout .big .accent{color:#007AFF}
+.stat-callout .desc{font-size:13px;color:#86868B}
+.row{display:grid;grid-template-columns:1.2fr 1fr;gap:16px;flex:1;min-height:0}
+.col{display:flex;flex-direction:column;gap:8px}
+.section{flex:1;min-height:0;display:flex;flex-direction:column}
+.section h2{font-size:13px;font-weight:600;color:#1D1D1F;margin-bottom:6px;letter-spacing:-0.2px;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.data-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;flex-shrink:0}
+.data-block{background:#fff;border-radius:8px;padding:8px 12px;border:1px solid #E8E8ED}
+.data-block .bl{font-size:9px;font-weight:600;color:#86868B;text-transform:uppercase;letter-spacing:.5px}
+.data-block .bv{font-size:16px;font-weight:700;color:#1D1D1F}
+.data-block .bs{font-size:10px;color:#6B6B70}
+.bar-group{display:flex;gap:16px;flex:1;min-height:0}
+.bar-col{flex:1;display:flex;flex-direction:column}
+.bar-col h3{font-size:9px;font-weight:600;color:#86868B;text-transform:uppercase;margin-bottom:4px;flex-shrink:0}
+.bar-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.bar-row .bl{font-size:10px;font-weight:500;color:#1D1D1F;width:70px;flex-shrink:0}
+.bar-row .track{flex:1;height:4px;background:#F0F0F5;border-radius:2px;overflow:hidden}
+.bar-row .fill{height:100%;border-radius:2px}
+.bar-row .br{font-size:10px;font-weight:600;color:#86868B;width:36px;text-align:right;font-variant-numeric:tabular-nums}
+.table-apple{width:100%;border-collapse:collapse;font-size:11px}
+.table-apple thead th{font-weight:600;color:#86868B;padding:4px 6px;border-bottom:1px solid #E8E8ED;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.4px}
+.table-apple tbody td{padding:4px 6px;border-bottom:1px solid #F0F0F5;color:#1D1D1F}
+.table-apple .n{text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+.table-wrap{flex:1;overflow-y:auto;min-height:0}
+.footer{text-align:center;font-size:10px;color:#A1A1A6;border-top:1px solid #E8E8ED;padding-top:6px;flex-shrink:0}
+.card-find{background:#F5F5F7;border-radius:6px;padding:6px 10px;border-left:2px solid #007AFF}
+.card-find strong{font-size:11px}
+.card-find p{font-size:10px;color:#6B6B70;margin-top:1px;line-height:1.3}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="hero">
+    <div class="hero-left">
+      <div class="eyebrow">2025 · QC Report</div>
+      <h1>品檢數據年度回顧</h1>
+      <p class="subtitle">9,134 筆品檢記錄 · 月均 761 筆</p>
+    </div>
+    <div class="hero-right">2025.01 – 2025.12<br>SkillsBuilder QC</div>
+  </div>
+  <div class="stat-callout">
+    <span class="big"><span class="accent">9,134</span> 筆</span>
+    <span class="desc">2025 全年品檢記錄 · 涵蓋 8 大類別</span>
+  </div>
+  <div class="row">
+    <div class="col">
+      <div class="section">
+        <h2>類別分布</h2>
+        <div class="data-grid">
+          <div class="data-block"><div class="bl">進料檢驗</div><div class="bv">2,906</div><div class="bs">佔 31.8% · 最大宗</div></div>
+          <div class="data-block"><div class="bl">零組件入庫</div><div class="bv">2,558</div><div class="bs">佔 28.0%</div></div>
+          <div class="data-block"><div class="bl">出貨檢驗</div><div class="bv">1,688</div><div class="bs">佔 18.5% · ICU 為主</div></div>
+          <div class="data-block"><div class="bl">射出 Setup</div><div class="bv">1,626</div><div class="bs">佔 17.8%</div></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;flex-shrink:0">
+        <div class="card-find" style="border-left-color:#007AFF"><strong>進料檢驗為大宗</strong><p>原料 242 + 物料 2,664</p></div>
+        <div class="card-find" style="border-left-color:#FF9500"><strong>射出巡檢缺口</strong><p>全年記錄為 0</p></div>
+        <div class="card-find" style="border-left-color:#34C759"><strong>出貨 ICU 集中</strong><p>ICU 71.1% (1,201/1,688)</p></div>
+        <div class="card-find" style="border-left-color:#5856D6"><strong>後段品檢偏低</strong><p>半成品+完成品 1.2%</p></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="section">
+        <h2>季度趨勢</h2>
+        <div class="table-wrap">
+          <table class="table-apple">
+            <thead><tr><th>類別</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>總計</th><th>佔比</th></tr></thead>
+            <tbody>
+              <tr><td>原物料進料</td><td class="n">740</td><td class="n">772</td><td class="n">715</td><td class="n">679</td><td class="n">2,906</td><td>31.8%</td></tr>
+              <tr><td>射出 Setup</td><td class="n">426</td><td class="n">386</td><td class="n">421</td><td class="n">393</td><td class="n">1,626</td><td>17.8%</td></tr>
+              <tr><td>出貨檢驗</td><td class="n">386</td><td class="n">442</td><td class="n">450</td><td class="n">410</td><td class="n">1,688</td><td>18.5%</td></tr>
+              <tr><td>零組件入庫</td><td class="n">558</td><td class="n">624</td><td class="n">604</td><td class="n">467</td><td class="n">2,253</td><td>24.7%</td></tr>
+              <tr><td>裝配巡檢</td><td class="n">63</td><td class="n">61</td><td class="n">65</td><td class="n">62</td><td class="n">251</td><td>2.7%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">2025 品檢報表分析 · SkillsBuilder QC</div>
+</div>
+</body>
+</html>

@@ -577,102 +577,43 @@ function writeSummaryExcel(counts, year) {
   }
   
   // ---- Sheet 1: 原物料品檢(QC10002-R02) ----
-  var rawMainCols = [
+  var rawCols = [
     {key:'原料', label:'原料'},
-    {key:'物料', label:'物料'},
-    {key:'紙箱', label:'紙箱'},
-    {key:'過濾網連蓋', label:'過濾網連蓋'},
-    {key:'標籤', label:'標籤'},
+    {key:'物料-B膠', label:'B膠'},
+    {key:'物料-收縮膜', label:'收縮膜'},
+    {key:'物料-色粉', label:'色粉'},
+    {key:'物料-空白包裝袋', label:'空白包裝袋'},
+    {key:'物料-空白感壓紙', label:'空白感壓紙'},
+    {key:'物料-塑膠袋', label:'塑膠袋'},
+    {key:'物料-塑膠袋40*50', label:'塑膠袋40*50'},
+    {key:'物料-紙箱', label:'紙箱'},
+    {key:'物料-過濾網連蓋', label:'過濾網連蓋'},
+    {key:'物料-標籤', label:'標籤'},
     {key:'射出D', label:'射出D'},
   ];
-  
-  var rawMainData = [];
-  rawMainCols.forEach(function() { rawMainData.push({}); });
-  
-  var rawQC = counts['QC10002-R02'];
-  if (rawQC) {
-    for (var subCat in rawQC) {
-      var colIdx = null;
-      if (subCat === '原料') colIdx = 0;
-      else if (subCat === '物料' || subCat.indexOf('物料-') === 0) {
-        if (subCat === '物料-紙箱') colIdx = 2;
-        else if (subCat === '物料-過濾網連蓋') colIdx = 3;
-        else if (subCat === '物料-標籤') colIdx = 4;
-        else colIdx = 1; // generic 物料
-      }
-      else if (subCat === '射出D' || subCat.indexOf('射出D') === 0) colIdx = 5;
-      if (colIdx === null) continue;
-      
-      var monthly = rawQC[subCat];
-      for (var m = 1; m <= 12; m++) {
-        if (monthly[m]) {
-          rawMainData[colIdx][m] = (rawMainData[colIdx][m] || 0) + monthly[m];
-        }
-      }
-    }
-  }
-  
-  var rawRows = [
-    ['原物料進料品檢', '', '', '', '', '', '', '', '', '', '物料'],
-    ['月份','原料','物料','紙箱','過濾網連蓋','標籤','射出D','小計','','','月份','B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40*50','小計']
-  ];
-  MONTHS.forEach(function(m) {
-    var row = [m];
-    var total = 0;
-    rawMainCols.forEach(function(c, ci) {
-      var v = rawMainData[ci][m] || 0;
-      row.push(v);
-      total += v;
-    });
-    row.push(total);
-    row.push(''); row.push(''); row.push(m);
-    var subCols = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40*50'];
-    var subTotal = 0;
-    subCols.forEach(function(label) {
-      var v = 0;
-      if (label === '塑膠袋40*50') {
-        var d1 = (rawQC && rawQC['物料-塑膠袋40*50'] && rawQC['物料-塑膠袋40*50'][m]) || 0;
-        var d2 = (rawQC && rawQC['物料-塑膠袋40X50'] && rawQC['物料-塑膠袋40X50'][m]) || 0;
-        v = d1 + d2;
-      } else {
-        var subCatName = '物料-' + label;
-        v = (rawQC && rawQC[subCatName] && rawQC[subCatName][m]) || 0;
-      }
-      row.push(v);
-      subTotal += v;
-    });
-    row.push(subTotal);
-    rawRows.push(row);
-  });
-  
-  var rawTotalRow = ['小計'];
-  var rawGrandTotal = 0;
-  rawMainCols.forEach(function(c, ci) {
-    var t = totalArray(rawMainData[ci]);
-    rawTotalRow.push(t);
-    rawGrandTotal += t;
-  });
-  rawTotalRow.push(rawGrandTotal);
-  rawTotalRow.push(''); rawTotalRow.push(''); rawTotalRow.push('小計');
-  var subCols2 = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40*50'];
-  var subGrandTotal = 0;
-  subCols2.forEach(function(label) {
-    var t = 0;
-    if (label === '塑膠袋40*50') {
-      var t1 = (rawQC && rawQC['物料-塑膠袋40*50']) ? totalArray(rawQC['物料-塑膠袋40*50']) : 0;
-      var t2 = (rawQC && rawQC['物料-塑膠袋40X50']) ? totalArray(rawQC['物料-塑膠袋40X50']) : 0;
-      t = t1 + t2;
-    } else {
-      var subCatName = '物料-' + label;
-      t = (rawQC && rawQC[subCatName]) ? totalArray(rawQC[subCatName]) : 0;
-    }
-    rawTotalRow.push(t);
-    subGrandTotal += t;
-  });
-  rawTotalRow.push(subGrandTotal);
-  rawRows.push(rawTotalRow);
-  
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rawRows), '原物料品檢(QC10002-R02)');
+
+  addCategorySheet(
+    '原物料品檢(QC10002-R02)',
+    rawCols,
+    function(subCat) {
+      if (subCat === '原料') return 0;
+      if (subCat === '物料-B膠') return 1;
+      if (subCat === '物料-收縮膜') return 2;
+      if (subCat === '物料-色粉') return 3;
+      if (subCat === '物料-空白包裝袋') return 4;
+      if (subCat === '物料-空白感壓紙') return 5;
+      if (subCat === '物料-塑膠袋') return 6;
+      if (subCat === '物料-塑膠袋40*50' || subCat === '物料-塑膠袋40X50') return 7;
+      if (subCat === '物料-紙箱') return 8;
+      if (subCat === '物料-過濾網連蓋') return 9;
+      if (subCat === '物料-標籤') return 10;
+      if (subCat === '射出D') return 11;
+      return null;
+    },
+    'QC10002-R02',
+    null,
+    '原物料進料品檢'
+  );
   
   // ---- Sheet 2: QIP(QC10004-R02) ----
   var qipQC = counts['QC10004-R02'];
@@ -935,6 +876,46 @@ function writeSummaryExcel(counts, year) {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ncaRows), 'NCA');
   
   // ---- Sheet 9: 彙總表 (Grid layout matching Template) ----
+  var rawMainCols = [
+    {key:'原料', label:'原料'},
+    {key:'物料', label:'物料'},
+    {key:'紙箱', label:'紙箱'},
+    {key:'過濾網連蓋', label:'過濾網連蓋'},
+    {key:'標籤', label:'標籤'},
+    {key:'射出D', label:'射出D'},
+  ];
+  
+  var rawMainData = [];
+  rawMainCols.forEach(function() { rawMainData.push({}); });
+  
+  var rawQC = counts['QC10002-R02'];
+  if (rawQC) {
+    for (var subCat in rawQC) {
+      var colIdx = null;
+      if (subCat === '原料') colIdx = 0;
+      else if (subCat === '物料' || subCat.indexOf('物料-') === 0) {
+        if (subCat === '物料-紙箱') colIdx = 2;
+        else if (subCat === '物料-過濾網連蓋') colIdx = 3;
+        else if (subCat === '物料-標籤') colIdx = 4;
+        else colIdx = 1; // generic 物料
+      }
+      else if (subCat === '射出D' || subCat.indexOf('射出D') === 0) colIdx = 5;
+      if (colIdx === null) continue;
+      
+      var monthly = rawQC[subCat];
+      for (var m = 1; m <= 12; m++) {
+        if (monthly[m]) {
+          rawMainData[colIdx][m] = (rawMainData[colIdx][m] || 0) + monthly[m];
+        }
+      }
+    }
+  }
+  
+  var rawGrandTotal = 0;
+  rawMainCols.forEach(function(c, ci) {
+    rawGrandTotal += totalArray(rawMainData[ci]);
+  });
+
   var aggRows = [];
   for (var r = 0; r < 50; r++) {
     var rowArr = [];
@@ -1167,11 +1148,18 @@ function generateYearlyReport(wb, year, outFile) {
       if (!r) continue;
       var m = i - 1;
       if (r[1] !== '' && r[1] !== undefined) rawMain[m] = Number(r[1]) || 0;
-      if (r[2] !== '' && r[2] !== undefined) rawMtl[m] = Number(r[2]) || 0;
-      if (r[3] !== '' && r[3] !== undefined) rawBox[m] = Number(r[3]) || 0;
-      if (r[4] !== '' && r[4] !== undefined) rawFilter[m] = Number(r[4]) || 0;
-      if (r[5] !== '' && r[5] !== undefined) rawLabel[m] = Number(r[5]) || 0;
-      if (r[6] !== '' && r[6] !== undefined) rawInjD[m] = Number(r[6]) || 0;
+      
+      // rawMtl is the sum of B膠, 收縮膜, 色粉, 空白包裝袋, 空白感壓紙, 塑膠袋, 塑膠袋40*50 (indices 2 to 8)
+      var sumMtl = 0;
+      for (var c = 2; c <= 8; c++) {
+        if (r[c] !== '' && r[c] !== undefined) sumMtl += Number(r[c]) || 0;
+      }
+      rawMtl[m] = sumMtl;
+      
+      if (r[9] !== '' && r[9] !== undefined) rawBox[m] = Number(r[9]) || 0;
+      if (r[10] !== '' && r[10] !== undefined) rawFilter[m] = Number(r[10]) || 0;
+      if (r[11] !== '' && r[11] !== undefined) rawLabel[m] = Number(r[11]) || 0;
+      if (r[12] !== '' && r[12] !== undefined) rawInjD[m] = Number(r[12]) || 0;
     }
   }
   

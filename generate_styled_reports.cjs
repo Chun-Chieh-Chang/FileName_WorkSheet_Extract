@@ -42,10 +42,10 @@ function generateStyledReport(summaryFile, year, outFile) {
       var r = rawSheet[i];
       if (!r) continue;
       var m = i - 1;
-      // Column 1 = 原料, Column 2 = 物料 (includes 紙箱, 過濾網連蓋, 標籤, 射出D)
       rawMain[m] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
-      // Column 7 (index 6) is 小計 for main section
-      rawSub[m] = (r[6] !== '' && r[6] !== undefined) ? Number(r[6]) || 0 : 0;
+      // Index 13 is the grand total "小計" for the new consolidated sheet
+      var monthTotal = (r[13] !== '' && r[13] !== undefined) ? Number(r[13]) || 0 : 0;
+      rawSub[m] = monthTotal - rawMain[m];
     }
   }
   

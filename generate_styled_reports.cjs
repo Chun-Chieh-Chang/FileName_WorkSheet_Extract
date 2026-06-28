@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Generate styled HTML reports matching report-templates/ style
  * Usage: node generate_styled_reports.cjs [year]
  *   e.g., node generate_styled_reports.cjs 2025
@@ -38,70 +38,74 @@ function generateStyledReport(summaryFile, year, outFile) {
   // Parse monthly data
   var rawMain = {}, rawSub = {};
   if (rawSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = rawSheet[i];
       if (!r) continue;
+      var m = i - 1;
       // Column 1 = 原料, Column 2 = 物料 (includes 紙箱, 過濾網連蓋, 標籤, 射出D)
-      rawMain[i] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
-      // 物料 total is at column 2, but we need to sum 紙箱 + 過濾網連蓋 + 標籤 + 射出D
-      // Actually, column 7 (index 6) is 小計 for main section
-      rawSub[i] = (r[6] !== '' && r[6] !== undefined) ? Number(r[6]) || 0 : 0;
+      rawMain[m] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
+      // Column 7 (index 6) is 小計 for main section
+      rawSub[m] = (r[6] !== '' && r[6] !== undefined) ? Number(r[6]) || 0 : 0;
     }
   }
   
   var semiAssyA = {}, semiAssyB = {}, semiAssyC = {};
   var semiBD = {}, semiBM = {}, semiMP = {}, semiVV = {}, semiOther = {};
   if (semiSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = semiSheet[i];
       if (!r) continue;
-      semiAssyA[i] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
-      semiAssyB[i] = (r[2] !== '' && r[2] !== undefined) ? Number(r[2]) || 0 : 0;
-      semiAssyC[i] = (r[3] !== '' && r[3] !== undefined) ? Number(r[3]) || 0 : 0;
-      semiBD[i] = (r[4] !== '' && r[4] !== undefined) ? Number(r[4]) || 0 : 0;
-      semiBM[i] = (r[5] !== '' && r[5] !== undefined) ? Number(r[5]) || 0 : 0;
-      semiMP[i] = (r[6] !== '' && r[6] !== undefined) ? Number(r[6]) || 0 : 0;
-      semiVV[i] = (r[7] !== '' && r[7] !== undefined) ? Number(r[7]) || 0 : 0;
-      semiOther[i] = (r[8] !== '' && r[8] !== undefined) ? Number(r[8]) || 0 : 0;
+      var m = i - 1;
+      semiAssyA[m] = 0;
+      semiAssyB[m] = 0;
+      semiAssyC[m] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
+      semiBD[m] = (r[2] !== '' && r[2] !== undefined) ? Number(r[2]) || 0 : 0;
+      semiBM[m] = (r[3] !== '' && r[3] !== undefined) ? Number(r[3]) || 0 : 0;
+      semiMP[m] = (r[4] !== '' && r[4] !== undefined) ? Number(r[4]) || 0 : 0;
+      semiVV[m] = (r[5] !== '' && r[5] !== undefined) ? Number(r[5]) || 0 : 0;
+      semiOther[m] = 0;
     }
   }
   
   var finBM = {}, finMM = {}, finSX = {}, finVV = {};
   if (finSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = finSheet[i];
       if (!r) continue;
-      finBM[i] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
-      finMM[i] = (r[2] !== '' && r[2] !== undefined) ? Number(r[2]) || 0 : 0;
-      finSX[i] = (r[3] !== '' && r[3] !== undefined) ? Number(r[3]) || 0 : 0;
-      finVV[i] = (r[4] !== '' && r[4] !== undefined) ? Number(r[4]) || 0 : 0;
+      var m = i - 1;
+      finBM[m] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
+      finMM[m] = (r[2] !== '' && r[2] !== undefined) ? Number(r[2]) || 0 : 0;
+      finSX[m] = (r[3] !== '' && r[3] !== undefined) ? Number(r[3]) || 0 : 0;
+      finVV[m] = (r[4] !== '' && r[4] !== undefined) ? Number(r[4]) || 0 : 0;
     }
   }
   
   var pTub = {}, pInj = {}, pInjA = {}, pInjC = {};
   var pInjD = {}, pAsmA = {}, pAsmB = {}, pAsmC = {};
   if (partsSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = partsSheet[i];
       if (!r) continue;
-      pTub[i] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
-      pInj[i] = (r[2] !== '' && r[2] !== undefined) ? Number(r[2]) || 0 : 0;
-      pInjA[i] = (r[3] !== '' && r[3] !== undefined) ? Number(r[3]) || 0 : 0;
-      pInjC[i] = (r[4] !== '' && r[4] !== undefined) ? Number(r[4]) || 0 : 0;
-      pInjD[i] = (r[5] !== '' && r[5] !== undefined) ? Number(r[5]) || 0 : 0;
-      pAsmA[i] = (r[6] !== '' && r[6] !== undefined) ? Number(r[6]) || 0 : 0;
-      pAsmB[i] = (r[7] !== '' && r[7] !== undefined) ? Number(r[7]) || 0 : 0;
-      pAsmC[i] = (r[8] !== '' && r[8] !== undefined) ? Number(r[8]) || 0 : 0;
+      var m = i - 1;
+      pTub[m] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
+      pInj[m] = (r[2] !== '' && r[2] !== undefined) ? Number(r[2]) || 0 : 0;
+      pInjA[m] = (r[3] !== '' && r[3] !== undefined) ? Number(r[3]) || 0 : 0;
+      pInjC[m] = (r[4] !== '' && r[4] !== undefined) ? Number(r[4]) || 0 : 0;
+      pInjD[m] = (r[5] !== '' && r[5] !== undefined) ? Number(r[5]) || 0 : 0;
+      pAsmA[m] = (r[6] !== '' && r[6] !== undefined) ? Number(r[6]) || 0 : 0;
+      pAsmB[m] = (r[7] !== '' && r[7] !== undefined) ? Number(r[7]) || 0 : 0;
+      pAsmC[m] = (r[8] !== '' && r[8] !== undefined) ? Number(r[8]) || 0 : 0;
     }
   }
   
   var sICU = {}, sOth = {};
   if (shipSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = shipSheet[i];
       if (!r) continue;
-      sICU[i] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
-      sOth[i] = (r[2] !== '' && r[2] !== undefined) ? Number(r[2]) || 0 : 0;
+      var m = i - 1;
+      sICU[m] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
+      sOth[m] = (r[2] !== '' && r[2] !== undefined) ? Number(r[2]) || 0 : 0;
     }
   }
   
@@ -117,13 +121,14 @@ function generateStyledReport(summaryFile, year, outFile) {
   var qipSheet = getSheet(wb, 'QIP(QC10004-R02)');
   var injSetup = {}, extSetup = {}, injPatrol = {}, extPatrol = {};
   if (qipSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = qipSheet[i];
       if (!r) continue;
-      extSetup[i] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
-      injSetup[i] = (r[2] !== '' && r[2] !== undefined) ? Number(r[2]) || 0 : 0;
-      extPatrol[i] = (r[6] !== '' && r[6] !== undefined) ? Number(r[6]) || 0 : 0;
-      injPatrol[i] = (r[7] !== '' && r[7] !== undefined) ? Number(r[7]) || 0 : 0;
+      var m = i - 1;
+      extSetup[m] = (r[1] !== '' && r[1] !== undefined) ? Number(r[1]) || 0 : 0;
+      injSetup[m] = (r[2] !== '' && r[2] !== undefined) ? Number(r[2]) || 0 : 0;
+      extPatrol[m] = (r[6] !== '' && r[6] !== undefined) ? Number(r[6]) || 0 : 0;
+      injPatrol[m] = (r[7] !== '' && r[7] !== undefined) ? Number(r[7]) || 0 : 0;
     }
   }
   
@@ -131,10 +136,11 @@ function generateStyledReport(summaryFile, year, outFile) {
   var asmSheet = getSheet(wb, '裝配對樣巡檢(QC10006-R01)');
   var patrolAsm = {};
   if (asmSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = asmSheet[i];
+      var m = i - 1;
       if (r && r[1] !== '' && r[1] !== undefined) {
-        patrolAsm[i] = Number(r[1]) || 0;
+        patrolAsm[m] = Number(r[1]) || 0;
       }
     }
   }

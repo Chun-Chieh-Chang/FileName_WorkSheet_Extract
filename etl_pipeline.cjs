@@ -495,32 +495,33 @@ function writeSummaryExcel(counts, year) {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mapData), '品檢地圖');
   
   // ---- Helper to write a category sheet ----
-  function addCategorySheet(sheetName, columns, subCatToCol, qcCode, subCategoryFilter) {
-    // columns: array of {key, label} for each column (excluding 月份 and 小計)
-    // subCatToCol: function(subCategory) → column index (1-based, 0=月份)
-    // qcCode: which QC code to use
-    // subCategoryFilter: optional function(subCategory) → boolean
-    
+  function addCategorySheet(sheetName, columns, subCatToCol, qcCode, subCategoryFilter, titleRowText) {
     // Accumulate monthly data per column
     var colData = [];
     columns.forEach(function() { colData.push({}); });
     
     var qcCounts = counts[qcCode];
     if (!qcCounts) {
-      // Empty sheet with just header and 小計 row
+      // Empty sheet with title row, header, and 小計 row
       var emptyHeader = ['月份'];
       columns.forEach(function(c) { emptyHeader.push(c.label); });
-      emptyHeader.push('小計');
-      var emptyRows = [emptyHeader];
+      if (qcCode !== 'QC10006-R01') emptyHeader.push('小計');
+      
+      var emptyRows = [
+        [titleRowText || sheetName],
+        emptyHeader
+      ];
       MONTHS.forEach(function(m) { 
         var row = [m]; 
         columns.forEach(function() { row.push(0); }); 
-        row.push(0); 
+        if (qcCode !== 'QC10006-R01') row.push(0); 
         emptyRows.push(row); 
       });
-      emptyRows.push(['小計']);
-      columns.forEach(function() { emptyRows[emptyRows.length-1].push(0); });
-      emptyRows[emptyRows.length-1].push(0);
+      var emptyTotalRow = ['小計'];
+      columns.forEach(function() { emptyTotalRow.push(0); });
+      if (qcCode !== 'QC10006-R01') emptyTotalRow.push(0);
+      emptyRows.push(emptyTotalRow);
+      
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(emptyRows), sheetName);
       return;
     }
@@ -543,9 +544,12 @@ function writeSummaryExcel(counts, year) {
     // Build the sheet data
     var header = ['月份'];
     columns.forEach(function(c) { header.push(c.label); });
-    header.push('小計');
+    if (qcCode !== 'QC10006-R01') header.push('小計');
     
-    var rows = [header];
+    var rows = [
+      [titleRowText || sheetName],
+      header
+    ];
     MONTHS.forEach(function(m) {
       var row = [m];
       var total = 0;
@@ -554,7 +558,7 @@ function writeSummaryExcel(counts, year) {
         row.push(v);
         total += v;
       });
-      row.push(total);
+      if (qcCode !== 'QC10006-R01') row.push(total);
       rows.push(row);
     });
     
@@ -566,14 +570,13 @@ function writeSummaryExcel(counts, year) {
       totalRow.push(t);
       grandTotal += t;
     });
-    totalRow.push(grandTotal);
+    if (qcCode !== 'QC10006-R01') totalRow.push(grandTotal);
     rows.push(totalRow);
     
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
   }
   
   // ---- Sheet 1: 原物料品檢(QC10002-R02) ----
-  // Main section: 原料, 物料, 紙箱, 過濾網連蓋, 標籤, 射出D
   var rawMainCols = [
     {key:'原料', label:'原料'},
     {key:'物料', label:'物料'},
@@ -592,7 +595,6 @@ function writeSummaryExcel(counts, year) {
       var colIdx = null;
       if (subCat === '原料') colIdx = 0;
       else if (subCat === '物料' || subCat.indexOf('物料-') === 0) {
-        // 物料-* sub-categories
         if (subCat === '物料-紙箱') colIdx = 2;
         else if (subCat === '物料-過濾網連蓋') colIdx = 3;
         else if (subCat === '物料-標籤') colIdx = 4;
@@ -610,8 +612,10 @@ function writeSummaryExcel(counts, year) {
     }
   }
   
-  // Build 原物料品檢 main section
-  var rawRows = [['月份','原料','物料','紙箱','過濾網連蓋','標籤','射出D','小計','','','月份','B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40X50','小計']];
+  var rawRows = [
+    ['原物料進料品檢', '', '', '', '', '', '', '', '', '', '物料'],
+    ['月份','原料','物料','紙箱','過濾網連蓋','標籤','射出D','小計','','','月份','B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40*50','小計']
+  ];
   MONTHS.forEach(function(m) {
     var row = [m];
     var total = 0;
@@ -621,15 +625,19 @@ function writeSummaryExcel(counts, year) {
       total += v;
     });
     row.push(total);
-    row.push(''); row.push(''); row.push(m); // separators + sub-section month
-    // Sub-section for 物料 sub-items
-    // We need to extract 物料 sub-item data from the raw QC
-    // These are from 進料檢驗 file with specific sub-categories
-    var subCols = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40X50'];
+    row.push(''); row.push(''); row.push(m);
+    var subCols = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40*50'];
     var subTotal = 0;
     subCols.forEach(function(label) {
-      var subCatName = '物料-' + label;
-      var v = (rawQC && rawQC[subCatName] && rawQC[subCatName][m]) || 0;
+      var v = 0;
+      if (label === '塑膠袋40*50') {
+        var d1 = (rawQC && rawQC['物料-塑膠袋40*50'] && rawQC['物料-塑膠袋40*50'][m]) || 0;
+        var d2 = (rawQC && rawQC['物料-塑膠袋40X50'] && rawQC['物料-塑膠袋40X50'][m]) || 0;
+        v = d1 + d2;
+      } else {
+        var subCatName = '物料-' + label;
+        v = (rawQC && rawQC[subCatName] && rawQC[subCatName][m]) || 0;
+      }
       row.push(v);
       subTotal += v;
     });
@@ -637,7 +645,6 @@ function writeSummaryExcel(counts, year) {
     rawRows.push(row);
   });
   
-  // 小計 row for main section
   var rawTotalRow = ['小計'];
   var rawGrandTotal = 0;
   rawMainCols.forEach(function(c, ci) {
@@ -647,11 +654,18 @@ function writeSummaryExcel(counts, year) {
   });
   rawTotalRow.push(rawGrandTotal);
   rawTotalRow.push(''); rawTotalRow.push(''); rawTotalRow.push('小計');
-  var subCols2 = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40X50'];
+  var subCols2 = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40*50'];
   var subGrandTotal = 0;
   subCols2.forEach(function(label) {
-    var subCatName = '物料-' + label;
-    var t = (rawQC && rawQC[subCatName]) ? totalArray(rawQC[subCatName]) : 0;
+    var t = 0;
+    if (label === '塑膠袋40*50') {
+      var t1 = (rawQC && rawQC['物料-塑膠袋40*50']) ? totalArray(rawQC['物料-塑膠袋40*50']) : 0;
+      var t2 = (rawQC && rawQC['物料-塑膠袋40X50']) ? totalArray(rawQC['物料-塑膠袋40X50']) : 0;
+      t = t1 + t2;
+    } else {
+      var subCatName = '物料-' + label;
+      t = (rawQC && rawQC[subCatName]) ? totalArray(rawQC[subCatName]) : 0;
+    }
     rawTotalRow.push(t);
     subGrandTotal += t;
   });
@@ -661,7 +675,6 @@ function writeSummaryExcel(counts, year) {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rawRows), '原物料品檢(QC10002-R02)');
   
   // ---- Sheet 2: QIP(QC10004-R02) ----
-  // Side-by-side: Setup (押出/射出) + Patrol (押出/射出)
   var qipQC = counts['QC10004-R02'];
   var qipSetupExt = {}; var qipSetupInj = {};
   var qipPatrolExt = {}; var qipPatrolInj = {};
@@ -669,10 +682,8 @@ function writeSummaryExcel(counts, year) {
   if (qipQC) {
     for (var subCat in qipQC) {
       if (subCat === 'QIP-Setup') {
-        // From 射出檢驗 file: these are 射出 Setup
         qipSetupInj = qipQC[subCat];
       } else if (subCat === 'QIP-Patrol') {
-        // From 射出檢驗 file: these are 射出 Patrol
         qipPatrolInj = qipQC[subCat];
       } else if (subCat === '押出-Setup') {
         qipSetupExt = qipQC[subCat];
@@ -682,12 +693,8 @@ function writeSummaryExcel(counts, year) {
     }
   }
   
-  // Also check QIP尺寸檢驗 - this has additional QIP-SET UP records
-  // These are also 射出 Setup records and should be merged
-  // Actually, looking at the data, QIP尺寸檢驗.xlsx has QIP-SET UP-2025/2026 sheet
-  // which contains records that go to 射出 Setup
-  
   var qipRows = [
+    ['射出、押出製程Setup','','','','','射出、押出製程巡檢'],
     ['月份','押出(Setup)','射出(Setup)','小計','','月份','押出(巡檢)','射出(廠內)','小計']
   ];
   MONTHS.forEach(function(m) {
@@ -710,19 +717,17 @@ function writeSummaryExcel(counts, year) {
     [{key:'裝配', label:'裝配'}],
     function() { return 0; },
     'QC10006-R01',
-    function(subCat) { return subCat === '裝配巡檢'; }
+    function(subCat) { return subCat === '裝配巡檢'; },
+    '裝配對樣巡檢'
   );
   
   // ---- Sheet 4: 半成品品檢(QC10006-R02) ----
   var semiCols = [
-    {key:'裝配A', label:'裝配A'},
-    {key:'裝配B', label:'裝配B'},
     {key:'裝配C', label:'裝配C'},
     {key:'BD', label:'BD'},
     {key:'Biometrix', label:'Biometrix'},
     {key:'MPS', label:'MPS'},
     {key:'Vivus', label:'Vivus'},
-    {key:'其他', label:'其他'},
   ];
   
   var semiQC = counts['QC10006-R02'];
@@ -730,7 +735,7 @@ function writeSummaryExcel(counts, year) {
   semiCols.forEach(function() { semiData.push({}); });
   
   var semiSubCatMap = {
-    'BD': 3, 'Biometrix': 4, 'MPS': 5, 'Vivus': 6, '其他': 7,
+    'BD': 1, 'Biometrix': 2, 'MPS': 3, 'Vivus': 4,
     'MarMed': null, 'Saxon': null
   };
   
@@ -738,10 +743,7 @@ function writeSummaryExcel(counts, year) {
     for (var subCat in semiQC) {
       var actualIdx = semiSubCatMap[subCat];
       if (actualIdx === null || actualIdx === undefined) {
-        // Check for assembly sub-categories
-        if (subCat.indexOf('裝配A') >= 0) actualIdx = 0;
-        else if (subCat.indexOf('裝配B') >= 0) actualIdx = 1;
-        else if (subCat.indexOf('裝配C') >= 0) actualIdx = 2;
+        if (subCat.indexOf('裝配C') >= 0) actualIdx = 0;
       }
       if (actualIdx === null || actualIdx === undefined) continue;
       
@@ -752,7 +754,10 @@ function writeSummaryExcel(counts, year) {
     }
   }
   
-  var semiRows = [['月份','裝配A','裝配B','裝配C','BD','Biometrix','MPS','Vivus','其他','小計']];
+  var semiRows = [
+    ['裝配半成品品檢'],
+    ['月份','裝配C','BD','Biometrix','MPS','Vivus','小計']
+  ];
   MONTHS.forEach(function(m) {
     var row = [m];
     var total = 0;
@@ -801,7 +806,10 @@ function writeSummaryExcel(counts, year) {
     }
   }
   
-  var finRows = [['月份','Biometrix','MarMed','Saxon','Vivus','小計']];
+  var finRows = [
+    ['裝配完成品品檢'],
+    ['月份','Biometrix','MarMed','Saxon','Vivus','小計']
+  ];
   MONTHS.forEach(function(m) {
     var row = [m];
     var total = 0;
@@ -864,7 +872,10 @@ function writeSummaryExcel(counts, year) {
     }
   }
   
-  var partsRows = [['月份','Tubing','射出(廠內)','射出A','射出C','射出D(組件)','裝配A','裝配B','裝配C','小計']];
+  var partsRows = [
+    ['零組件入庫檢'],
+    ['月份','Tubing','射出(廠內)','射出A','射出C','射出D(組件)','裝配A','裝配B','裝配C','小計']
+  ];
   MONTHS.forEach(function(m) {
     var row = [m];
     var total = 0;
@@ -899,7 +910,10 @@ function writeSummaryExcel(counts, year) {
     }
   }
   
-  var shipRows = [['月份','ICU','其他','小計']];
+  var shipRows = [
+    ['出貨品檢'],
+    ['月份','ICU','其他','小計']
+  ];
   MONTHS.forEach(function(m) {
     var icu = shipICU[m] || 0;
     var oth = shipOther[m] || 0;
@@ -912,157 +926,170 @@ function writeSummaryExcel(counts, year) {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(shipRows), '出貨檢驗(QC10008-R02)');
   
   // ---- Sheet 8: NCA ----
-  // NCA data comes from QIP尺寸檢驗.xlsx → NCA入庫報表-2025 sheet (but it was empty)
-  // For now, create empty NCA sheet
-  var ncaRows = [['NCA','','',''], ['月份','件數','帶N','不帶N']];
+  var ncaRows = [
+    ['NCA'],
+    ['月份','件數','帶N','不帶N']
+  ];
   MONTHS.forEach(function(m) { ncaRows.push([m, 0, 0, 0]); });
   ncaRows.push(['小計', 0, 0, 0]);
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ncaRows), 'NCA');
   
-  // ---- Sheet 9: 彙總表 ----
-  // Build multi-section summary from individual sheet data
+  // ---- Sheet 9: 彙總表 (Grid layout matching Template) ----
   var aggRows = [];
+  for (var r = 0; r < 50; r++) {
+    var rowArr = [];
+    for (var c = 0; c < 19; c++) {
+      rowArr.push('');
+    }
+    aggRows.push(rowArr);
+  }
   
   // Section 1: 原物料進料品檢
-  aggRows.push(['原物料進料品檢(QC10002-R02)','','','','','','','','','','','','','','','','','','']);
-  aggRows.push(['月份','原料','物料','紙箱','過濾網連蓋','標籤','射出D','小計','','','月份','B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40X50','小計']);
-  var subColsList = ['B膠','收縮膜','色粉','空白包裝袋','空白感壓紙','塑膠袋','塑膠袋40X50'];
+  aggRows[0][0] = '原物料進料品檢(QC10002-R02)';
+  var s1Headers = ["月份","原料","物料","紙箱","過濾網連蓋","標籤","射出D","小計"];
+  s1Headers.forEach(function(h, ci) { aggRows[1][ci] = h; });
   MONTHS.forEach(function(m) {
-    var vals = [];
-    rawMainCols.forEach(function(c, ci) { vals.push(rawMainData[ci][m] || 0); });
-    var mainTotal = vals.reduce(function(a,b){return a+b;}, 0);
-    // Sub-section values
-    var subVals = [];
-    subColsList.forEach(function(label) {
-      var subCatName = '物料-' + label;
-      var v = (rawQC && rawQC[subCatName] && rawQC[subCatName][m]) || 0;
-      subVals.push(v);
+    aggRows[m+1][0] = m;
+    var total = 0;
+    rawMainCols.forEach(function(c, ci) {
+      var v = rawMainData[ci][m] || 0;
+      aggRows[m+1][ci+1] = v;
+      total += v;
     });
-    var subTotal = subVals.reduce(function(a,b){return a+b;}, 0);
-    aggRows.push([m].concat(vals).concat([mainTotal, '', '', m]).concat(subVals).concat([subTotal]));
+    aggRows[m+1][7] = total;
   });
-  var raws = [];
-  rawMainCols.forEach(function(c, ci) { raws.push(totalArray(rawMainData[ci])); });
-  var mainGrand = raws.reduce(function(a,b){return a+b;}, 0);
-  var subRaws = [];
-  subColsList.forEach(function(label) {
-    var subCatName = '物料-' + label;
-    subRaws.push(rawQC && rawQC[subCatName] ? totalArray(rawQC[subCatName]) : 0);
+  aggRows[14][0] = '小計';
+  rawMainCols.forEach(function(c, ci) {
+    aggRows[14][ci+1] = totalArray(rawMainData[ci]);
   });
-  var subGrand = subRaws.reduce(function(a,b){return a+b;}, 0);
-  aggRows.push(['小計'].concat(raws).concat([mainGrand, '', '', '小計']).concat(subRaws).concat([subGrand]));
-  aggRows.push(['']);
+  aggRows[14][7] = rawGrandTotal;
   
   // Section 2: 射出Setup
-  aggRows.push(['射出、押出製程Setup(QC10004-R02)','','','','','','','','','']);
-  aggRows.push(['月份','押出(Setup)','射出(Setup)','小計','','','','','','']);
+  aggRows[0][9] = '射出、押出製程Setup(QC10004-R02)';
+  ["月份","押出(Setup)","射出(Setup)","小計"].forEach(function(h, ci) { aggRows[1][ci+9] = h; });
   MONTHS.forEach(function(m) {
-    var es = qipSetupExt[m] || 0;
-    var ij = qipSetupInj[m] || 0;
-    aggRows.push([m, es, ij, es+ij, '', '', '', '', '', '']);
+    var extS = qipSetupExt[m] || 0;
+    var injS = qipSetupInj[m] || 0;
+    aggRows[m+1][9] = m;
+    aggRows[m+1][10] = extS;
+    aggRows[m+1][11] = injS;
+    aggRows[m+1][12] = extS + injS;
   });
-  aggRows.push(['小計', tExtS, tInjS, tExtS+tInjS, '', '', '', '', '', '']);
-  aggRows.push(['']);
+  aggRows[14][9] = '小計';
+  aggRows[14][10] = tExtS;
+  aggRows[14][11] = tInjS;
+  aggRows[14][12] = tExtS + tInjS;
   
   // Section 3: 射出巡檢
-  aggRows.push(['射出、押出製程巡檢(QC10004-R02)','','','','','','','','','']);
-  aggRows.push(['月份','押出(巡檢)','射出(廠內)','小計','','','','','','']);
+  aggRows[0][14] = '射出、押出製程巡檢(QC10004-R02)';
+  ["月份","押出(巡檢)","射出(廠內)","小計"].forEach(function(h, ci) { aggRows[1][ci+14] = h; });
   MONTHS.forEach(function(m) {
-    var ep = qipPatrolExt[m] || 0;
-    var ij = qipPatrolInj[m] || 0;
-    aggRows.push([m, ep, ij, ep+ij, '', '', '', '', '', '']);
+    var extP = qipPatrolExt[m] || 0;
+    var injP = qipPatrolInj[m] || 0;
+    aggRows[m+1][14] = m;
+    aggRows[m+1][15] = extP;
+    aggRows[m+1][16] = injP;
+    aggRows[m+1][17] = extP + injP;
   });
-  aggRows.push(['小計', tExtP, tInjP, tExtP+tInjP, '', '', '', '', '', '']);
-  aggRows.push(['']);
+  aggRows[14][14] = '小計';
+  aggRows[14][15] = tExtP;
+  aggRows[14][16] = tInjP;
+  aggRows[14][17] = tExtP + tInjP;
   
   // Section 4: 裝配對樣巡檢
   var asmTotal = {};
   if (counts['QC10006-R01']) {
-    var asmData = counts['QC10006-R01']['裝配巡檢'] || {};
-    asmTotal = asmData;
+    asmTotal = counts['QC10006-R01']['裝配巡檢'] || {};
   }
-  aggRows.push(['裝配對樣巡檢(QC10006-R01)','','','','','','','','','']);
-  aggRows.push(['月份','裝配','小計','','','','','','','']);
-  MONTHS.forEach(function(m) { var v = asmTotal[m]||0; aggRows.push([m, v, v, '','','','','','','']); });
-  aggRows.push(['小計', totalArray(asmTotal), totalArray(asmTotal), '','','','','','','']);
-  aggRows.push(['']);
+  aggRows[17][0] = '裝配對樣巡檢(QC10006-R01)';
+  aggRows[18][0] = '月份'; aggRows[18][1] = '裝配';
+  MONTHS.forEach(function(m) {
+    aggRows[m+18][0] = m;
+    aggRows[m+18][1] = asmTotal[m] || 0;
+  });
+  aggRows[31][0] = '小計';
+  aggRows[31][1] = totalArray(asmTotal);
   
   // Section 5: 半成品
-  aggRows.push(['半成品品檢(QC10006-R02)','','','','','','','','','']);
-  aggRows.push(['月份','裝配A','裝配B','裝配C','BD','Biometrix','MPS','Vivus','其他','小計']);
+  aggRows[17][3] = '裝配半成品品檢(QC10006-R02)';
+  ["月份","裝配C","BD","Biometrix","MPS","Vivus","小計"].forEach(function(h, ci) { aggRows[18][ci+3] = h; });
   MONTHS.forEach(function(m) {
-    var row = [m];
+    aggRows[m+18][3] = m;
     var total = 0;
     semiCols.forEach(function(c, ci) {
       var v = semiData[ci][m] || 0;
-      row.push(v);
+      aggRows[m+18][ci+4] = v;
       total += v;
     });
-    row.push(total);
-    while (row.length < 10) row.push('');
-    aggRows.push(row);
+    aggRows[m+18][9] = total;
   });
-  var semiTRow = ['小計'];
-  semiCols.forEach(function(c, ci) { semiTRow.push(totalArray(semiData[ci])); });
-  semiTRow.push(semiGrandTotal);
-  while (semiTRow.length < 10) semiTRow.push('');
-  aggRows.push(semiTRow);
-  aggRows.push(['']);
+  aggRows[31][3] = '小計';
+  semiCols.forEach(function(c, ci) {
+    aggRows[31][ci+4] = totalArray(semiData[ci]);
+  });
+  aggRows[31][9] = semiGrandTotal;
   
   // Section 6: 完成品
-  aggRows.push(['完成品品檢(QC10007-R01 R02)','','','','','','','','','']);
-  aggRows.push(['月份','Biometrix','MarMed','Saxon','Vivus','小計','','','','']);
+  aggRows[17][11] = '裝配完成品品檢(QC10007-R01 R02)';
+  ["月份","Biometrix","MarMed","Saxon","Vivus","小計"].forEach(function(h, ci) { aggRows[18][ci+11] = h; });
   MONTHS.forEach(function(m) {
-    var row = [m];
+    aggRows[m+18][11] = m;
     var total = 0;
     finCols.forEach(function(c, ci) {
       var v = finData[ci][m] || 0;
-      row.push(v);
+      aggRows[m+18][ci+12] = v;
       total += v;
     });
-    row.push(total);
-    while (row.length < 10) row.push('');
-    aggRows.push(row);
+    aggRows[m+18][16] = total;
   });
-  var finTRow = ['小計'];
-  finCols.forEach(function(c, ci) { finTRow.push(totalArray(finData[ci])); });
-  finTRow.push(finGrandTotal);
-  while (finTRow.length < 10) finTRow.push('');
-  aggRows.push(finTRow);
-  aggRows.push(['']);
+  aggRows[31][11] = '小計';
+  finCols.forEach(function(c, ci) {
+    aggRows[31][ci+12] = totalArray(finData[ci]);
+  });
+  aggRows[31][16] = finGrandTotal;
   
   // Section 7: 零組件入庫
-  aggRows.push(['零組件入庫品檢(QC10007-R03)','','','','','','','','','']);
-  aggRows.push(['月份','Tubing','射出(廠內)','射出A','射出C','射出D(組件)','裝配A','裝配B','裝配C','小計']);
+  aggRows[34][0] = '零組件入庫品檢(QC10007-R03)';
+  ["月份","Tubing","射出(廠內)","射出A","射出C","射出D(組件)","裝配A","裝配B","裝配C","小計"].forEach(function(h, ci) { aggRows[35][ci] = h; });
   MONTHS.forEach(function(m) {
-    var row = [m];
+    aggRows[m+35][0] = m;
     var total = 0;
     partsCols.forEach(function(c, ci) {
       var v = partsData[ci][m] || 0;
-      row.push(v);
+      aggRows[m+35][ci+1] = v;
       total += v;
     });
-    row.push(total);
-    aggRows.push(row);
+    aggRows[m+35][9] = total;
   });
-  var partsTRow = ['小計'];
-  var partsGT = 0;
+  aggRows[48][0] = '小計';
   partsCols.forEach(function(c, ci) {
-    var t = totalArray(partsData[ci]);
-    partsTRow.push(t);
-    partsGT += t;
+    aggRows[48][ci+1] = totalArray(partsData[ci]);
   });
-  partsTRow.push(partsGT);
-  aggRows.push(partsTRow);
-  aggRows.push(['']);
+  aggRows[48][9] = partsGrand;
   
   // Section 8: 出貨
-  aggRows.push(['出貨品檢(QC10008-R02)','','','','','','','','','']);
-  aggRows.push(['月份','ICU','其他','小計','','','','','','']);
+  aggRows[34][11] = '出貨品檢(QC10008-R02)';
+  ["月份","ICU","其他","小計"].forEach(function(h, ci) { aggRows[35][ci+11] = h; });
   MONTHS.forEach(function(m) {
-    aggRows.push([m, shipICU[m]||0, shipOther[m]||0, (shipICU[m]||0)+(shipOther[m]||0), '','','','','','']);
+    aggRows[m+35][11] = m;
+    aggRows[m+35][12] = shipICU[m] || 0;
+    aggRows[m+35][13] = shipOther[m] || 0;
+    aggRows[m+35][14] = (shipICU[m] || 0) + (shipOther[m] || 0);
   });
-  aggRows.push(['小計', tICU, tOth, tICU+tOth, '','','','','','']);
+  aggRows[48][11] = '小計';
+  aggRows[48][12] = tICU;
+  aggRows[48][13] = tOth;
+  aggRows[48][14] = tICU + tOth;
+  
+  // Section 9: NCA
+  aggRows[34][16] = 'NCA(品質異常案件)';
+  ["月份","件數"].forEach(function(h, ci) { aggRows[35][ci+16] = h; });
+  MONTHS.forEach(function(m) {
+    aggRows[m+35][16] = m;
+    aggRows[m+35][17] = 0;
+  });
+  aggRows[48][16] = '小計';
+  aggRows[48][17] = 0;
   
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aggRows), '彙總表');
   
@@ -1111,13 +1138,13 @@ function generateYearlyReport(wb, year, outFile) {
   var partsSheet = getSheet(wb, '零組件入庫品檢(QC10007-R03)');
   var shipSheet = getSheet(wb, '出貨檢驗(QC10008-R02)');
   
-  // Extract monthly data rows (rows 2-13, indices 1-12)
+  // Extract monthly data rows (rows 2-13, indices 2-13)
   function extractMonthly(sheet, colIdx) {
     var data = {};
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = sheet[i];
       if (r && r[colIdx] !== '' && r[colIdx] !== undefined) {
-        data[i] = Number(r[colIdx]) || 0;
+        data[i - 1] = Number(r[colIdx]) || 0;
       }
     }
     return data;
@@ -1135,15 +1162,16 @@ function generateYearlyReport(wb, year, outFile) {
   var rawInjD = {};
   
   if (rawSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = rawSheet[i];
       if (!r) continue;
-      if (r[1] !== '' && r[1] !== undefined) rawMain[i] = Number(r[1]) || 0;
-      if (r[2] !== '' && r[2] !== undefined) rawMtl[i] = Number(r[2]) || 0;
-      if (r[3] !== '' && r[3] !== undefined) rawBox[i] = Number(r[3]) || 0;
-      if (r[4] !== '' && r[4] !== undefined) rawFilter[i] = Number(r[4]) || 0;
-      if (r[5] !== '' && r[5] !== undefined) rawLabel[i] = Number(r[5]) || 0;
-      if (r[6] !== '' && r[6] !== undefined) rawInjD[i] = Number(r[6]) || 0;
+      var m = i - 1;
+      if (r[1] !== '' && r[1] !== undefined) rawMain[m] = Number(r[1]) || 0;
+      if (r[2] !== '' && r[2] !== undefined) rawMtl[m] = Number(r[2]) || 0;
+      if (r[3] !== '' && r[3] !== undefined) rawBox[m] = Number(r[3]) || 0;
+      if (r[4] !== '' && r[4] !== undefined) rawFilter[m] = Number(r[4]) || 0;
+      if (r[5] !== '' && r[5] !== undefined) rawLabel[m] = Number(r[5]) || 0;
+      if (r[6] !== '' && r[6] !== undefined) rawInjD[m] = Number(r[6]) || 0;
     }
   }
   
@@ -1156,22 +1184,24 @@ function generateYearlyReport(wb, year, outFile) {
   var injSetup = {}; var extSetup = {};
   var injPatrol = {}; var extPatrol = {};
   if (qipSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = qipSheet[i];
       if (!r) continue;
-      if (r[1] !== '' && r[1] !== undefined) extSetup[i] = Number(r[1]) || 0;
-      if (r[2] !== '' && r[2] !== undefined) injSetup[i] = Number(r[2]) || 0;
-      if (r[6] !== '' && r[6] !== undefined) extPatrol[i] = Number(r[6]) || 0;
-      if (r[7] !== '' && r[7] !== undefined) injPatrol[i] = Number(r[7]) || 0;
+      var m = i - 1;
+      if (r[1] !== '' && r[1] !== undefined) extSetup[m] = Number(r[1]) || 0;
+      if (r[2] !== '' && r[2] !== undefined) injSetup[m] = Number(r[2]) || 0;
+      if (r[6] !== '' && r[6] !== undefined) extPatrol[m] = Number(r[6]) || 0;
+      if (r[7] !== '' && r[7] !== undefined) injPatrol[m] = Number(r[7]) || 0;
     }
   }
   
   // 裝配巡檢
   var patrolAsm = {};
   if (asmSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = asmSheet[i];
-      if (r && r[1] !== '' && r[1] !== undefined) patrolAsm[i] = Number(r[1]) || 0;
+      var m = i - 1;
+      if (r && r[1] !== '' && r[1] !== undefined) patrolAsm[m] = Number(r[1]) || 0;
     }
   }
   
@@ -1179,30 +1209,32 @@ function generateYearlyReport(wb, year, outFile) {
   var semiAssyA = {}; var semiAssyB = {}; var semiAssyC = {};
   var semiBD = {}; var semiBM = {}; var semiMP = {}; var semiVV = {}; var semiOther = {};
   if (semiSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = semiSheet[i];
       if (!r) continue;
-      if (r[1] !== '' && r[1] !== undefined) semiAssyA[i] = Number(r[1]) || 0;
-      if (r[2] !== '' && r[2] !== undefined) semiAssyB[i] = Number(r[2]) || 0;
-      if (r[3] !== '' && r[3] !== undefined) semiAssyC[i] = Number(r[3]) || 0;
-      if (r[4] !== '' && r[4] !== undefined) semiBD[i] = Number(r[4]) || 0;
-      if (r[5] !== '' && r[5] !== undefined) semiBM[i] = Number(r[5]) || 0;
-      if (r[6] !== '' && r[6] !== undefined) semiMP[i] = Number(r[6]) || 0;
-      if (r[7] !== '' && r[7] !== undefined) semiVV[i] = Number(r[7]) || 0;
-      if (r[8] !== '' && r[8] !== undefined) semiOther[i] = Number(r[8]) || 0;
+      var m = i - 1;
+      semiAssyA[m] = 0;
+      semiAssyB[m] = 0;
+      if (r[1] !== '' && r[1] !== undefined) semiAssyC[m] = Number(r[1]) || 0;
+      if (r[2] !== '' && r[2] !== undefined) semiBD[m] = Number(r[2]) || 0;
+      if (r[3] !== '' && r[3] !== undefined) semiBM[m] = Number(r[3]) || 0;
+      if (r[4] !== '' && r[4] !== undefined) semiMP[m] = Number(r[4]) || 0;
+      if (r[5] !== '' && r[5] !== undefined) semiVV[m] = Number(r[5]) || 0;
+      semiOther[m] = 0;
     }
   }
   
   // 完成品
   var finBM = {}; var finMM = {}; var finSX = {}; var finVV = {};
   if (finSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = finSheet[i];
       if (!r) continue;
-      if (r[1] !== '' && r[1] !== undefined) finBM[i] = Number(r[1]) || 0;
-      if (r[2] !== '' && r[2] !== undefined) finMM[i] = Number(r[2]) || 0;
-      if (r[3] !== '' && r[3] !== undefined) finSX[i] = Number(r[3]) || 0;
-      if (r[4] !== '' && r[4] !== undefined) finVV[i] = Number(r[4]) || 0;
+      var m = i - 1;
+      if (r[1] !== '' && r[1] !== undefined) finBM[m] = Number(r[1]) || 0;
+      if (r[2] !== '' && r[2] !== undefined) finMM[m] = Number(r[2]) || 0;
+      if (r[3] !== '' && r[3] !== undefined) finSX[m] = Number(r[3]) || 0;
+      if (r[4] !== '' && r[4] !== undefined) finVV[m] = Number(r[4]) || 0;
     }
   }
   
@@ -1210,17 +1242,18 @@ function generateYearlyReport(wb, year, outFile) {
   var pTub = {}; var pInj = {}; var pInjA = {}; var pInjC = {};
   var pInjD = {}; var pAsmA = {}; var pAsmB = {}; var pAsmC = {};
   if (partsSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = partsSheet[i];
       if (!r) continue;
-      if (r[1] !== '' && r[1] !== undefined) pTub[i] = Number(r[1]) || 0;
-      if (r[2] !== '' && r[2] !== undefined) pInj[i] = Number(r[2]) || 0;
-      if (r[3] !== '' && r[3] !== undefined) pInjA[i] = Number(r[3]) || 0;
-      if (r[4] !== '' && r[4] !== undefined) pInjC[i] = Number(r[4]) || 0;
-      if (r[5] !== '' && r[5] !== undefined) pInjD[i] = Number(r[5]) || 0;
-      if (r[6] !== '' && r[6] !== undefined) pAsmA[i] = Number(r[6]) || 0;
-      if (r[7] !== '' && r[7] !== undefined) pAsmB[i] = Number(r[7]) || 0;
-      if (r[8] !== '' && r[8] !== undefined) pAsmC[i] = Number(r[8]) || 0;
+      var m = i - 1;
+      if (r[1] !== '' && r[1] !== undefined) pTub[m] = Number(r[1]) || 0;
+      if (r[2] !== '' && r[2] !== undefined) pInj[m] = Number(r[2]) || 0;
+      if (r[3] !== '' && r[3] !== undefined) pInjA[m] = Number(r[3]) || 0;
+      if (r[4] !== '' && r[4] !== undefined) pInjC[m] = Number(r[4]) || 0;
+      if (r[5] !== '' && r[5] !== undefined) pInjD[m] = Number(r[5]) || 0;
+      if (r[6] !== '' && r[6] !== undefined) pAsmA[m] = Number(r[6]) || 0;
+      if (r[7] !== '' && r[7] !== undefined) pAsmB[m] = Number(r[7]) || 0;
+      if (r[8] !== '' && r[8] !== undefined) pAsmC[m] = Number(r[8]) || 0;
     }
   }
   var ptSub = {};
@@ -1231,11 +1264,12 @@ function generateYearlyReport(wb, year, outFile) {
   // 出貨
   var sICU = {}; var sOth = {};
   if (shipSheet.length > 1) {
-    for (var i = 1; i <= 12; i++) {
+    for (var i = 2; i <= 13; i++) {
       var r = shipSheet[i];
       if (!r) continue;
-      if (r[1] !== '' && r[1] !== undefined) sICU[i] = Number(r[1]) || 0;
-      if (r[2] !== '' && r[2] !== undefined) sOth[i] = Number(r[2]) || 0;
+      var m = i - 1;
+      if (r[1] !== '' && r[1] !== undefined) sICU[m] = Number(r[1]) || 0;
+      if (r[2] !== '' && r[2] !== undefined) sOth[m] = Number(r[2]) || 0;
     }
   }
   

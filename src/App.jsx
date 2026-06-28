@@ -274,11 +274,9 @@ function App() {
         label: item.name,
         data: dataPoints,
         borderColor: MCK_COLORS[idx % MCK_COLORS.length],
-        backgroundColor: MCK_COLORS[idx % MCK_COLORS.length] + '15', // light transparent fill
-        borderWidth: 2.5,
-        tension: 0.1, // slightly curved lines
-        pointRadius: 4,
-        pointHoverRadius: 6,
+        backgroundColor: MCK_COLORS[idx % MCK_COLORS.length] + 'CC', // 80% opacity fill
+        borderWidth: 1,
+        borderRadius: 4, // beautiful rounded top corners
       };
     });
 
@@ -288,7 +286,7 @@ function App() {
 
     // McK style: Minimal grid, clean legend and title
     chartInstance.current = new window.Chart(ctx, {
-      type: 'line',
+      type: 'bar',
       data: {
         labels: MONTH_LABELS,
         datasets: datasets

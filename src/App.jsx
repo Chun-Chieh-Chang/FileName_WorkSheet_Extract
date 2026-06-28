@@ -315,6 +315,7 @@ function App() {
         },
         scales: {
           x: {
+            stacked: true,
             grid: {
               display: false // McKinsey style hides X vertical gridlines
             },
@@ -324,6 +325,7 @@ function App() {
             }
           },
           y: {
+            stacked: true,
             beginAtZero: true,
             grid: {
               color: '#F1F5F9' // light grey thin gridlines

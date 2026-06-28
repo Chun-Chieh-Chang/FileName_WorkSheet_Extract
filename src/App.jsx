@@ -512,6 +512,15 @@ function App() {
                       <h2 className="mck-card-title">自訂篩選分析項目</h2>
                       <div className="mck-card-subtitle">點選下方標籤以新增或移除圖表分析的統計項目</div>
                     </div>
+                    {selectedItems.length > 0 && (
+                      <button 
+                        className="btn btn-secondary"
+                        onClick={() => setSelectedItems([])}
+                        style={{ minHeight: '32px', height: '32px', padding: '0 12px', fontSize: '12px' }}
+                      >
+                        🗑 一鍵清空
+                      </button>
+                    )}
                   </div>
                   <div className="mck-pill-container">
                     {(() => {

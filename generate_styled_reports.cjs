@@ -1,5 +1,5 @@
 /**
- * Generate styled HTML reports matching report-templates/ style
+ * Generate styled HTML reports for each year's summary Excel.
  * Usage: node generate_styled_reports.cjs [year]
  *   e.g., node generate_styled_reports.cjs 2025
  *         node generate_styled_reports.cjs all

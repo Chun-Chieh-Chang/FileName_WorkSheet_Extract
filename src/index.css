@@ -432,3 +432,299 @@ body {
   font-size: 48px;
   color: var(--text-secondary);
 }
+
+/* ============================================================
+   MCKINSEY CONSULTING STYLE SYSTEM (Mck-Style)
+   ============================================================ */
+
+/* Design Tokens & Colors */
+:root {
+  --mck-navy: #002D62;
+  --mck-navy-dark: #0A192F;
+  --mck-accent-gold: #D4AF37;
+  --mck-gold-light: #FBF7EB;
+  --mck-slate: #5A6A85;
+  --mck-bg: #F4F6F9;
+  --mck-border: #E2E8F0;
+  --mck-text: #0F2042;
+  --font-serif: "Georgia", "Times New Roman", serif;
+}
+
+/* Serif Heading overrides */
+.mck-serif-title {
+  font-family: var(--font-serif);
+  color: var(--mck-navy-dark);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+/* Mode / Header Navigation Tab Toggle */
+.app-nav {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--mck-border);
+  margin-bottom: 16px;
+  padding-bottom: 2px;
+}
+
+.nav-tab {
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mck-slate);
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: var(--transition-smooth);
+}
+
+.nav-tab:hover {
+  color: var(--mck-navy);
+}
+
+.nav-tab.active {
+  color: var(--mck-navy);
+  border-bottom-color: var(--mck-navy);
+}
+
+/* McKinsey Dashboard Grid Layout */
+.mck-dashboard {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .mck-dashboard {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* McKinsey Sidebar */
+.mck-sidebar {
+  background-color: #FFFFFF;
+  border: 1px solid var(--mck-border);
+  border-radius: 6px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--shadow-sm);
+  max-height: 700px;
+  overflow-y: auto;
+}
+
+.mck-sheet-btn {
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  transition: var(--transition-smooth);
+}
+
+.mck-sheet-btn:hover {
+  background-color: var(--mck-bg);
+  color: var(--mck-navy);
+}
+
+.mck-sheet-btn.active {
+  background-color: #EBF3FC;
+  color: var(--mck-navy);
+  font-weight: 600;
+  border-left: 4px solid var(--mck-navy);
+}
+
+/* McKinsey Content Panels */
+.mck-main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.mck-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--mck-border);
+  border-radius: 6px;
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+
+.mck-card-header {
+  border-bottom: 1px solid var(--mck-border);
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mck-card-title {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--mck-navy-dark);
+}
+
+.mck-card-subtitle {
+  font-size: 13px;
+  color: var(--mck-slate);
+  margin-top: 2px;
+}
+
+/* Dynamic Item Pill Selectors */
+.mck-pill-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.mck-pill {
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--mck-border);
+  background-color: #FFFFFF;
+  color: #334155;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.mck-pill:hover {
+  border-color: var(--mck-navy);
+  color: var(--mck-navy);
+}
+
+.mck-pill.active {
+  background-color: var(--mck-navy);
+  color: #FFFFFF;
+  border-color: var(--mck-navy);
+}
+
+.mck-pill-checkbox {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+.mck-pill.active .mck-pill-checkbox::after {
+  content: "✓";
+  font-weight: bold;
+}
+
+/* KPI Summary Deck (McKinsey Style) */
+.mck-kpi-deck {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .mck-kpi-deck {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mck-kpi-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--mck-border);
+  border-radius: 6px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mck-kpi-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--mck-slate);
+}
+
+.mck-kpi-val {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--mck-navy);
+}
+
+.mck-kpi-desc {
+  font-size: 12px;
+  color: var(--mck-slate);
+}
+
+/* McKinsey Clean Data Tables */
+.mck-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--mck-border);
+  border-radius: 4px;
+}
+
+.mck-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.mck-table th {
+  background-color: var(--mck-bg);
+  color: var(--mck-navy-dark);
+  font-family: var(--font-family);
+  font-weight: 600;
+  font-size: 12px;
+  padding: 12px 14px;
+  border-bottom: 2px solid var(--mck-border);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.mck-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--mck-border);
+  color: #334155;
+  font-variant-numeric: tabular-nums;
+}
+
+.mck-table tr:hover td {
+  background-color: var(--mck-bg);
+}
+
+.mck-table tr.total-row td {
+  font-weight: 700;
+  color: var(--mck-navy-dark);
+  background-color: #F8FAFC;
+  border-top: 2px solid var(--mck-border);
+  border-bottom: 2px solid var(--mck-border);
+}
+
+/* McKinsey Chart Wrap */
+.mck-chart-container {
+  height: 350px;
+  position: relative;
+  width: 100%;
+}
+

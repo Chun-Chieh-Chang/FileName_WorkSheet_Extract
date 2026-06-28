@@ -111,3 +111,34 @@ export const exportToExcel = (data, folderName = "品管報表統計") => {
   XLSX.utils.book_append_sheet(wb, ws, safeName);
   XLSX.writeFile(wb, `${safeName}_工作表提取結果.xlsx`);
 };
+
+/**
+ * Parses the summary Excel file dynamically in the client browser.
+ * @param {File} file - The Excel file containing the summary sheets.
+ * @returns {Promise<Object>} Object mapping sheet names to 2D arrays.
+ */
+export const parseSummaryExcel = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetData = {};
+        
+        workbook.SheetNames.forEach((sheetName) => {
+          const ws = workbook.Sheets[sheetName];
+          if (ws) {
+            sheetData[sheetName] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          }
+        });
+        
+        resolve(sheetData);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsArrayBuffer(file);
+  });
+};

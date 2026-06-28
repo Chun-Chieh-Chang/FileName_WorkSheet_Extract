@@ -1,8 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getMappings, saveMappings, resetMappings } from './utils/db';
-import { parseExcelFile, exportToExcel } from './utils/excelParser';
+import { parseExcelFile, exportToExcel, parseSummaryExcel } from './utils/excelParser';
+
+const MONTH_LABELS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+
+const MCK_COLORS = [
+  '#002D62', // McKinsey Navy
+  '#D4AF37', // Consulting Gold
+  '#4A5568', // Slate Gray
+  '#0EA5E9', // Sky Blue
+  '#10B981', // Emerald Green
+  '#8B5CF6', // Royal Purple
+  '#EF4444', // Coral Red
+  '#EC4899', // Magenta Pink
+  '#F59E0B', // Warm Amber
+];
 
 function App() {
+  // Navigation State
+  const [activeTab, setActiveTab] = useState("dashboard"); // "dashboard" or "extractor"
+
+  // ==========================================
+  // STATE FOR TAB 1: McKinsey Dashboard
+  // ==========================================
+  const [summaryData, setSummaryData] = useState(null);
+  const [activeSheet, setActiveSheet] = useState("");
+  const [selectedItems, setSelectedItems] = useState([]); // Array of {name, idx}
+  const [summaryFileName, setSummaryFileName] = useState("");
+  const [dashboardInsights, setDashboardInsights] = useState({ total: 0, peakMonth: "", peakVal: 0, avg: 0 });
+
+  const chartRef = useRef(null);
+  const chartInstance = useRef(null);
+
+  // ==========================================
+  // STATE FOR TAB 2: Mappings & Extractor
+  // ==========================================
   const [mappings, setMappings] = useState({});
   const [scannedRows, setScannedRows] = useState([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -15,18 +47,31 @@ function App() {
   const folderInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Load mappings on mount
+  // Load mappings on mount & Auto-load 2025 report if available
   useEffect(() => {
     setMappings(getMappings());
+
+    fetch(import.meta.env.BASE_URL + 'DataExtract/2025品檢報表統計.xlsx')
+      .then(res => {
+        if (res.ok) return res.blob();
+        throw new Error('Not found');
+      })
+      .then(blob => {
+        const file = new File([blob], "2025品檢報表統計.xlsx");
+        handleLoadSummaryFile(file);
+      })
+      .catch(err => {
+        console.log("Auto-load of pre-generated 2025 summary Excel not available (can upload manually).");
+      });
   }, []);
 
-  // Sync mappings to localStorage when updated
+  // Update mappings helper
   const updateMappings = (newMappings) => {
     setMappings(newMappings);
     saveMappings(newMappings);
   };
 
-  // Add new QC Code mapping
+  // Sync localStorage
   const handleAddMapping = (e) => {
     e.preventDefault();
     if (!newCode || !newName) return;
@@ -41,14 +86,12 @@ function App() {
     setNewName("");
   };
 
-  // Delete mapping
   const handleDeleteMapping = (code) => {
     const updated = { ...mappings };
     delete updated[code];
     updateMappings(updated);
   };
 
-  // Reset mappings to default
   const handleResetMappings = () => {
     if (window.confirm("確定要將對照表恢復為系統預設值嗎？自訂對照將會遺失。")) {
       const reset = resetMappings();
@@ -56,7 +99,6 @@ function App() {
     }
   };
 
-  // Import mappings from JSON file
   const handleImportMappings = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -72,10 +114,9 @@ function App() {
       }
     };
     reader.readAsText(file);
-    e.target.value = null; // Clear
+    e.target.value = null;
   };
 
-  // Export mappings as JSON
   const handleExportMappings = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(mappings, null, 2));
     const downloadAnchor = document.createElement('a');
@@ -86,7 +127,7 @@ function App() {
     downloadAnchor.remove();
   };
 
-  // Process files
+  // Process folder extraction
   const processFilesList = async (files, nameOfFolder) => {
     if (files.length === 0) return;
     setIsScanning(true);
@@ -101,69 +142,273 @@ function App() {
       setIsScanning(false);
       return;
     }
-
-    const rows = [];
+    
+    const results = [];
     for (let file of excelFiles) {
-      const result = await parseExcelFile(file, mappings);
-      if (result.success) {
-        rows.push(...result.sheets);
-      } else {
-        rows.push({
-          fileName: result.fileName,
-          sheetName: "檔案無法開啟",
+      try {
+        const fileRes = await parseExcelFile(file, mappings);
+        if (fileRes.success) {
+          results.push(...fileRes.sheets);
+        } else {
+          results.push({
+            fileName: file.name,
+            sheetName: "N/A",
+            foundCode: "錯誤",
+            foundName: fileRes.error || "讀取失敗",
+            status: "error"
+          });
+        }
+      } catch (e) {
+        results.push({
+          fileName: file.name,
+          sheetName: "N/A",
           foundCode: "錯誤",
-          foundName: result.error,
+          foundName: "開啟失敗",
           status: "error"
         });
       }
     }
     
-    setScannedRows(rows);
+    setScannedRows(results);
     setIsScanning(false);
   };
 
-  // Handle Folder selection
   const handleFolderChange = (e) => {
-    const files = e.target.files;
-    if (files.length === 0) return;
+    if (e.target.files.length === 0) return;
+    const firstFile = e.target.files[0];
+    const path = firstFile.webkitRelativePath || "";
+    const folder = path.split('/')[0] || "資料夾夾檔案統計";
+    processFilesList(e.target.files, folder);
+  };
+
+  const handleFilesChange = (e) => {
+    processFilesList(e.target.files, "個別選取檔案");
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    if (e.dataTransfer.files) {
+      processFilesList(e.dataTransfer.files, "拖曳檔案統計");
+    }
+  };
+
+  // ==========================================
+  // MCKINSEY SUMMARY EXCEL PARSER HANDLERS
+  // ==========================================
+  const handleLoadSummaryFile = async (file) => {
+    try {
+      const data = await parseSummaryExcel(file);
+      setSummaryFileName(file.name);
+      setSummaryData(data);
+      
+      // Auto select first sheet (excluding 品檢地圖 if possible)
+      const sheets = Object.keys(data);
+      const initialSheet = sheets.find(s => s !== "品檢地圖") || sheets[0] || "";
+      setActiveSheet(initialSheet);
+    } catch (err) {
+      console.error(err);
+      alert("解析品檢彙總 Excel 失敗，請確保上傳的是正確的報表統計檔。");
+    }
+  };
+
+  const handleSummaryFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleLoadSummaryFile(file);
+    }
+  };
+
+  // Handle active sheet changing
+  useEffect(() => {
+    if (!summaryData || !activeSheet) return;
     
-    // Get folder name from path of first file
-    let nameOfFolder = "品管報表統計";
-    if (files[0].webkitRelativePath) {
-      nameOfFolder = files[0].webkitRelativePath.split('/')[0];
+    const rows = summaryData[activeSheet];
+    if (!rows || rows.length < 2) {
+      setSelectedItems([]);
+      return;
     }
     
-    processFilesList(files, nameOfFolder);
+    // Row 1 contains column headers
+    const headerRow = rows[1] || [];
+    
+    // Exclude columns like Month (月份), Grand Total (小計), NCA or empty spacers
+    const available = [];
+    headerRow.forEach((h, idx) => {
+      const name = String(h || '').trim();
+      if (name && name !== '月份' && name !== '小計' && name !== 'NCA') {
+        available.push({ name, idx });
+      }
+    });
+    
+    // Auto select first 3 items by default to initialize the plot beautifully
+    setSelectedItems(available.slice(0, 3));
+  }, [activeSheet, summaryData]);
+
+  // Handle plotting Chart.js
+  useEffect(() => {
+    if (!summaryData || !activeSheet || selectedItems.length === 0 || !chartRef.current) {
+      if (chartInstance.current) {
+        chartInstance.current.destroy();
+        chartInstance.current = null;
+      }
+      return;
+    }
+
+    const rows = summaryData[activeSheet];
+    const ctx = chartRef.current.getContext('2d');
+
+    // Create datasets
+    const datasets = selectedItems.map((item, idx) => {
+      // Monthly data is at rows 2 to 13 (index 2-13)
+      const dataPoints = [];
+      for (let m = 2; m <= 13; m++) {
+        const val = rows[m] ? Number(rows[m][item.idx]) || 0 : 0;
+        dataPoints.push(val);
+      }
+
+      return {
+        label: item.name,
+        data: dataPoints,
+        borderColor: MCK_COLORS[idx % MCK_COLORS.length],
+        backgroundColor: MCK_COLORS[idx % MCK_COLORS.length] + '15', // light transparent fill
+        borderWidth: 2.5,
+        tension: 0.1, // slightly curved lines
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      };
+    });
+
+    if (chartInstance.current) {
+      chartInstance.current.destroy();
+    }
+
+    // McK style: Minimal grid, clean legend and title
+    chartInstance.current = new window.Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: MONTH_LABELS,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              font: {
+                family: 'Outfit, sans-serif',
+                size: 12
+              },
+              usePointStyle: true,
+              boxWidth: 8
+            }
+          },
+          tooltip: {
+            padding: 12,
+            backgroundColor: '#0A192F',
+            titleFont: { family: 'Outfit, sans-serif', weight: 'bold' },
+            bodyFont: { family: 'Outfit, sans-serif' }
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false // McKinsey style hides X vertical gridlines
+            },
+            ticks: {
+              color: '#5A6A85',
+              font: { family: 'Outfit, sans-serif', size: 11 }
+            }
+          },
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: '#F1F5F9' // light grey thin gridlines
+            },
+            ticks: {
+              color: '#5A6A85',
+              font: { family: 'Outfit, sans-serif', size: 11 }
+            }
+          }
+        }
+      }
+    });
+
+    // Calculate executive insights
+    let totalSum = 0;
+    let peakValue = 0;
+    let peakM = "";
+    
+    // Sum month by month
+    for (let m = 0; m < 12; m++) {
+      let monthlySum = 0;
+      selectedItems.forEach(item => {
+        const val = rows[m + 2] ? Number(rows[m + 2][item.idx]) || 0 : 0;
+        monthlySum += val;
+      });
+      totalSum += monthlySum;
+      if (monthlySum > peakValue) {
+        peakValue = monthlySum;
+        peakM = MONTH_LABELS[m];
+      }
+    }
+    
+    setDashboardInsights({
+      total: totalSum,
+      peakMonth: peakM || "N/A",
+      peakVal: peakValue,
+      avg: Math.round(totalSum / 12)
+    });
+
+  }, [selectedItems, activeSheet, summaryData]);
+
+  // Toggle dynamic selection pill
+  const handleTogglePill = (item) => {
+    const isSelected = selectedItems.some(i => i.idx === item.idx);
+    if (isSelected) {
+      setSelectedItems(selectedItems.filter(i => i.idx !== item.idx));
+    } else {
+      setSelectedItems([...selectedItems, item]);
+    }
   };
 
-  // Handle individual files selection
-  const handleFileChange = (e) => {
-    const files = e.target.files;
-    processFilesList(files, "已選取檔案");
+  // Render Table content for Dashboard
+  const getDashboardTableData = () => {
+    if (!summaryData || !activeSheet || selectedItems.length === 0) return { columns: [], rows: [] };
+    const rows = summaryData[activeSheet];
+    
+    const columns = ["月份", ...selectedItems.map(i => i.name)];
+    const tableRows = [];
+    
+    // Monthly rows (indices 2 to 13)
+    for (let m = 2; m <= 13; m++) {
+      const monthRow = rows[m];
+      const rowArr = [monthRow ? monthRow[0] : `${m-1}月`];
+      selectedItems.forEach(item => {
+        rowArr.push(monthRow ? Number(monthRow[item.idx]) || 0 : 0);
+      });
+      tableRows.push(rowArr);
+    }
+
+    // Totals row (Row 14)
+    const totalsRow = rows[14];
+    const totalArr = ["小計"];
+    selectedItems.forEach(item => {
+      totalArr.push(totalsRow ? Number(totalsRow[item.idx]) || 0 : 0);
+    });
+    tableRows.push(totalArr);
+
+    return { columns, rows: tableRows };
   };
 
-  // Clear Scan results
-  const handleClearResults = () => {
-    setScannedRows([]);
-    setFolderName("");
-  };
+  const { columns: dbCols, rows: dbRows } = getDashboardTableData();
 
-  // Export extraction table to Excel
-  const handleExportTable = () => {
-    if (scannedRows.length === 0) return;
-    exportToExcel(scannedRows, folderName);
-  };
-
-  // Statistics calculation
-  const totalFiles = Array.from(new Set(scannedRows.map(r => r.fileName))).length;
-  const totalSheets = scannedRows.length;
-  const matchedCount = scannedRows.filter(r => r.status === "matched").length;
-  const unmatchedCount = scannedRows.filter(r => r.status === "unmatched").length;
-  const noneCount = scannedRows.filter(r => r.status === "none").length;
-  const errorCount = scannedRows.filter(r => r.status === "error").length;
-  const matchRate = totalSheets > 0 ? ((matchedCount / totalSheets) * 100).toFixed(1) : "0.0";
-
-  // Filter and Search rows
+  // Search/Filters for Tab 2
   const filteredRows = scannedRows.filter(row => {
     const matchesSearch = 
       row.fileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -177,184 +422,371 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Header */}
+      {/* App Header */}
       <header className="app-header">
         <div className="app-title-group">
-          <h1>📊 品管報表統計與提取工具</h1>
-          <p>自動掃描 Excel 檔案，分析工作表並智能提取 QC 表單編碼與名稱</p>
+          <h1 className="mck-serif-title">Mouldex 品管報表統計系統</h1>
+          <p>Mouldex QC Record Extraction & Dynamic McKinsey Dashboard</p>
         </div>
-        <span className="badge-version">v2.0 Web Edition</span>
+        <span className="badge-version">v2026.06.28</span>
       </header>
 
-      {/* Main Content Dashboard */}
-      <div className="main-grid">
-        
-        {/* Left Side: Controls & Mapping Editor */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          {/* File loader Card */}
-          <section className="panel-card">
-            <h2 className="card-title">📁 選擇數據源</h2>
-            <div className="upload-zone" onClick={() => folderInputRef.current?.click()}>
-              <span className="upload-icon">📂</span>
-              <p style={{ fontWeight: 500 }}>點擊此處選擇整包「品管資料夾」</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>支援自動讀取子資料夾內的所有 Excel 檔案</p>
-              <input 
-                type="file" 
-                ref={folderInputRef}
-                style={{ display: 'none' }}
-                webkitdirectory="" 
-                directory="" 
-                multiple
-                onChange={handleFolderChange}
-              />
-            </div>
-            
-            <div style={{ margin: '16px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>—— 或 ——</div>
-            
-            <div className="upload-zone" style={{ padding: '24px 16px' }} onClick={() => fileInputRef.current?.click()}>
-              <span className="upload-icon" style={{ fontSize: '24px' }}>📄</span>
-              <p style={{ fontWeight: 500, fontSize: '13px' }}>點擊選取多個 Excel 檔案</p>
-              <input 
-                type="file" 
-                ref={fileInputRef}
-                style={{ display: 'none' }}
-                multiple
-                accept=".xlsx,.xls,.xlsm"
-                onChange={handleFileChange}
-              />
-            </div>
-          </section>
+      {/* Main Tab Mode Toggle */}
+      <nav className="app-nav">
+        <button 
+          className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          📊 McKinsey 品檢分析儀表板
+        </button>
+        <button 
+          className={`nav-tab ${activeTab === 'extractor' ? 'active' : ''}`}
+          onClick={() => setActiveTab('extractor')}
+        >
+          ⚙️ 品檢編碼對照與提取工具
+        </button>
+      </nav>
 
-          {/* Mapping Editor Card */}
-          <section className="panel-card">
-            <h2 className="card-title">⚙️ QC 表單名稱對照表</h2>
-            
-            <div className="mapping-list">
-              {Object.keys(mappings).map(code => (
-                <div className="mapping-item" key={code}>
-                  <span className="mapping-input mapping-code">{code}</span>
-                  <input 
-                    type="text" 
-                    className="mapping-input mapping-name" 
-                    value={mappings[code]} 
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      updateMappings({ ...mappings, [code]: val });
-                    }}
-                  />
-                  <button 
-                    className="btn btn-secondary btn-icon" 
-                    onClick={() => handleDeleteMapping(code)}
-                    title="刪除此對照"
-                  >
-                    🗑️
-                  </button>
+      {/* Tab 1: McKinsey Dashboard */}
+      {activeTab === 'dashboard' && (
+        <div className="mck-main-content">
+          {/* Uploader Card */}
+          <div className="mck-card" style={{ backgroundColor: '#F8FAFC' }}>
+            <div className="mck-card-header" style={{ marginBottom: '12px' }}>
+              <div>
+                <h2 className="mck-card-title">匯入年度報表統計檔</h2>
+                <div className="mck-card-subtitle">請上傳由 ETL Pipeline 產出的 2025/2026 品檢報表統計.xlsx 檔案</div>
+              </div>
+              {summaryFileName && (
+                <div style={{ fontSize: '13px', color: 'var(--color-success)', fontWeight: '600' }}>
+                  ✓ 已載入: {summaryFileName}
                 </div>
-              ))}
-              {Object.keys(mappings).length === 0 && (
-                <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '16px 0' }}>目前無對照項目</div>
               )}
             </div>
-
-            {/* Add New Mapping Form */}
-            <form onSubmit={handleAddMapping} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input 
-                  type="text" 
-                  placeholder="QC10001-R01" 
-                  className="mapping-input" 
-                  style={{ width: '130px' }}
-                  value={newCode}
-                  onChange={(e) => setNewCode(e.target.value)}
-                  required
-                />
-                <input 
-                  type="text" 
-                  placeholder="表單中文名稱" 
-                  className="mapping-input" 
-                  style={{ flex: 1 }}
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  required
-                />
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>➕ 新增對照項目</button>
-            </form>
-
-            {/* Mapping Backup Controls */}
-            <div className="upload-btn-group" style={{ marginTop: '12px' }}>
-              <button className="btn btn-secondary" style={{ flex: 1, minHeight: '38px' }} onClick={handleExportMappings}>📤 備份</button>
-              <button className="btn btn-secondary" style={{ flex: 1, minHeight: '38px', position: 'relative' }} onClick={() => document.getElementById('mappings-import-input').click()}>
-                📥 還原
-                <input 
-                  id="mappings-import-input"
-                  type="file" 
-                  style={{ display: 'none' }}
-                  accept=".json"
-                  onChange={handleImportMappings}
-                />
-              </button>
-              <button className="btn btn-danger btn-icon" style={{ minHeight: '38px', width: '38px' }} onClick={handleResetMappings} title="恢復系統預設">🔄</button>
-            </div>
-          </section>
-
-        </div>
-
-        {/* Right Side: Dashboard Stats & Results Table */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          
-          {/* Dashboard Stats */}
-          <div className="dashboard-row">
-            <div className="widget-card">
-              <div className="widget-icon" style={{ backgroundColor: '#E0F2FE', color: '#0284C7' }}>📁</div>
-              <div className="widget-info">
-                <span className="widget-label">總掃描檔案</span>
-                <span className="widget-val">{totalFiles} 個</span>
-              </div>
-            </div>
-            <div className="widget-card">
-              <div className="widget-icon" style={{ backgroundColor: '#F3E8FF', color: '#7C3AED' }}>📄</div>
-              <div className="widget-info">
-                <span className="widget-label">總工作表</span>
-                <span className="widget-val">{totalSheets} 個</span>
-              </div>
-            </div>
-            <div className="widget-card">
-              <div className="widget-icon" style={{ backgroundColor: 'var(--color-success-bg)', color: 'var(--color-success)' }}>✅</div>
-              <div className="widget-info">
-                <span className="widget-label">成功識別表單</span>
-                <span className="widget-val">{matchedCount} 個</span>
-              </div>
-            </div>
-            <div className="widget-card">
-              <div className="widget-icon" style={{ backgroundColor: '#FEF3C7', color: '#D97706' }}>📊</div>
-              <div className="widget-info">
-                <span className="widget-label">識別覆蓋率</span>
-                <span className="widget-val">{matchRate} %</span>
-              </div>
+            
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              <input 
+                type="file" 
+                accept=".xlsx" 
+                onChange={handleSummaryFileChange} 
+                id="summary-file-input" 
+                style={{ display: 'none' }}
+              />
+              <label 
+                htmlFor="summary-file-input" 
+                className="btn btn-primary"
+                style={{ minHeight: '40px', padding: '8px 16px', fontSize: '13px' }}
+              >
+                📁 選擇報表檔案...
+              </label>
+              <span style={{ fontSize: '13px', color: 'var(--mck-slate)' }}>
+                或在本地執行 <code>node etl_pipeline.cjs all</code> 產出後，拖入檔案進行互動解讀。
+              </span>
             </div>
           </div>
 
-          {/* Results Table Section */}
-          <section className="panel-card" style={{ flex: 1 }}>
-            
-            {/* Table Control Bar */}
-            <div className="table-controls">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 600 }}>
-                  {folderName ? `📂 目前統計來源：${folderName}` : "📋 提取結果列表"}
-                </h3>
-                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  共找到 {filteredRows.length} 筆項目 {statusFilter !== 'all' && `(篩選: ${statusFilter})`}
-                </span>
+          {summaryData ? (
+            <div className="mck-dashboard">
+              {/* Sidebar Tabs */}
+              <aside className="mck-sidebar">
+                <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--mck-slate)', padding: '0 8px 8px 8px', borderBottom: '1px solid var(--mck-border)' }}>
+                  品檢報表工作表
+                </div>
+                {Object.keys(summaryData).map((sheetName) => (
+                  <button
+                    key={sheetName}
+                    className={`mck-sheet-btn ${activeSheet === sheetName ? 'active' : ''}`}
+                    onClick={() => setActiveSheet(sheetName)}
+                  >
+                    📝 {sheetName}
+                  </button>
+                ))}
+              </aside>
+
+              {/* Main Analysis Panels */}
+              <div className="mck-main-content">
+                {/* Checkbox pills */}
+                <div className="mck-card">
+                  <div className="mck-card-header">
+                    <div>
+                      <h2 className="mck-card-title">自訂篩選分析項目</h2>
+                      <div className="mck-card-subtitle">點選下方標籤以新增或移除圖表分析的統計項目</div>
+                    </div>
+                  </div>
+                  <div className="mck-pill-container">
+                    {(() => {
+                      const rows = summaryData[activeSheet];
+                      if (!rows || rows.length < 2) return <p style={{ fontSize: '13px', color: 'var(--mck-slate)' }}>該工作表無有效數據欄位</p>;
+                      const headerRow = rows[1] || [];
+                      const items = [];
+                      headerRow.forEach((h, idx) => {
+                        const name = String(h || '').trim();
+                        if (name && name !== '月份' && name !== '小計' && name !== 'NCA') {
+                          items.push({ name, idx });
+                        }
+                      });
+                      return items.map((item) => {
+                        const active = selectedItems.some(i => i.idx === item.idx);
+                        return (
+                          <div 
+                            key={item.idx} 
+                            className={`mck-pill ${active ? 'active' : ''}`}
+                            onClick={() => handleTogglePill(item)}
+                          >
+                            <span className="mck-pill-checkbox"></span>
+                            {item.name}
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+
+                {/* Plot Panel */}
+                <div className="mck-card">
+                  <div className="mck-card-header">
+                    <div>
+                      <h2 className="mck-card-title">{activeSheet} 數據趨勢</h2>
+                      <div className="mck-card-subtitle">以月份為 X 軸，數量為 Y 軸呈現趨勢</div>
+                    </div>
+                  </div>
+                  {selectedItems.length > 0 ? (
+                    <div className="mck-chart-container">
+                      <canvas ref={chartRef}></canvas>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '64px 0', color: 'var(--mck-slate)' }}>
+                      ⚠️ 請在上方選擇至少一個分析項目以繪製圖表。
+                    </div>
+                  )}
+                </div>
+
+                {/* Executive Insights Deck */}
+                {selectedItems.length > 0 && (
+                  <div className="mck-kpi-deck">
+                    <div className="mck-kpi-card">
+                      <div className="mck-kpi-label">篩選項目總筆數</div>
+                      <div className="mck-kpi-val">{dashboardInsights.total.toLocaleString()}</div>
+                      <div className="mck-kpi-desc">已選取子項累計</div>
+                    </div>
+                    <div className="mck-kpi-card">
+                      <div className="mck-kpi-label">月均量</div>
+                      <div className="mck-kpi-val">{dashboardInsights.avg.toLocaleString()}</div>
+                      <div className="mck-kpi-desc">月平均品檢次數</div>
+                    </div>
+                    <div className="mck-kpi-card">
+                      <div className="mck-kpi-label">高峰月份</div>
+                      <div className="mck-kpi-val">{dashboardInsights.peakVal.toLocaleString()}</div>
+                      <div className="mck-kpi-desc">最高峰出現在 {dashboardInsights.peakMonth}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Data Table Card */}
+                {selectedItems.length > 0 && dbRows.length > 0 && (
+                  <div className="mck-card">
+                    <div className="mck-card-header">
+                      <h2 className="mck-card-title">數據明細報表</h2>
+                    </div>
+                    <div className="mck-table-wrapper">
+                      <table className="mck-table">
+                        <thead>
+                          <tr>
+                            {dbCols.map((col, idx) => (
+                              <th key={idx} style={{ textAlign: idx === 0 ? 'left' : 'right' }}>{col}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dbRows.map((row, rIdx) => {
+                            const isTotal = row[0] === '小計';
+                            return (
+                              <tr key={rIdx} className={isTotal ? 'total-row' : ''}>
+                                <td style={{ fontWeight: isTotal ? '700' : 'normal' }}>{row[0]}</td>
+                                {row.slice(1).map((val, cIdx) => (
+                                  <td key={cIdx} style={{ textAlign: 'right' }}>
+                                    {val.toLocaleString()}
+                                  </td>
+                                ))}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
               </div>
+            </div>
+          ) : (
+            <div className="panel-card" style={{ padding: '64px', textAlign: 'center' }}>
+              <span style={{ fontSize: '48px' }}>📂</span>
+              <h3 style={{ margin: '16px 0 8px 0', fontSize: '18px', fontWeight: '600' }}>尚未載入品檢統計報表</h3>
+              <p style={{ color: 'var(--mck-slate)', maxWidth: '500px', margin: '0 auto 24px auto', fontSize: '14px' }}>
+                請點擊上方按鈕，載入生成的 <code>2025品檢報表統計.xlsx</code>。載入後，系統將依麥肯錫風格為您呈現自訂動態製圖與數據分析。
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 2: Original Extraction & Mappings Extractor */}
+      {activeTab === 'extractor' && (
+        <div className="main-grid">
+          {/* Left Panel: Files Scanning controls */}
+          <aside className="mck-main-content">
+            {/* Folder scanner card */}
+            <section className="panel-card">
+              <h2 className="card-title">📁 品管檔案夾掃描</h2>
               
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <div 
+                className="upload-zone"
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+              >
+                <div className="upload-icon">📥</div>
+                <p style={{ fontWeight: 500 }}>拖曳檔案或資料夾至此</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>支援批次讀取多個 Excel 檔案</p>
+                
+                <div className="upload-btn-group">
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ flex: 1 }}
+                    onClick={() => folderInputRef.current.click()}
+                  >
+                    選取資料夾
+                  </button>
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ flex: 1 }}
+                    onClick={() => fileInputRef.current.click()}
+                  >
+                    選擇多檔案
+                  </button>
+                </div>
+
+                <input 
+                  type="file" 
+                  ref={folderInputRef} 
+                  webkitdirectory="true" 
+                  directory="true" 
+                  multiple 
+                  onChange={handleFolderChange} 
+                  style={{ display: 'none' }} 
+                />
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  multiple 
+                  onChange={handleFilesChange} 
+                  style={{ display: 'none' }} 
+                />
+              </div>
+
+              {scannedRows.length > 0 && (
+                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    已加載: <strong>{folderName}</strong>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ flex: 1, minHeight: '36px' }}
+                      onClick={() => exportToExcel(scannedRows, folderName)}
+                    >
+                      💾 匯出 Excel
+                    </button>
+                    <button 
+                      className="btn btn-danger btn-icon" 
+                      onClick={() => setScannedRows([])}
+                      title="清除結果"
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* Mappings Editor */}
+            <section className="panel-card">
+              <h2 className="card-title">⚙️ 表單編碼與名稱對照表</h2>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <button className="btn btn-secondary" style={{ fontSize: '12px', minHeight: '32px', padding: '4px 8px' }} onClick={handleExportMappings}>
+                  📤 匯出 JSON
+                </button>
+                <label className="btn btn-secondary" style={{ fontSize: '12px', minHeight: '32px', padding: '4px 8px', cursor: 'pointer' }}>
+                  📥 匯入 JSON
+                  <input type="file" accept=".json" onChange={handleImportMappings} style={{ display: 'none' }} />
+                </label>
+                <button className="btn btn-danger" style={{ fontSize: '12px', minHeight: '32px', padding: '4px 8px' }} onClick={handleResetMappings}>
+                  🔄 恢復預設
+                </button>
+              </div>
+
+              <div className="mapping-list">
+                {Object.keys(mappings).map((code) => (
+                  <div key={code} className="mapping-item">
+                    <span className="mapping-input mapping-code">{code}</span>
+                    <input 
+                      type="text" 
+                      className="mapping-input mapping-name" 
+                      value={mappings[code]} 
+                      onChange={(e) => {
+                        const updated = { ...mappings, [code]: e.target.value };
+                        updateMappings(updated);
+                      }} 
+                    />
+                    <button 
+                      className="btn btn-danger" 
+                      style={{ minHeight: '32px', width: '32px', padding: 0 }}
+                      onClick={() => handleDeleteMapping(code)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <form onSubmit={handleAddMapping} style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>新增對照關係：</div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input 
+                    type="text" 
+                    className="mapping-input" 
+                    placeholder="QC10006-R02" 
+                    value={newCode} 
+                    onChange={(e) => setNewCode(e.target.value)} 
+                    style={{ width: '120px' }}
+                  />
+                  <input 
+                    type="text" 
+                    className="mapping-input" 
+                    placeholder="對應表單名稱" 
+                    value={newName} 
+                    onChange={(e) => setNewName(e.target.value)} 
+                    style={{ flex: 1 }}
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', minHeight: '36px' }}>
+                  ＋ 新增至對照表
+                </button>
+              </form>
+            </section>
+          </aside>
+
+          {/* Right Panel: Result data table */}
+          <section className="panel-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '500px' }}>
+            <div className="table-controls">
+              <h2 className="card-title" style={{ margin: 0 }}>📊 工作表表單編碼提取結果</h2>
+              
+              <div className="filter-group">
                 <input 
                   type="text" 
-                  placeholder="搜尋檔案、工作表或表單編碼..." 
-                  className="search-input"
+                  className="search-input" 
+                  placeholder="搜尋結果..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -364,43 +796,22 @@ function App() {
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                 >
-                  <option value="all">🔍 顯示所有狀態</option>
-                  <option value="matched">🟢 成功識別對照</option>
-                  <option value="unmatched">🟡 偵測編碼但無對照</option>
-                  <option value="none">⚪ 無 QC 表單編碼</option>
-                  <option value="error">🔴 檔案讀取失敗</option>
+                  <option value="all">所有狀態</option>
+                  <option value="matched">成功識別</option>
+                  <option value="unmatched">缺對照</option>
+                  <option value="none">無編碼</option>
+                  <option value="error">讀取錯誤</option>
                 </select>
-                
-                {scannedRows.length > 0 && (
-                  <>
-                    <button className="btn btn-primary" onClick={handleExportTable}>⬇️ 導出統計 Excel</button>
-                    <button className="btn btn-secondary" onClick={handleClearResults}>🗑️ 清除</button>
-                  </>
-                )}
               </div>
             </div>
 
-            {/* Table Display */}
             {isScanning ? (
-              <div className="empty-state">
-                <div style={{
-                  border: '4px solid #E5E7EB',
-                  borderTop: '4px solid var(--accent-brand)',
-                  borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
-                  animation: 'spin 1s linear infinite'
-                }} />
-                <style>{`
-                  @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                  }
-                `}</style>
+              <div className="empty-state" style={{ padding: '128px 0' }}>
+                <div className="upload-icon" style={{ animation: 'spin 2s linear infinite' }}>🔄</div>
                 <p style={{ fontWeight: 500 }}>正在解析 Excel 報表，請稍候...</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>這通常只需要幾秒鐘，依檔案大小及數量而定</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>這通常只需要幾秒鐘，依檔案數量及大小與定</p>
               </div>
-            ) : scannedRows.length > 0 ? (
+            ) : filteredRows.length > 0 ? (
               <div className="table-wrapper">
                 <table className="data-table">
                   <thead>
@@ -437,37 +848,27 @@ function App() {
                         </td>
                       </tr>
                     ))}
-                    {filteredRows.length === 0 && (
-                      <tr>
-                        <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
-                          找不到符合搜尋或篩選條件的報表項目
-                        </td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className="empty-state">
+              <div className="empty-state" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
                 <span className="empty-icon">📈</span>
                 <h3>暫無統計資料</h3>
-                <p>請由左側拖入或選擇品管 Excel 檔案，即可在此處展開統計分析與結果提取</p>
+                <p>請由左側批次選取或拖入 Excel 檔案，即可在此處展開提取與編碼比對結果。</p>
               </div>
             )}
-
           </section>
-
         </div>
-
-      </div>
+      )}
 
       {/* Footer */}
       <footer style={{
         marginTop: '24px',
         paddingTop: '16px',
-        borderTop: '1px solid var(--color-border)',
+        borderTop: '1px solid var(--mck-border)',
         textAlign: 'center',
-        color: 'var(--text-secondary)',
+        color: 'var(--mck-slate)',
         fontSize: '13px'
       }}>
         Developed by Wesley Chang @Mouldex, 2026.

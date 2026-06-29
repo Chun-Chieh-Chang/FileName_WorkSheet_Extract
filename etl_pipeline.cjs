@@ -173,7 +173,77 @@ function determineQCFromSheet(json, initialQC, relPath) {
   return initialQC;
 }
 
-function findDateInSheet(json) {
+function findDateInSheet(ws, actualQC) {
+  if (!ws) return null;
+
+  function parseDateFromString(str) {
+    if (!str) return null;
+    str = String(str).trim();
+    var m = str.match(/\b(20\d{2})[-/](\d{1,2})[-/]\d{1,2}\b/);
+    if (m) return { year: parseInt(m[1], 10), month: parseInt(m[2], 10) };
+    
+    var m2 = str.match(/\b(\d{2})[-/](\d{1,2})[-/]\d{1,2}\b/);
+    if (m2) return { year: 2000 + parseInt(m2[1], 10), month: parseInt(m2[2], 10) };
+    
+    var m3 = str.match(/\b(\d{2})(\d{2})(\d{2})[A-Za-z]?\b/);
+    if (m3) {
+      var mm = parseInt(m3[2], 10);
+      if (mm >= 1 && mm <= 12) return { year: 2000 + parseInt(m3[1], 10), month: mm };
+    }
+    return null;
+  }
+
+  function parseDateFromValue(val, formatted) {
+    if (typeof val === 'number' && val >= 40000 && val <= 50000) {
+      var date = new Date(Math.round((val - 25569) * 86400 * 1000));
+      if (!isNaN(date.getTime())) {
+        return { year: date.getFullYear(), month: date.getMonth() + 1 };
+      }
+    }
+    return parseDateFromString(formatted || val);
+  }
+
+  function getCellValAndFormatted(addr) {
+    var cell = ws[addr];
+    if (!cell) return { val: null, formatted: null };
+    return { val: cell.v, formatted: cell.w || '' };
+  }
+
+  var cellInfo;
+  var dateInfo = null;
+
+  switch (actualQC) {
+    case 'QC10002-R02': // 原物料進料品檢
+      cellInfo = getCellValAndFormatted('N4');
+      dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
+      if (!dateInfo) {
+        cellInfo = getCellValAndFormatted('O4');
+        dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
+      }
+      break;
+    case 'QC10004-R02': // QIP 尺寸檢驗 (製程)
+      cellInfo = getCellValAndFormatted('Q4');
+      dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
+      break;
+    case 'QC10006-R02': // 半成品品檢表
+    case 'QC10007-R01': // 完成品品檢表
+      cellInfo = getCellValAndFormatted('N5');
+      dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
+      break;
+    case 'QC10007-R03': // 零組件入庫品檢表
+      cellInfo = getCellValAndFormatted('O4');
+      dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
+      break;
+    case 'QC10008-R02': // 出貨檢驗報告
+      cellInfo = getCellValAndFormatted('R6');
+      dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
+      break;
+  }
+
+  return dateInfo;
+}
+
+function findDateInSheetFallback(json) {
   var limit = Math.min(10, json.length);
   for (var r = 0; r < limit; r++) {
     var row = json[r];
@@ -189,12 +259,28 @@ function findDateInSheet(json) {
   return null;
 }
 
-function extractRawMonth(fileName, sheetName, year, relPath, json) {
+function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC) {
+  // Priority 1: Specific cell inspection by QC Code
+  var dateInfo = findDateInSheet(ws, actualQC);
+  if (dateInfo) {
+    // Cross-year holiday correction:
+    // If the cell year is next year (year + 1) and month is January (1),
+    // but it is in the year folder, it belongs to December of year.
+    if (dateInfo.year === year + 1 && dateInfo.month === 1) {
+      return 12;
+    }
+    // Only accept date if the year matches the folder year (or was corrected above)
+    // to prevent template date typos (e.g. 2015) from overriding.
+    if (dateInfo.year === year) {
+      return dateInfo.month;
+    }
+  }
+
+  // Priority 2: Standard regex fallbacks
   var y = String(year);
   var n, mn;
 
   // Strategy 1: YYYY-MM or YYYY_MM before .xlsx at end of filename
-  // e.g., "原料-2025-01.xlsx", "2025-01.xlsx", "2025_01.xlsx"
   n = fileName.match(/(\d{4})[-_](\d{1,2})\.xlsx$/i);
   if (n) {
     var yr = parseInt(n[1], 10);
@@ -205,7 +291,6 @@ function extractRawMonth(fileName, sheetName, year, relPath, json) {
   }
 
   // Strategy 2: YYYYMMDD in filename (consecutive 8 digits)
-  // e.g., "BD-20250107.xlsx", "Biometrix-20250107.xlsx"
   n = fileName.match(/(\d{4})(\d{2})\d{2}(?=[^\/\\]*\.xlsx)/i);
   if (n) {
     var yr = parseInt(n[1], 10);
@@ -216,7 +301,6 @@ function extractRawMonth(fileName, sheetName, year, relPath, json) {
   }
 
   // Strategy 3: YYMMDD in filename (6 consecutive digits, any year)
-  // e.g., "ICU-250102.xlsx", "其他-250103.xlsx", "射出-250102.xlsx"
   n = fileName.match(/(\d{2})(\d{2})\d{2}(?=[^\/\\]*\.xlsx)/);
   if (n) {
     mn = parseInt(n[2], 10);
@@ -224,7 +308,6 @@ function extractRawMonth(fileName, sheetName, year, relPath, json) {
   }
 
   // Strategy 3b: YYMM in filename (4 digits, YY matches year suffix)
-  // e.g., "Tubing-2501.xlsx" → month 1
   n = fileName.match(/(?:^|[^\d])(\d{2})(\d{2})\.xlsx$/i);
   if (n && n[1] === String(year).slice(-2)) {
     mn = parseInt(n[2], 10);
@@ -232,15 +315,13 @@ function extractRawMonth(fileName, sheetName, year, relPath, json) {
   }
 
   // Strategy 4: Filename ends with simple -MM or _MM suffix
-  // e.g., 標籤 files like "2025-02.xlsx" would be caught by strategy 1 already
   n = fileName.match(/[-_](\d{1,2})\.xlsx$/i);
   if (n) {
     mn = parseInt(n[1], 10);
     if (mn >= 1 && mn <= 12) return mn;
   }
 
-  // Strategy 5: Sheet name has YYMMDD pattern (6 consecutive digits, any year)
-  // e.g., "PE004 250106" → 250106, "250106", "RM066 250206"
+  // Strategy 5: Sheet name has YYMMDD pattern
   n = sheetName.match(/(\d{2})(\d{2})\d{2}/);
   if (n) {
     mn = parseInt(n[2], 10);
@@ -268,9 +349,9 @@ function extractRawMonth(fileName, sheetName, year, relPath, json) {
     }
   }
 
-  // Strategy 8: Scan sheet content for date patterns
+  // Strategy 8: Scan sheet content for date patterns (Fallback)
   if (json) {
-    mn = findDateInSheet(json);
+    mn = findDateInSheetFallback(json);
     if (mn) return mn;
   }
 
@@ -397,6 +478,7 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
     if (sheetName.indexOf('Sheet1') === 0) return;
     if (sheetName.indexOf('.K(') >= 0) return; // skip control plan templates
     if (sheetName.indexOf('範例樣本') >= 0) return; // skip sample sheets
+    if (/^QC[-_]?\d+/i.test(sheetName.trim())) return; // skip template sheets named after QC form codes (e.g. QC-009)
 
     var ws = wb.Sheets[sheetName];
     var json;
@@ -427,8 +509,11 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
     if (!subCat) return;
 
     // Extract month
-    var month = extractRawMonth(fileName, sheetName, year, relPath, json);
-    if (!month || month < 1 || month > 12) month = 1; // default to Jan to preserve data
+    var month = extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC);
+    if (!month || month < 1 || month > 12) {
+      // Skip worksheets that have no date (blank templates or drafts)
+      return;
+    }
 
     // Increment count
     if (!counts[actualQC]) counts[actualQC] = {};

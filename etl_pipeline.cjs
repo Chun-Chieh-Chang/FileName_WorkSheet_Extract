@@ -526,6 +526,19 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
       if (relPath && relPath.indexOf('射出D') >= 0 && relPath.indexOf('射出D(組件)') < 0) {
         actualQC = 'QC10002-R02';
       }
+
+      // Blank template guard for QC10007-R03 (零組件入庫品檢):
+      // The 批號 (lot number) is at cell G4 (json row index 3, col index 6).
+      // Blank pre-formatted template sheets have 批號 = 0 or empty. Skip them.
+      if (actualQC === 'QC10007-R03' && json && json.length > 3) {
+        var _lotRow = json[3];
+        var _lotVal = (_lotRow && _lotRow.length > 6) ? _lotRow[6] : '';
+        var _lotIsBlank = (_lotVal === '' || _lotVal === null || _lotVal === undefined ||
+                          _lotVal === 0 || String(_lotVal).trim() === '' || String(_lotVal).trim() === '0');
+        if (_lotIsBlank) {
+          return; // Skip blank template worksheet (no valid lot number)
+        }
+      }
     }
 
     // Special override for 半成品品檢表-20XX.xlsx files:

@@ -561,3 +561,60 @@
 4. **確效驗證**：
    - 本地編譯驗證 `npm run build` 通過。
    - 透過瀏覽器 subagent 自動點擊、載入及檢查，Console 日誌保持 100% 零錯誤，字型與毛玻璃層次效果完美呈現。
+
+---
+
+## 2026-06-30 修正 2026 年 7-12 月幻象數據問題
+
+### 需求說明
+使用者發現 2026 年品檢報表統計中，7-12 月出現數值，顯然不合理（目前僅 6 月底），要求排查原因並修正數據提取邏輯。
+
+### 根因分析 (RCA) — 系統性診斷
+
+執行 `node etl_pipeline.cjs 2026` 後，讀取 `DataExtract/2026品檢報表統計.xlsx`，逐工作表比對月份7-12是否有非零數值。結果如下：
+
+| 工作表 | 異常月份 | 欄位 | 數值 | 根因 |
+|--------|----------|------|------|------|
+| `零組件入庫品檢(QC10007-R03)` | 7, 8, 9, 10, 11, 12 | 裝配C | 各2筆 | **空白樣板檔被誤計** |
+| `半成品品檢(QC10006-R02)` | 7 | Vivus | 4 | 真實資料：`Vivus-20260703.xlsx`（7/3 客戶批次） |
+| `完成品品檢(QC10007-R01 R02)` | 7 | Vivus | 4 | 同上 |
+| `出貨檢驗(QC10008-R02)` | 9 | ICU | 1 | 真實資料：`ICU-260904.xlsx`（9/4 預排出貨） |
+
+### 空白樣板檔詳細分析
+
+`RawData/2026/零組件入庫-2026/裝配C-2026/` 目錄下預建了整年的月份樣板：
+
+- `裝配C-2026A.xlsx` ~ `裝配C-2026F.xlsx`：**真實資料**（批號有正常批次號碼如 `PJW26E02`）
+- `裝配C-2026G.xlsx` ~ `裝配C-2026L.xlsx`（G=7月, H=8月...L=12月）：**空白樣板**（`批號` 儲存格值為 `0`，無真實品名、批次資料）
+
+原本的 `hasContent` 檢查無法辨識此類空白樣板，因為樣板本身的表單標題、欄位說明列仍有文字填充，導致通過了非空白判斷，被誤計為有效記錄。
+
+### 矯正與預防措施 (CAPA)
+
+**精準修正**：在 [etl_pipeline.cjs](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/etl_pipeline.cjs) 的 `processRawDataFile` 函數中，於 `QC10007-R03` 覆寫邏輯區塊內新增「空白樣板守衛」：
+
+```javascript
+// Blank template guard for QC10007-R03:
+// 批號 is at cell G4 (json row index 3, col index 6).
+// Blank template sheets have 批號 = 0 or empty string.
+if (actualQC === 'QC10007-R03' && json && json.length > 3) {
+  var _lotRow = json[3];
+  var _lotVal = (_lotRow && _lotRow.length > 6) ? _lotRow[6] : '';
+  var _lotIsBlank = (_lotVal === '' || _lotVal === null || _lotVal === undefined ||
+                    _lotVal === 0 || ...);
+  if (_lotIsBlank) { return; } // Skip blank template
+}
+```
+
+**副作用防禦掃描**：此修正僅作用於 `initialQC === 'QC10007-R03'` 的分支，不影響其他 QC 類型的處理邏輯。
+
+### 真實未來數據決策（使用者確認保留）
+- **Vivus-20260703.xlsx**：7 月 3 日客戶交來的真實批次檢驗資料，保留。
+- **ICU-260904.xlsx**：9 月 4 日預排出貨的完整出貨檢驗報告，`R6` 儲存格為真實日期 `2026-09-04`，含真實批號 `IC260459`，保留。
+
+### 確效結果
+重新執行 `node etl_pipeline.cjs 2026` 後確認：
+- `零組件入庫品檢(QC10007-R03)` 月份 7-12 全數清零 ✅
+- `裝配C` 全年合計從原本的 `76 + 12（樣板）= 88` 修正為 `76` 條真實記錄 ✅
+- 2026 Grand Total 從 `4421` → `4394` 筆（剔除 12 筆幻象記錄）✅
+

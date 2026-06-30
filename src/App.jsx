@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getMappings, saveMappings, resetMappings } from './utils/db';
 import { parseExcelFile, exportToExcel, parseSummaryExcel } from './utils/excelParser';
+import { runETLInBrowser, exportSummaryExcelInBrowser } from './utils/browserETL';
 
 const MONTH_LABELS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
 
@@ -45,6 +46,9 @@ function App() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [etlProgress, setEtlProgress] = useState(null);
+  const [isProcessingETL, setIsProcessingETL] = useState(false);
 
   const folderInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -149,6 +153,7 @@ function App() {
   // Process folder extraction
   const processFilesList = async (files, nameOfFolder) => {
     if (files.length === 0) return;
+    setUploadedFiles(files);
     setIsScanning(true);
     setFolderName(nameOfFolder || "個別檔案統計");
     
@@ -173,7 +178,7 @@ function App() {
             fileName: file.name,
             sheetName: "N/A",
             foundCode: "錯誤",
-            foundName: fileRes.error || "讀取失敗",
+            foundName: fileRes.error || "解析失敗",
             status: "error"
           });
         }
@@ -190,6 +195,26 @@ function App() {
     
     setScannedRows(results);
     setIsScanning(false);
+  };
+
+  const handleRunBrowserETL = async (year) => {
+    if (!uploadedFiles || uploadedFiles.length === 0) return;
+    setIsProcessingETL(true);
+    setEtlProgress({ current: 0, total: uploadedFiles.length, filename: "初始化中..." });
+    
+    try {
+      const counts = await runETLInBrowser(uploadedFiles, year, (current, total, filename) => {
+        setEtlProgress({ current, total, filename });
+      });
+      
+      exportSummaryExcelInBrowser(counts, year);
+      alert(`🎉 ${year} 年度品檢報表統計.xlsx 匯出成功！已下載至您的電腦。`);
+    } catch (e) {
+      console.error(e);
+      alert("ETL 運算失敗，請確保選取的是正確的年度品檢原始資料夾。");
+    } finally {
+      setIsProcessingETL(false);
+    }
   };
 
   const handleFolderChange = (e) => {
@@ -803,6 +828,48 @@ function App() {
                 </div>
               )}
             </section>
+
+            {uploadedFiles.length > 0 && (
+              <section className="panel-card" style={{ border: '1px solid var(--mck-accent-gold)', background: '#FDFCF7' }}>
+                <h2 className="card-title" style={{ color: '#856404', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🛠️ 年度統計報表一鍵生成器
+                </h2>
+                <p style={{ fontSize: '13px', color: '#664d03', marginBottom: '16px', lineHeight: '1.5' }}>
+                  偵測到載入的資料夾包含 <strong>{uploadedFiles.length}</strong> 個品檢檔案。您可以在此一鍵執行與後端相同的 ETL 運算，並輸出含有完整分流彙整版面的年度 Excel 統計檔。
+                </p>
+                
+                {isProcessingETL ? (
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--mck-navy)', marginBottom: '8px' }}>
+                      ⚙️ 正在執行品管資料 ETL 轉換中... ({etlProgress?.current}/{etlProgress?.total})
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--mck-slate)', overflow: 'hidden', textOverlap: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      處理檔案: {etlProgress?.filename}
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: '#E2E8F0', borderRadius: '4px', marginTop: '8px', overflow: 'hidden' }}>
+                      <div style={{ width: `${(etlProgress?.current / etlProgress?.total) * 100}%`, height: '100%', background: 'var(--mck-navy)', transition: 'width 0.1s ease' }}></div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={() => handleRunBrowserETL(2025)}
+                      style={{ background: 'var(--mck-navy)', borderColor: 'var(--mck-navy)' }}
+                    >
+                      🚀 輸出 2025 品檢報表統計.xlsx
+                    </button>
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={() => handleRunBrowserETL(2026)}
+                      style={{ background: 'var(--mck-navy)', borderColor: 'var(--mck-navy)' }}
+                    >
+                      🚀 輸出 2026 品檢報表統計.xlsx
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
 
             {/* Mappings Editor */}
             <section className="panel-card">

@@ -221,7 +221,8 @@ function App() {
   const handleLoadSummaryFile = async (file) => {
     try {
       const data = await parseSummaryExcel(file);
-      const year = file.name.indexOf("2026") >= 0 ? "2026" : "2025";
+      const yearMatch = file.name.match(/(20\d{2})/);
+      const year = yearMatch ? yearMatch[1] : "未知年度";
       setSummaryFiles(prev => {
         const next = { ...prev, [year]: data };
         const sheets = Object.keys(data);
@@ -247,7 +248,8 @@ function App() {
   // Sync summaryData when activeYear or summaryFiles changes
   useEffect(() => {
     if (activeYear === "compare") {
-      setSummaryData(summaryFiles["2025"] || summaryFiles["2026"]);
+      const years = Object.keys(summaryFiles).sort();
+      setSummaryData(summaryFiles[years[0]] || null);
     } else {
       setSummaryData(summaryFiles[activeYear]);
     }
@@ -295,37 +297,23 @@ function App() {
     // Create datasets
     let datasets = [];
     if (activeYear === 'compare') {
+      const years = Object.keys(summaryFiles).sort();
       selectedItems.forEach((item, idx) => {
-        // 2025 dataset
-        const data2025 = [];
-        const rows2025 = summaryFiles["2025"] ? summaryFiles["2025"][activeSheet] : null;
-        for (let m = 2; m <= 13; m++) {
-          const val = rows2025 && rows2025[m] ? Number(rows2025[m][item.idx]) || 0 : 0;
-          data2025.push(val);
-        }
-        datasets.push({
-          label: `2025 - ${item.name}`,
-          data: data2025,
-          borderColor: MCK_COLORS[(idx * 2) % MCK_COLORS.length],
-          backgroundColor: MCK_COLORS[(idx * 2) % MCK_COLORS.length] + 'CC',
-          borderWidth: 1,
-          borderRadius: 4,
-        });
-
-        // 2026 dataset
-        const data2026 = [];
-        const rows2026 = summaryFiles["2026"] ? summaryFiles["2026"][activeSheet] : null;
-        for (let m = 2; m <= 13; m++) {
-          const val = rows2026 && rows2026[m] ? Number(rows2026[m][item.idx]) || 0 : 0;
-          data2026.push(val);
-        }
-        datasets.push({
-          label: `2026 - ${item.name}`,
-          data: data2026,
-          borderColor: MCK_COLORS[(idx * 2 + 1) % MCK_COLORS.length],
-          backgroundColor: MCK_COLORS[(idx * 2 + 1) % MCK_COLORS.length] + 'CC',
-          borderWidth: 1,
-          borderRadius: 4,
+        years.forEach((yr, yrIdx) => {
+          const dataYr = [];
+          const rowsYr = summaryFiles[yr] ? summaryFiles[yr][activeSheet] : null;
+          for (let m = 2; m <= 13; m++) {
+            const val = rowsYr && rowsYr[m] ? Number(rowsYr[m][item.idx]) || 0 : 0;
+            dataYr.push(val);
+          }
+          datasets.push({
+            label: `${yr} - ${item.name}`,
+            data: dataYr,
+            borderColor: MCK_COLORS[(idx * years.length + yrIdx) % MCK_COLORS.length],
+            backgroundColor: MCK_COLORS[(idx * years.length + yrIdx) % MCK_COLORS.length] + 'CC',
+            borderWidth: 1,
+            borderRadius: 4,
+          });
         });
       });
     } else {
@@ -561,29 +549,23 @@ function App() {
                 <div className="mck-card-subtitle" style={{ marginTop: '2px' }}>切換單一年度數據，或啟動跨年度數據對比</div>
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button 
-                  className={`btn ${activeYear === '2025' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setActiveYear('2025')}
-                  disabled={!summaryFiles['2025']}
-                  style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
-                >
-                  2025 年度 {summaryFiles['2025'] ? '✓' : '(未載入)'}
-                </button>
-                <button 
-                  className={`btn ${activeYear === '2026' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setActiveYear('2026')}
-                  disabled={!summaryFiles['2026']}
-                  style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
-                >
-                  2026 年度 {summaryFiles['2026'] ? '✓' : '(未載入)'}
-                </button>
+                {Object.keys(summaryFiles).sort().map(year => (
+                  <button 
+                    key={year}
+                    className={`btn ${activeYear === year ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setActiveYear(year)}
+                    style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
+                  >
+                    {year} 年度 ✓
+                  </button>
+                ))}
                 <button 
                   className={`btn ${activeYear === 'compare' ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setActiveYear('compare')}
-                  disabled={!summaryFiles['2025'] || !summaryFiles['2026']}
+                  disabled={Object.keys(summaryFiles).length < 2}
                   style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
                 >
-                  📊 跨年度對比 (2025 vs 2026)
+                  📊 跨年度對比 ({Object.keys(summaryFiles).sort().join(' vs ')})
                 </button>
               </div>
             </div>

@@ -140,35 +140,46 @@ var FORM_TITLE_MAP = {
 };
 
 function determineQCFromSheet(json, initialQC, relPath) {
-  // Priority 1: Search first 15 rows × 8 cols for explicit QC codes or form titles
-  var limit = Math.min(15, json.length);
-  for (var r = 0; r < limit; r++) {
-    var row = json[r];
-    if (!row || !row.length) continue;
-    for (var c = 0; c < Math.min(row.length, 8); c++) {
-      var v = String(row[c] || '').trim();
-      
-      // Check for explicit QC code pattern
-      if (v.indexOf('QC10002') >= 0) return 'QC10002-R02';
-      if (v.indexOf('QC10004') >= 0) return 'QC10004-R02';
-      if (v.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
-      if (v.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
-      if (v.indexOf('QC10007-R01') >= 0) return 'QC10007-R01';
-      if (v.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
-      if (v.indexOf('QC10008') >= 0) return 'QC10008-R02';
-      
-      // Check for form title
-      for (var title in FORM_TITLE_MAP) {
-        if (v.indexOf(title) >= 0) return FORM_TITLE_MAP[title];
+  // Scan rows: first 15 rows AND last 30 rows (to catch footer-area QC codes like "MOULDEX QC10007-R02.D"
+  // which may appear at rows 40, 51, or 61+ depending on form length)
+  var totalRows = json.length;
+  var scanRanges = [
+    { start: 0, end: Math.min(15, totalRows) },
+    { start: Math.max(0, totalRows - 30), end: totalRows },
+  ];
+
+  for (var ri = 0; ri < scanRanges.length; ri++) {
+    var range = scanRanges[ri];
+    for (var r = range.start; r < range.end; r++) {
+      var row = json[r];
+      if (!row || !row.length) continue;
+      for (var c = 0; c < Math.min(row.length, 8); c++) {
+        var v = String(row[c] || '').trim();
+
+        // Check for explicit QC code pattern
+        if (v.indexOf('QC10002') >= 0) return 'QC10002-R02';
+        if (v.indexOf('QC10004') >= 0) return 'QC10004-R02';
+        if (v.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
+        if (v.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
+        if (v.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
+        if (v.indexOf('QC10007-R01') >= 0 || v.indexOf('QC10007-R02') >= 0 || v.indexOf('QC10007') >= 0) return 'QC10007-R01'; // R01 and R02 treated as same
+        if (v.indexOf('QC10008') >= 0) return 'QC10008-R02';
+
+        // Check for form title (header only)
+        if (ri === 0) {
+          for (var title in FORM_TITLE_MAP) {
+            if (v.indexOf(title) >= 0) return FORM_TITLE_MAP[title];
+          }
+        }
       }
     }
   }
-  
+
   // Priority 2: For 零組件入庫/射出D, override to QC10002-R02
   if (initialQC === 'QC10007-R03' && relPath && relPath.indexOf('射出D') >= 0) {
     return 'QC10002-R02';
   }
-  
+
   // Priority 3: Fall back to folder-based QC code
   return initialQC;
 }
@@ -227,6 +238,7 @@ function findDateInSheet(ws, actualQC) {
       break;
     case 'QC10006-R02': // 半成品品檢表
     case 'QC10007-R01': // 完成品品檢表
+    case 'QC10007-R02': // 完成品品檢表 R02
       cellInfo = getCellValAndFormatted('N5');
       dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
       break;
@@ -389,7 +401,7 @@ function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
     return relPath.replace(/[-_](20\d{2})$/, '');
   }
 
-  if (qc === 'QC10006-R02' || qc === 'QC10007-R01') {
+  if (qc === 'QC10006-R02' || qc === 'QC10007-R01' || qc === 'QC10007-R02') {
     // 裝配檢驗 or 完成品品檢: relPath = "BD-2025", "Biometrix-2025"
     var name = relPath.replace(/[-_](20\d{2})$/, '');
     // Map also known 完成品 customer names
@@ -418,27 +430,7 @@ function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
   }
 
   if (qc === 'QC10004-R02') {
-    // QIP: determine Setup/Patrol from sheet name AND filename (case-insensitive)
-    var snLower = sheetName.toLowerCase();
-    var fnLower = fileName.toLowerCase();
-    var type = '';
-    if (snLower.indexOf('setup') >= 0 || snLower.indexOf('set up') >= 0 || snLower.indexOf('set-up') >= 0 || snLower === 'setup') {
-      type = 'Setup';
-    } else if (snLower.indexOf('patrol') >= 0) {
-      type = 'Patrol';
-    } else if (fnLower.indexOf('setup') >= 0 || fnLower.indexOf('set up') >= 0 || fnLower.indexOf('set-up') >= 0 || fnLower.indexOf('set_up') >= 0) {
-      type = 'Setup';
-    } else if (fnLower.indexOf('patrol') >= 0) {
-      type = 'Patrol';
-    } else {
-      return null; // skip if can't determine Setup/Patrol
-    }
-    var folderLower = (qcFolder || '').toLowerCase();
-    if (folderLower.indexOf('押出') >= 0) return '押出-' + type;
-    if (folderLower.indexOf('射出') >= 0) return 'QIP-' + type;
-    if (folderLower.indexOf('qip') >= 0) return 'QIP-' + type;
-    if (relPath && relPath.toLowerCase().indexOf('押出') >= 0) return '押出-' + type;
-    return 'QIP-' + type;
+    return null; // QC10004-R02 is processed separately via scanInjectionData and scanExtrusionData
   }
 
   return null;
@@ -472,6 +464,10 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
     return;
   }
 
+  // For 完成品品檢 (QC10007-R01): deduplicate worksheets within this file.
+  // Sheets like BT25001(1), BT25001(2), BT25001(3) all belong to one batch -> count as 1.
+  var seenQC7R1BaseNames = new Set();
+
   wb.SheetNames.forEach(function(sheetName) {
     // Skip non-data sheets
     if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別') return;
@@ -479,6 +475,8 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
     if (sheetName.indexOf('.K(') >= 0) return; // skip control plan templates
     if (sheetName.indexOf('範例樣本') >= 0) return; // skip sample sheets
     if (/^QC[-_]?\d+/i.test(sheetName.trim())) return; // skip template sheets named after QC form codes (e.g. QC-009)
+    if (/^(工作表|Sheet)\d+/i.test(sheetName.trim())) return; // skip default un-renamed sheets
+    if (sheetName.trim().indexOf('出貨') === 0) return; // skip shipping summary sheets (e.g. "出貨 (14)")
 
     var ws = wb.Sheets[sheetName];
     var json;
@@ -502,14 +500,49 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
 
     // Determine QC code from form title or folder fallback
     var actualQC = determineQCFromSheet(json, initialQC, relPath);
-    if (!actualQC) return;
-
     // Determine sub-category using the actual QC code
     var subCat = getRawSubCategory(actualQC, relPath, fileName, sheetName, qcFolder);
-    if (!subCat) return;
-
     // Extract month
     var month = extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC);
+
+    // Special override for QC10007-R03 (零組件入庫) files:
+    // 1. If the file is in QC10007-R03 and ends with a month letter suffix (e.g. 裝配B-2025A.xlsx, 裝配A-2025-G.xlsx),
+    //    route it to QC10007-R03 and parse month as A=1, B=2, ... L=12.
+    // 2. Override actualQC to QC10002-R02 if the relPath matches 射出D (original logic in determineQCFromSheet).
+    if (initialQC === 'QC10007-R03') {
+      actualQC = 'QC10007-R03';
+      var letterMatch = fileName.match(/[-_]?([A-L])\.xlsx$/i);
+      if (letterMatch) {
+        month = LETTER_MONTH[letterMatch[1].toUpperCase()];
+      }
+      if (relPath && relPath.indexOf('射出D') >= 0 && relPath.indexOf('射出D(組件)') < 0) {
+        actualQC = 'QC10002-R02';
+      }
+    }
+
+    // Special override for 半成品品檢表-20XX.xlsx files:
+    // Route to QC10006-R02 under subcategory '裝配C' and determine month from sheet name letter (e.g., PJW25D13 -> D -> 4)
+    var isSemiFinishedTable = /半成品品檢表-20\d{2}\.xlsx$/i.test(fileName);
+    if (isSemiFinishedTable) {
+      actualQC = 'QC10006-R02';
+      subCat = '裝配C';
+      var sheetMatch = sheetName.match(/2[56]([A-L])/i);
+      if (sheetMatch) {
+        month = LETTER_MONTH[sheetMatch[1].toUpperCase()];
+      }
+    }
+
+    // Deduplication for 完成品品檢 (QC10007-R01):
+    // Strip trailing suffix like (1), (2), (NG), (N) to get the batch base name.
+    // Only count each unique base name once per file.
+    if (actualQC === 'QC10007-R01') {
+      var baseName = sheetName.replace(/\s*\([^)]+\)\s*$/, '').trim();
+      if (seenQC7R1BaseNames.has(baseName)) return;
+      seenQC7R1BaseNames.add(baseName);
+    }
+
+    if (!actualQC) return;
+    if (!subCat) return;
     if (!month || month < 1 || month > 12) {
       // Skip worksheets that have no date (blank templates or drafts)
       return;
@@ -520,6 +553,181 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
     if (!counts[actualQC][subCat]) counts[actualQC][subCat] = {};
     counts[actualQC][subCat][month] = (counts[actualQC][subCat][month] || 0) + 1;
   });
+}
+
+function scanInjectionData(year) {
+  var setupCounts = {};
+  var patrolCounts = {};
+  for (var m = 1; m <= 12; m++) {
+    setupCounts[m] = 0;
+    patrolCounts[m] = 0;
+  }
+
+  // 1. Setup counts from the entire '射出檢驗-{year}' directory
+  var setupBaseDir = 'RawData/' + year + '/射出檢驗-' + year;
+  if (fs.existsSync(setupBaseDir)) {
+    function walkSetup(dir) {
+      var entries;
+      try { entries = fs.readdirSync(dir); } catch(e) { return; }
+      entries.forEach(function(entry) {
+        if (entry.startsWith('~$')) return;
+        var fullPath = path.join(dir, entry);
+        var stat;
+        try { stat = fs.statSync(fullPath); } catch(e) { return; }
+
+        if (stat.isDirectory()) {
+          var mMatch = entry.match(/-(\d{2})$/);
+          if (mMatch) {
+            var month = parseInt(mMatch[1], 10);
+            if (month >= 1 && month <= 12) {
+              var files;
+              try {
+                files = fs.readdirSync(fullPath).filter(function(f) {
+                  return f.toLowerCase().endsWith('.xlsx') && !f.startsWith('~$');
+                });
+              } catch(e) { return; }
+              setupCounts[month] += files.length;
+            }
+          } else {
+            walkSetup(fullPath);
+          }
+        }
+      });
+    }
+    walkSetup(setupBaseDir);
+  }
+
+  // 2. Patrol counts only from 'QIP-{year}(1~10)' directory under '射出檢驗-{year}'
+  var patrolBaseDir = 'RawData/' + year + '/射出檢驗-' + year + '/QIP-' + year + '(1~10)';
+  if (fs.existsSync(patrolBaseDir)) {
+    var subDirs;
+    try {
+      subDirs = fs.readdirSync(patrolBaseDir);
+    } catch(e) {
+      subDirs = [];
+    }
+
+    subDirs.forEach(function(sub) {
+      var fullSubPath = path.join(patrolBaseDir, sub);
+      var stat;
+      try { stat = fs.statSync(fullSubPath); } catch(e) { return; }
+      if (!stat.isDirectory()) return;
+
+      var mMatch = sub.match(/-(\d{2})$/);
+      if (!mMatch) return;
+
+      var month = parseInt(mMatch[1], 10);
+      if (month < 1 || month > 12) return;
+
+      var files;
+      try {
+        files = fs.readdirSync(fullSubPath).filter(function(f) {
+          return f.toLowerCase().endsWith('.xlsx') && !f.startsWith('~$');
+        });
+      } catch(e) {
+        return;
+      }
+
+      files.forEach(function(file) {
+        var filePath = path.join(fullSubPath, file);
+        var wb;
+        try {
+          wb = XLSX.readFile(filePath);
+        } catch(e) {
+          console.log('    ERROR reading: ' + filePath + ' - ' + e.message);
+          return;
+        }
+
+        var uniqueBaseInFile = {};
+        wb.SheetNames.forEach(function(sheetName) {
+          // Normalize to get base name (strip -1, (2) etc)
+          var baseName = sheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
+          
+          // Only count sheets whose base name is in Date Code format (e.g. 250103D or 260521)
+          if (/^\d{6}[a-zA-Z]?$/.test(baseName)) {
+            uniqueBaseInFile[baseName] = true;
+          }
+        });
+        patrolCounts[month] += Object.keys(uniqueBaseInFile).length;
+      });
+    });
+  }
+
+  return { setup: setupCounts, patrol: patrolCounts };
+}
+
+function scanExtrusionData(year) {
+  var setupCounts = {};
+  var patrolCounts = {};
+  for (var m = 1; m <= 12; m++) {
+    setupCounts[m] = 0;
+    patrolCounts[m] = 0;
+  }
+
+  var targetDir = 'RawData/' + year + '/押出檢驗-' + year;
+  if (fs.existsSync(targetDir)) {
+    var subDirs;
+    try {
+      subDirs = fs.readdirSync(targetDir);
+    } catch(e) {
+      subDirs = [];
+    }
+
+    subDirs.forEach(function(sub) {
+      var fullSubPath = path.join(targetDir, sub);
+      var stat;
+      try { stat = fs.statSync(fullSubPath); } catch(e) { return; }
+      if (!stat.isDirectory()) return;
+
+      var mMatch = sub.match(/-(\d{2})$/);
+      if (!mMatch) return;
+
+      var month = parseInt(mMatch[1], 10);
+      if (month < 1 || month > 12) return;
+
+      var files;
+      try {
+        files = fs.readdirSync(fullSubPath).filter(function(f) {
+          // Must contain Date Code in filename (6 digits followed by optional letter)
+          return f.toLowerCase().endsWith('.xlsx') && !f.startsWith('~$') && /\d{6}[a-zA-Z]?/i.test(f);
+        });
+      } catch(e) {
+        return;
+      }
+
+      setupCounts[month] += files.length;
+
+      files.forEach(function(file) {
+        var filePath = path.join(fullSubPath, file);
+        var wb;
+        try {
+          wb = XLSX.readFile(filePath);
+        } catch(e) {
+          console.log('    ERROR reading: ' + filePath + ' - ' + e.message);
+          return;
+        }
+
+        var uniqueBaseInFile = {};
+        wb.SheetNames.forEach(function(sheetName) {
+          if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別' || sheetName.indexOf('Sheet1') === 0) return;
+          if (sheetName.indexOf('.K(') >= 0 || sheetName.indexOf('範例樣本') >= 0 || /^QC[-_]?\d+/i.test(sheetName.trim())) return;
+          if (/^(工作表|Sheet)\d+/i.test(sheetName.trim())) return;
+
+          var snLower = sheetName.toLowerCase();
+          var isSetup = (snLower.indexOf('setup') >= 0 || snLower.indexOf('set up') >= 0 || snLower.indexOf('set-up') >= 0 || snLower === 'setup');
+          
+          if (!isSetup) {
+            // Deduplicate base sheet name
+            var baseName = sheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
+            uniqueBaseInFile[baseName] = true;
+          }
+        });
+        patrolCounts[month] += Object.keys(uniqueBaseInFile).length;
+      });
+    });
+  }
+
+  return { setup: setupCounts, patrol: patrolCounts };
 }
 
 function scanRawData(year) {
@@ -544,6 +752,17 @@ function scanRawData(year) {
     walkRawDataDir(fullPath, '', qc, dirname, year, counts);
   });
 
+  // Inject QIP Injection data (Setup & Patrol) using specific logic
+  var inj = scanInjectionData(year);
+  if (!counts['QC10004-R02']) counts['QC10004-R02'] = {};
+  counts['QC10004-R02']['QIP-Setup'] = inj.setup;
+  counts['QC10004-R02']['QIP-Patrol'] = inj.patrol;
+
+  // Inject QIP Extrusion data (Setup & Patrol) using specific logic
+  var ext = scanExtrusionData(year);
+  counts['QC10004-R02']['押出-Setup'] = ext.setup;
+  counts['QC10004-R02']['押出-Patrol'] = ext.patrol;
+
   return counts;
 }
 
@@ -564,18 +783,7 @@ function writeSummaryExcel(counts, year) {
     return monthArray(data).reduce(function(a,b){return a+b;}, 0);
   }
   
-  // ---- Sheet: 品檢地圖 ----
-  var mapData = [
-    ['QC編碼', '表單名稱', '類別'],
-    ['QC10002-R02', '原物料品檢表', '原物料進料'],
-    ['QC10004-R02', 'QUALITY INSPECTION PLAN RECORD', '射出/押出製程'],
-    ['QC10006-R01', '裝配對樣巡檢記錄表', '裝配巡檢'],
-    ['QC10006-R02', '半成品品檢表', '半成品'],
-    ['QC10007-R01', '完成品品檢表(首頁)', '完成品'],
-    ['QC10007-R03', '零組件入庫品檢表', '零組件入庫'],
-    ['QC10008-R02', '出貨檢驗報告', '出貨檢驗'],
-  ];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mapData), '品檢地圖');
+  // ---- Sheet: 品檢地圖 ---- (Skipped)
   
   // ---- Helper to write a category sheet ----
   function addCategorySheet(sheetName, columns, subCatToCol, qcCode, subCategoryFilter, titleRowText) {
@@ -763,6 +971,8 @@ function writeSummaryExcel(counts, year) {
     'MarMed': null, 'Saxon': null
   };
   
+  // Populate '裝配C' (index 0) normally from semiQC below
+  
   if (semiQC) {
     for (var subCat in semiQC) {
       var actualIdx = semiSubCatMap[subCat];
@@ -812,13 +1022,12 @@ function writeSummaryExcel(counts, year) {
     {key:'Saxon', label:'Saxon'},
     {key:'Vivus', label:'Vivus'},
   ];
-  
+  var finSubCatMap = {'Biometrix': 0, 'MarMed': 1, 'Saxon': 2, 'Vivus': 3};
+
   var finQC = counts['QC10007-R01'];
   var finData = [];
   finCols.forEach(function() { finData.push({}); });
-  
-  var finSubCatMap = {'Biometrix': 0, 'MarMed': 1, 'Saxon': 2, 'Vivus': 3};
-  
+
   if (finQC) {
     for (var subCat in finQC) {
       var actualIdx = finSubCatMap[subCat];
@@ -829,7 +1038,7 @@ function writeSummaryExcel(counts, year) {
       }
     }
   }
-  
+
   var finRows = [
     ['裝配完成品品檢'],
     ['月份','Biometrix','MarMed','Saxon','Vivus','小計']
@@ -854,7 +1063,7 @@ function writeSummaryExcel(counts, year) {
   });
   finTotalRow.push(finGrandTotal);
   finRows.push(finTotalRow);
-  
+
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(finRows), '完成品品檢(QC10007-R01 R02)');
   
   // ---- Sheet 6: 零組件入庫品檢(QC10007-R03) ----
@@ -949,218 +1158,54 @@ function writeSummaryExcel(counts, year) {
   
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(shipRows), '出貨檢驗(QC10008-R02)');
   
-  // ---- Sheet 8: NCA ----
-  var ncaRows = [
-    ['NCA'],
-    ['月份','件數','帶N','不帶N']
-  ];
-  MONTHS.forEach(function(m) { ncaRows.push([m, 0, 0, 0]); });
-  ncaRows.push(['小計', 0, 0, 0]);
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ncaRows), 'NCA');
+  // ---- Sheet 8: NCA ---- (Skipped)
   
-  // ---- Sheet 9: 彙總表 (Grid layout matching Template) ----
-  var rawMainCols = [
-    {key:'原料', label:'原料'},
-    {key:'物料', label:'物料'},
-    {key:'紙箱', label:'紙箱'},
-    {key:'過濾網連蓋', label:'過濾網連蓋'},
-    {key:'標籤', label:'標籤'},
-    {key:'射出D', label:'射出D'},
-  ];
-  
-  var rawMainData = [];
-  rawMainCols.forEach(function() { rawMainData.push({}); });
-  
-  var rawQC = counts['QC10002-R02'];
-  if (rawQC) {
-    for (var subCat in rawQC) {
-      var colIdx = null;
-      if (subCat === '原料') colIdx = 0;
-      else if (subCat === '物料' || subCat.indexOf('物料-') === 0) {
-        if (subCat === '物料-紙箱') colIdx = 2;
-        else if (subCat === '物料-過濾網連蓋') colIdx = 3;
-        else if (subCat === '物料-標籤') colIdx = 4;
-        else colIdx = 1; // generic 物料
-      }
-      else if (subCat === '射出D' || subCat.indexOf('射出D') === 0) colIdx = 5;
-      if (colIdx === null) continue;
-      
-      var monthly = rawQC[subCat];
-      for (var m = 1; m <= 12; m++) {
-        if (monthly[m]) {
-          rawMainData[colIdx][m] = (rawMainData[colIdx][m] || 0) + monthly[m];
-        }
-      }
-    }
-  }
-  
-  var rawGrandTotal = 0;
-  rawMainCols.forEach(function(c, ci) {
-    rawGrandTotal += totalArray(rawMainData[ci]);
-  });
-
-  var aggRows = [];
-  for (var r = 0; r < 50; r++) {
-    var rowArr = [];
-    for (var c = 0; c < 19; c++) {
-      rowArr.push('');
-    }
-    aggRows.push(rowArr);
-  }
-  
-  // Section 1: 原物料進料品檢
-  aggRows[0][0] = '原物料進料品檢(QC10002-R02)';
-  var s1Headers = ["月份","原料","物料","紙箱","過濾網連蓋","標籤","射出D","小計"];
-  s1Headers.forEach(function(h, ci) { aggRows[1][ci] = h; });
-  MONTHS.forEach(function(m) {
-    aggRows[m+1][0] = m;
-    var total = 0;
-    rawMainCols.forEach(function(c, ci) {
-      var v = rawMainData[ci][m] || 0;
-      aggRows[m+1][ci+1] = v;
-      total += v;
-    });
-    aggRows[m+1][7] = total;
-  });
-  aggRows[14][0] = '小計';
-  rawMainCols.forEach(function(c, ci) {
-    aggRows[14][ci+1] = totalArray(rawMainData[ci]);
-  });
-  aggRows[14][7] = rawGrandTotal;
-  
-  // Section 2: 射出Setup
-  aggRows[0][9] = '射出、押出製程Setup(QC10004-R02)';
-  ["月份","押出(Setup)","射出(Setup)","小計"].forEach(function(h, ci) { aggRows[1][ci+9] = h; });
-  MONTHS.forEach(function(m) {
-    var extS = qipSetupExt[m] || 0;
-    var injS = qipSetupInj[m] || 0;
-    aggRows[m+1][9] = m;
-    aggRows[m+1][10] = extS;
-    aggRows[m+1][11] = injS;
-    aggRows[m+1][12] = extS + injS;
-  });
-  aggRows[14][9] = '小計';
-  aggRows[14][10] = tExtS;
-  aggRows[14][11] = tInjS;
-  aggRows[14][12] = tExtS + tInjS;
-  
-  // Section 3: 射出巡檢
-  aggRows[0][14] = '射出、押出製程巡檢(QC10004-R02)';
-  ["月份","押出(巡檢)","射出(廠內)","小計"].forEach(function(h, ci) { aggRows[1][ci+14] = h; });
-  MONTHS.forEach(function(m) {
-    var extP = qipPatrolExt[m] || 0;
-    var injP = qipPatrolInj[m] || 0;
-    aggRows[m+1][14] = m;
-    aggRows[m+1][15] = extP;
-    aggRows[m+1][16] = injP;
-    aggRows[m+1][17] = extP + injP;
-  });
-  aggRows[14][14] = '小計';
-  aggRows[14][15] = tExtP;
-  aggRows[14][16] = tInjP;
-  aggRows[14][17] = tExtP + tInjP;
-  
-  // Section 4: 裝配對樣巡檢
-  var asmTotal = {};
-  if (counts['QC10006-R01']) {
-    asmTotal = counts['QC10006-R01']['裝配巡檢'] || {};
-  }
-  aggRows[17][0] = '裝配對樣巡檢(QC10006-R01)';
-  aggRows[18][0] = '月份'; aggRows[18][1] = '裝配';
-  MONTHS.forEach(function(m) {
-    aggRows[m+18][0] = m;
-    aggRows[m+18][1] = asmTotal[m] || 0;
-  });
-  aggRows[31][0] = '小計';
-  aggRows[31][1] = totalArray(asmTotal);
-  
-  // Section 5: 半成品
-  aggRows[17][3] = '裝配半成品品檢(QC10006-R02)';
-  ["月份","裝配C","BD","Biometrix","MPS","Vivus","小計"].forEach(function(h, ci) { aggRows[18][ci+3] = h; });
-  MONTHS.forEach(function(m) {
-    aggRows[m+18][3] = m;
-    var total = 0;
-    semiCols.forEach(function(c, ci) {
-      var v = semiData[ci][m] || 0;
-      aggRows[m+18][ci+4] = v;
-      total += v;
-    });
-    aggRows[m+18][9] = total;
-  });
-  aggRows[31][3] = '小計';
-  semiCols.forEach(function(c, ci) {
-    aggRows[31][ci+4] = totalArray(semiData[ci]);
-  });
-  aggRows[31][9] = semiGrandTotal;
-  
-  // Section 6: 完成品
-  aggRows[17][11] = '裝配完成品品檢(QC10007-R01 R02)';
-  ["月份","Biometrix","MarMed","Saxon","Vivus","小計"].forEach(function(h, ci) { aggRows[18][ci+11] = h; });
-  MONTHS.forEach(function(m) {
-    aggRows[m+18][11] = m;
-    var total = 0;
-    finCols.forEach(function(c, ci) {
-      var v = finData[ci][m] || 0;
-      aggRows[m+18][ci+12] = v;
-      total += v;
-    });
-    aggRows[m+18][16] = total;
-  });
-  aggRows[31][11] = '小計';
-  finCols.forEach(function(c, ci) {
-    aggRows[31][ci+12] = totalArray(finData[ci]);
-  });
-  aggRows[31][16] = finGrandTotal;
-  
-  // Section 7: 零組件入庫
-  aggRows[34][0] = '零組件入庫品檢(QC10007-R03)';
-  ["月份","Tubing","射出(廠內)","射出A","射出C","射出D(組件)","裝配A","裝配B","裝配C","小計"].forEach(function(h, ci) { aggRows[35][ci] = h; });
-  MONTHS.forEach(function(m) {
-    aggRows[m+35][0] = m;
-    var total = 0;
-    partsCols.forEach(function(c, ci) {
-      var v = partsData[ci][m] || 0;
-      aggRows[m+35][ci+1] = v;
-      total += v;
-    });
-    aggRows[m+35][9] = total;
-  });
-  aggRows[48][0] = '小計';
-  partsCols.forEach(function(c, ci) {
-    aggRows[48][ci+1] = totalArray(partsData[ci]);
-  });
-  aggRows[48][9] = partsGrand;
-  
-  // Section 8: 出貨
-  aggRows[34][11] = '出貨品檢(QC10008-R02)';
-  ["月份","ICU","其他","小計"].forEach(function(h, ci) { aggRows[35][ci+11] = h; });
-  MONTHS.forEach(function(m) {
-    aggRows[m+35][11] = m;
-    aggRows[m+35][12] = shipICU[m] || 0;
-    aggRows[m+35][13] = shipOther[m] || 0;
-    aggRows[m+35][14] = (shipICU[m] || 0) + (shipOther[m] || 0);
-  });
-  aggRows[48][11] = '小計';
-  aggRows[48][12] = tICU;
-  aggRows[48][13] = tOth;
-  aggRows[48][14] = tICU + tOth;
-  
-  // Section 9: NCA
-  aggRows[34][16] = 'NCA(品質異常案件)';
-  ["月份","件數"].forEach(function(h, ci) { aggRows[35][ci+16] = h; });
-  MONTHS.forEach(function(m) {
-    aggRows[m+35][16] = m;
-    aggRows[m+35][17] = 0;
-  });
-  aggRows[48][16] = '小計';
-  aggRows[48][17] = 0;
-  
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aggRows), '彙總表');
+  // ---- Sheet 9: 彙總表 ---- (Skipped)
   
   // Write the workbook
   XLSX.writeFile(wb, outFile);
   console.log('  Summary written: ' + outFile);
   return outFile;
+}
+
+function deployToPublic(year) {
+  var srcFile = 'DataExtract/' + year + '品檢報表統計.xlsx';
+  var destDir = 'public/DataExtract';
+  var destFile = path.join(destDir, year + '品檢報表統計.xlsx');
+  
+  if (!fs.existsSync(srcFile)) return;
+  
+  // Ensure destination directory exists
+  if (!fs.existsSync(destDir)) {
+    fs.mkdirSync(destDir, { recursive: true });
+  }
+  
+  // Copy file
+  fs.copyFileSync(srcFile, destFile);
+  console.log('  Copied summary to public: ' + destFile);
+  
+  // Remove '彙總表', 'NCA', '品檢地圖' from public file
+  try {
+    var wb = XLSX.readFile(destFile);
+    var targetSheets = ['彙總表', 'NCA', '品檢地圖'];
+    var modified = false;
+    
+    targetSheets.forEach(function(sheetName) {
+      var index = wb.SheetNames.indexOf(sheetName);
+      if (index !== -1) {
+        wb.SheetNames.splice(index, 1);
+        delete wb.Sheets[sheetName];
+        modified = true;
+      }
+    });
+    
+    if (modified) {
+      XLSX.writeFile(wb, destFile);
+      console.log('  Cleared template sheets from public summary.');
+    }
+  } catch (e) {
+    console.log('  Error clearing public summary: ' + e.message);
+  }
 }
 
 
@@ -1202,6 +1247,7 @@ function main() {
     
     console.log('Step 2: Writing summary Excel...');
     writeSummaryExcel(counts, year);
+    deployToPublic(year);
     
     console.log('Step 3: Generating styled HTML report...');
     var styledReportScript = require('child_process').spawnSync('node', ['generate_styled_reports.cjs', String(year)], {cwd: process.cwd(), stdio: 'inherit'});

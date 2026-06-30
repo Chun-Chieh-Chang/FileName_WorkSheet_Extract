@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Excel Reader</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f8fafc; }
+    h2 { color: #0f172a; }
+    pre { background: #1e293b; color: #f8fafc; padding: 10px; border-radius: 6px; overflow: auto; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 12px; }
+    th, td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; }
+    th { background: #f1f5f9; }
+  </style>
+</head>
+<body>
+  <h2>Excel Sheet Reader</h2>
+  <input type="file" id="file-input" />
+  <div id="output"></div>
+
+  <script>
+    document.getElementById('file-input').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        let html = `<h3>File: ${file.name}</h3>`;
+        html += `<p>Sheets: ${workbook.SheetNames.join(', ')}</p>`;
+        
+        workbook.SheetNames.forEach(sheetName => {
+          const ws = workbook.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          
+          html += `<h4>Sheet: ${sheetName} (${rows.length} rows)</h4>`;
+          html += `<div style="max-height: 300px; overflow: auto; margin-bottom: 20px;">`;
+          html += `<table>`;
+          rows.slice(0, 25).forEach((row, rIdx) => {
+            html += `<tr>`;
+            row.forEach(cell => {
+              if (rIdx === 0) {
+                html += `<th>${cell}</th>`;
+              } else {
+                html += `<td>${cell}</td>`;
+              }
+            });
+            html += `</tr>`;
+          });
+          html += `</table>`;
+          if (rows.length > 25) {
+            html += `<p><i>... and ${rows.length - 25} more rows</i></p>`;
+          }
+          html += `</div>`;
+        });
+        
+        document.getElementById('output').innerHTML = html;
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  </script>
+</body>
+</html>

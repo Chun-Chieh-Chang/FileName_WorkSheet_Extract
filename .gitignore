@@ -67,3 +67,4 @@ hooks/
 
 # Session state
 .omo/
+sync.ffs_db

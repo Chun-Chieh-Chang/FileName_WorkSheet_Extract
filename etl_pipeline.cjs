@@ -272,6 +272,14 @@ function findDateInSheetFallback(json) {
 }
 
 function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC) {
+  // Priority 0: For Tubing files, directly use the month suffix from the parent folder (e.g. Tubing-2025-02 -> Month 2)
+  if (relPath && relPath.indexOf('Tubing') >= 0) {
+    var folderMatch = relPath.match(/Tubing-\d{4}-(\d{1,2})/);
+    if (folderMatch) {
+      return parseInt(folderMatch[1], 10);
+    }
+  }
+
   // Priority 1: Specific cell inspection by QC Code
   var dateInfo = findDateInSheet(ws, actualQC);
   if (dateInfo) {
@@ -511,7 +519,7 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
     // 2. Override actualQC to QC10002-R02 if the relPath matches 射出D (original logic in determineQCFromSheet).
     if (initialQC === 'QC10007-R03') {
       actualQC = 'QC10007-R03';
-      var letterMatch = fileName.match(/[-_]?([A-L])\.xlsx$/i);
+      var letterMatch = fileName.match(/(?:202[56]|2[56])[-_]?([A-L])\.xlsx$/i);
       if (letterMatch) {
         month = LETTER_MONTH[letterMatch[1].toUpperCase()];
       }

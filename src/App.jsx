@@ -23,6 +23,8 @@ function App() {
   // ==========================================
   // STATE FOR TAB 1: McKinsey Dashboard
   // ==========================================
+  const [summaryFiles, setSummaryFiles] = useState({}); // { "2025": data2025, "2026": data2026 }
+  const [activeYear, setActiveYear] = useState("2025"); // "2025", "2026", or "compare"
   const [summaryData, setSummaryData] = useState(null);
   const [activeSheet, setActiveSheet] = useState("");
   const [selectedItems, setSelectedItems] = useState([]); // Array of {name, idx}
@@ -47,22 +49,39 @@ function App() {
   const folderInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Load mappings on mount & Auto-load 2025 report if available
+  // Load mappings on mount & Auto-load 2025 and 2026 reports if available
   useEffect(() => {
     setMappings(getMappings());
 
+    // Load 2025
     fetch(import.meta.env.BASE_URL + 'DataExtract/2025品檢報表統計.xlsx')
-      .then(res => {
-        if (res.ok) return res.blob();
-        throw new Error('Not found');
-      })
+      .then(res => { if (res.ok) return res.blob(); throw new Error('Not found'); })
       .then(blob => {
         const file = new File([blob], "2025品檢報表統計.xlsx");
-        handleLoadSummaryFile(file);
+        return parseSummaryExcel(file);
       })
-      .catch(err => {
-        console.log("Auto-load of pre-generated 2025 summary Excel not available (can upload manually).");
-      });
+      .then(data => {
+        setSummaryFiles(prev => {
+          const next = { ...prev, "2025": data };
+          const sheets = Object.keys(data);
+          const initialSheet = sheets.find(s => s !== "品檢地圖") || sheets[0] || "";
+          setActiveSheet(prevSheet => prevSheet || initialSheet);
+          return next;
+        });
+      })
+      .catch(err => console.log("Auto-load of 2025 summary Excel not available."));
+
+    // Load 2026
+    fetch(import.meta.env.BASE_URL + 'DataExtract/2026品檢報表統計.xlsx')
+      .then(res => { if (res.ok) return res.blob(); throw new Error('Not found'); })
+      .then(blob => {
+        const file = new File([blob], "2026品檢報表統計.xlsx");
+        return parseSummaryExcel(file);
+      })
+      .then(data => {
+        setSummaryFiles(prev => ({ ...prev, "2026": data }));
+      })
+      .catch(err => console.log("Auto-load of 2026 summary Excel not available."));
   }, []);
 
   // Update mappings helper
@@ -202,13 +221,16 @@ function App() {
   const handleLoadSummaryFile = async (file) => {
     try {
       const data = await parseSummaryExcel(file);
+      const year = file.name.indexOf("2026") >= 0 ? "2026" : "2025";
+      setSummaryFiles(prev => {
+        const next = { ...prev, [year]: data };
+        const sheets = Object.keys(data);
+        const initialSheet = sheets.find(s => s !== "品檢地圖") || sheets[0] || "";
+        setActiveSheet(prevSheet => prevSheet || initialSheet);
+        return next;
+      });
+      setActiveYear(year);
       setSummaryFileName(file.name);
-      setSummaryData(data);
-      
-      // Auto select first sheet (excluding 品檢地圖 if possible)
-      const sheets = Object.keys(data);
-      const initialSheet = sheets.find(s => s !== "品檢地圖") || sheets[0] || "";
-      setActiveSheet(initialSheet);
     } catch (err) {
       console.error(err);
       alert("解析品檢彙總 Excel 失敗，請確保上傳的是正確的報表統計檔。");
@@ -221,6 +243,15 @@ function App() {
       handleLoadSummaryFile(file);
     }
   };
+
+  // Sync summaryData when activeYear or summaryFiles changes
+  useEffect(() => {
+    if (activeYear === "compare") {
+      setSummaryData(summaryFiles["2025"] || summaryFiles["2026"]);
+    } else {
+      setSummaryData(summaryFiles[activeYear]);
+    }
+  }, [activeYear, summaryFiles]);
 
   // Handle active sheet changing
   useEffect(() => {
@@ -262,23 +293,60 @@ function App() {
     const ctx = chartRef.current.getContext('2d');
 
     // Create datasets
-    const datasets = selectedItems.map((item, idx) => {
-      // Monthly data is at rows 2 to 13 (index 2-13)
-      const dataPoints = [];
-      for (let m = 2; m <= 13; m++) {
-        const val = rows[m] ? Number(rows[m][item.idx]) || 0 : 0;
-        dataPoints.push(val);
-      }
+    let datasets = [];
+    if (activeYear === 'compare') {
+      selectedItems.forEach((item, idx) => {
+        // 2025 dataset
+        const data2025 = [];
+        const rows2025 = summaryFiles["2025"] ? summaryFiles["2025"][activeSheet] : null;
+        for (let m = 2; m <= 13; m++) {
+          const val = rows2025 && rows2025[m] ? Number(rows2025[m][item.idx]) || 0 : 0;
+          data2025.push(val);
+        }
+        datasets.push({
+          label: `2025 - ${item.name}`,
+          data: data2025,
+          borderColor: MCK_COLORS[(idx * 2) % MCK_COLORS.length],
+          backgroundColor: MCK_COLORS[(idx * 2) % MCK_COLORS.length] + 'CC',
+          borderWidth: 1,
+          borderRadius: 4,
+        });
 
-      return {
-        label: item.name,
-        data: dataPoints,
-        borderColor: MCK_COLORS[idx % MCK_COLORS.length],
-        backgroundColor: MCK_COLORS[idx % MCK_COLORS.length] + 'CC', // 80% opacity fill
-        borderWidth: 1,
-        borderRadius: 4, // beautiful rounded top corners
-      };
-    });
+        // 2026 dataset
+        const data2026 = [];
+        const rows2026 = summaryFiles["2026"] ? summaryFiles["2026"][activeSheet] : null;
+        for (let m = 2; m <= 13; m++) {
+          const val = rows2026 && rows2026[m] ? Number(rows2026[m][item.idx]) || 0 : 0;
+          data2026.push(val);
+        }
+        datasets.push({
+          label: `2026 - ${item.name}`,
+          data: data2026,
+          borderColor: MCK_COLORS[(idx * 2 + 1) % MCK_COLORS.length],
+          backgroundColor: MCK_COLORS[(idx * 2 + 1) % MCK_COLORS.length] + 'CC',
+          borderWidth: 1,
+          borderRadius: 4,
+        });
+      });
+    } else {
+      datasets = selectedItems.map((item, idx) => {
+        // Monthly data is at rows 2 to 13 (index 2-13)
+        const dataPoints = [];
+        for (let m = 2; m <= 13; m++) {
+          const val = rows[m] ? Number(rows[m][item.idx]) || 0 : 0;
+          dataPoints.push(val);
+        }
+
+        return {
+          label: item.name,
+          data: dataPoints,
+          borderColor: MCK_COLORS[idx % MCK_COLORS.length],
+          backgroundColor: MCK_COLORS[idx % MCK_COLORS.length] + 'CC', // 80% opacity fill
+          borderWidth: 1,
+          borderRadius: 4, // beautiful rounded top corners
+        };
+      });
+    }
 
     if (chartInstance.current) {
       chartInstance.current.destroy();
@@ -315,7 +383,7 @@ function App() {
         },
         scales: {
           x: {
-            stacked: true,
+            stacked: activeYear !== 'compare',
             grid: {
               display: false // McKinsey style hides X vertical gridlines
             },
@@ -325,7 +393,7 @@ function App() {
             }
           },
           y: {
-            stacked: true,
+            stacked: activeYear !== 'compare',
             beginAtZero: true,
             grid: {
               color: '#F1F5F9' // light grey thin gridlines
@@ -484,6 +552,42 @@ function App() {
               </span>
             </div>
           </div>
+
+          {/* Year Switcher Selector */}
+          {Object.keys(summaryFiles).length > 0 && (
+            <div className="mck-card" style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <h3 className="mck-card-title" style={{ fontSize: '15px' }}>📅 選擇分析年度與跨年對比</h3>
+                <div className="mck-card-subtitle" style={{ marginTop: '2px' }}>切換單一年度數據，或啟動跨年度數據對比</div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button 
+                  className={`btn ${activeYear === '2025' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setActiveYear('2025')}
+                  disabled={!summaryFiles['2025']}
+                  style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
+                >
+                  2025 年度 {summaryFiles['2025'] ? '✓' : '(未載入)'}
+                </button>
+                <button 
+                  className={`btn ${activeYear === '2026' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setActiveYear('2026')}
+                  disabled={!summaryFiles['2026']}
+                  style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
+                >
+                  2026 年度 {summaryFiles['2026'] ? '✓' : '(未載入)'}
+                </button>
+                <button 
+                  className={`btn ${activeYear === 'compare' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setActiveYear('compare')}
+                  disabled={!summaryFiles['2025'] || !summaryFiles['2026']}
+                  style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
+                >
+                  📊 跨年度對比 (2025 vs 2026)
+                </button>
+              </div>
+            </div>
+          )}
 
           {summaryData ? (
             <div className="mck-dashboard">

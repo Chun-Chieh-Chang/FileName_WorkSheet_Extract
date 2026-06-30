@@ -13,9 +13,9 @@
   - 零組件入庫品檢 (QC10007-R03)
   - 出貨檢驗 (QC10008-R02)
 - **智能分類統計**：按月份、品項/類別自動統計筆數
-- **單一統合 layout**：原物料工作表採 14 欄單表（原料 + 12 子物料 + 小計）
-- **彙總表**：3×3 並排網格，彙整全部檢驗類別的每月趨勢
-- **McKinsey 互動儀表板**：React SPA，用戶可任意勾選品項、以月份為 X 軸生成堆疊柱狀圖
+- **空白樣板守衛**：自動識別並跳過批號為空值的空白預備樣板檔，防止未來月份幻象數據
+- **McKinsey 互動儀表板**：React SPA，用戶可任意勾選品項、以月份為 X 軸生成堆疊柱狀圖，支援跨年 YoY 對比模式
+- **品檢對照提取工具**：瀏覽器端 ETL，可匯入本地資料夾即時生成品檢對照 Excel
 - **HTML 分析報告**：含統計圖表（橫向長條圖）之年報與跨年比較導覽頁
 - **多年度支援**：2025、2026
 
@@ -45,6 +45,7 @@ RawData/<year>/**/*.xlsx
         ▼ etl_pipeline.cjs
         │  Step 1: Scan RawData/ → 統計各類別月份筆數
         │  Step 2: Write Summary Excel → DataExtract/<year>品檢報表統計.xlsx
+        │          (並自動複製至 public/DataExtract/ 供 SPA 使用)
         │  Step 3: Spawn generate_styled_reports.cjs → <year>品檢報表分析.html
         ▼
 DataExtract/<year>品檢報表統計.xlsx   ← React SPA 自動載入
@@ -59,37 +60,39 @@ DataExtract/<year>品檢報表統計.xlsx   ← React SPA 自動載入
 ├── generate_styled_reports.cjs   # HTML 報告產生器（由 ETL 呼叫）
 ├── src/                          # React SPA 互動儀表板
 │   ├── App.jsx                   # 主介面（McKinsey Dashboard + Extractor）
-│   ├── index.css                 # 全域樣式
+│   ├── index.css                 # 全域樣式（Outfit + Noto Sans TC 字型）
 │   └── utils/
 │       ├── db.js                 # QC 表單編號對照表（localStorage）
-│       └── excelParser.js        # 瀏覽器端 Excel 解析工具
+│       ├── excelParser.js        # 瀏覽器端 Excel 解析工具
+│       └── browserETL.js         # 瀏覽器端 ETL：匯入資料夾即時生成品檢 Excel
 ├── public/DataExtract/           # 部署用：預建統計 Excel（GitHub Pages）
+├── scratch/
+│   └── cleanup.cjs               # 本地 MECE 清理工具（清 DataExtract、dist）
 ├── RawData/                      # 原始品檢 Excel 輸入檔（gitignored）
 │   ├── 2025/
 │   └── 2026/
 ├── DataExtract/                  # 產出 Excel（gitignored，公開版在 public/）
-├── DEV_LOG.md                    # 開發日誌
+├── DEV_LOG.md                    # 開發日誌（含 RCA + CAPA）
 ├── package.json
 └── .gitignore
 ```
 
 ## 技術棧
 
-- **Node.js** + **SheetJS (xlsx)** — Excel 讀寫
+- **Node.js** + **SheetJS (xlsx)** — Excel 讀寫（伺服器端 ETL 與瀏覽器端）
 - **React + Vite** — 前端 SPA 儀表板
 - **Chart.js** — 互動式圖表（堆疊柱狀圖）
+- **Google Fonts (Outfit + Noto Sans TC)** — 高級中英文字型
 - **GitHub Pages** + **GitHub Actions** — 自動部署
 
 ## 輸出 Excel 報表結構
 
 | 工作表 | 欄位結構 |
 |---|---|
-| 品檢地圖 | 各 QC 類別的 Sheet 索引 |
-| 原物料品檢(QC10002-R02) | 月份 + 原料 + B膠/收縮膜/色粉/空白包裝袋/空白感壓紙/塑膠袋/塑膠袋40\*50/紙箱/過濾網連蓋/標籤/射出D + 小計（14欄單表） |
+| 原物料品檢(QC10002-R02) | 月份 + 原料 + B膠/收縮膜/色粉/空白包裝袋/空白感壓紙/塑膠袋/塑膠袋40*50/紙箱/過濾網連蓋/標籤/射出D + 小計 |
 | QIP(QC10004-R02) | 押出/射出 Setup + 押出/射出 巡檢（4欄 + 4欄 並列） |
-| 裝配對樣巡檢(QC10006-R01) | 月份 + 裝配巡檢（2欄） |
-| 半成品品檢(QC10006-R02) | 月份 + 裝配C + BD + Biometrix + MPS + Vivus（6欄） |
-| 完成品品檢(QC10007-R01 R02) | 月份 + Biometrix + MarMed + Saxon + Vivus（5欄） |
-| 零組件入庫品檢(QC10007-R03) | 月份 + Tubing + 射出 + 射出A + 射出C + 射出D(組件) + 裝配A + 裝配B + 裝配C（9欄） |
-| 出貨檢驗(QC10008-R02) | 月份 + ICU + 其他（3欄） |
-| 彙總表 | 3×3 並排網格，全類別年度彙總 |
+| 裝配對樣巡檢(QC10006-R01) | 月份 + 裝配巡檢 |
+| 半成品品檢(QC10006-R02) | 月份 + 裝配C + BD + Biometrix + MPS + Vivus |
+| 完成品品檢(QC10007-R01 R02) | 月份 + Biometrix + MarMed + Saxon + Vivus |
+| 零組件入庫品檢(QC10007-R03) | 月份 + Tubing + 射出 + 射出A + 射出C + 射出D(組件) + 裝配A + 裝配B + 裝配C |
+| 出貨檢驗(QC10008-R02) | 月份 + ICU + 其他 |

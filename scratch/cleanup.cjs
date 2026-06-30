@@ -7,7 +7,7 @@ console.log('=== Starting Local MECE Cleanup ===\n');
 
 // 1. Clean scratch folder
 const scratchDir = __dirname;
-const scratchKeep = ['generate_all_sheets_report.cjs', 'cleanup.cjs'];
+const scratchKeep = ['cleanup.cjs'];
 console.log('1. Cleaning scratch folder...');
 fs.readdirSync(scratchDir).forEach(file => {
   if (scratchKeep.includes(file)) return;

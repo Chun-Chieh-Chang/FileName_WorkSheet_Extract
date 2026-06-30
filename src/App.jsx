@@ -623,15 +623,49 @@ function App() {
                       <h2 className="mck-card-title">自訂篩選分析項目</h2>
                       <div className="mck-card-subtitle">點選下方標籤以新增或移除圖表分析的統計項目</div>
                     </div>
-                    {selectedItems.length > 0 && (
-                      <button 
-                        className="btn btn-secondary"
-                        onClick={() => setSelectedItems([])}
-                        style={{ minHeight: '32px', height: '32px', padding: '0 12px', fontSize: '12px' }}
-                      >
-                        🗑 一鍵清空
-                      </button>
-                    )}
+                    {(() => {
+                      const rows = summaryData[activeSheet];
+                      if (!rows || rows.length < 2) return null;
+                      const headerRow = rows[1] || [];
+                      const availableItems = [];
+                      headerRow.forEach((h, idx) => {
+                        const name = String(h || '').trim();
+                        if (name && name !== '月份' && name !== '小計' && name !== 'NCA') {
+                          availableItems.push({ name, idx });
+                        }
+                      });
+                      
+                      const isAllSelected = availableItems.length > 0 && selectedItems.length === availableItems.length;
+
+                      return (
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button 
+                            className="btn btn-primary"
+                            onClick={() => setSelectedItems(availableItems)}
+                            disabled={isAllSelected}
+                            style={{ 
+                              minHeight: '32px', 
+                              height: '32px', 
+                              padding: '0 12px', 
+                              fontSize: '12px',
+                              opacity: isAllSelected ? 0.6 : 1,
+                              cursor: isAllSelected ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            ✅ 一鍵全選
+                          </button>
+                          {selectedItems.length > 0 && (
+                            <button 
+                              className="btn btn-secondary"
+                              onClick={() => setSelectedItems([])}
+                              style={{ minHeight: '32px', height: '32px', padding: '0 12px', fontSize: '12px' }}
+                            >
+                              🗑 一鍵清空
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="mck-pill-container">
                     {(() => {

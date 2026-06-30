@@ -68,7 +68,6 @@ DataExtract/<year>品檢報表統計.xlsx   ← React SPA 自動載入
 │   ├── 2025/
 │   └── 2026/
 ├── DataExtract/                  # 產出 Excel（gitignored，公開版在 public/）
-├── report-templates/             # 早期設計原型（已封存，不再使用）
 ├── DEV_LOG.md                    # 開發日誌
 ├── package.json
 └── .gitignore

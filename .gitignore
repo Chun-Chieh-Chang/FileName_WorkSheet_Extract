@@ -41,7 +41,8 @@ dist-ssr
 
 # Generated Excel output files
 DataExtract/
-!public/DataExtract/
+public/DataExtract/
+*.xlsx
 # But keep the snapshot reference files if any
 !DataExtract/*.png
 

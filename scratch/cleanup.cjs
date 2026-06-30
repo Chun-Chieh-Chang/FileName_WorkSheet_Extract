@@ -30,13 +30,16 @@ if (fs.existsSync(dataExtractDir)) {
   fs.readdirSync(dataExtractDir).forEach(file => {
     if (dataExtractKeep.includes(file)) return;
     const full = path.join(dataExtractDir, file);
-    if (fs.statSync(full).isFile()) {
-      try {
+    try {
+      if (fs.statSync(full).isDirectory()) {
+        fs.rmSync(full, { recursive: true, force: true });
+        console.log(`   Removed Folder: DataExtract/${file}`);
+      } else {
         fs.unlinkSync(full);
         console.log(`   Removed: DataExtract/${file}`);
-      } catch (e) {
-        console.log(`   Failed to remove DataExtract/${file}: ${e.message}`);
       }
+    } catch (e) {
+      console.log(`   Failed to remove DataExtract/${file}: ${e.message}`);
     }
   });
 }

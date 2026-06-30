@@ -332,9 +332,8 @@
    - `report-templates/`：早期 HTML 設計原型目錄（已無任何代碼參照，已被 `generate_styled_reports.cjs` 完全取代）。
    - `compare_b_glue.ipynb`：早期 B膠 數據探索之 Jupyter Notebook，不再使用。
    - `read_excel.html`：早期前端 Excel 讀取測試 HTML 檔，不再使用。
-2. **文件更新**：
+   - `DataExtract/2025` 與 `DataExtract/2026`：早期管線（Legacy Pipeline）產出之合併中間產物子目錄，現行管線直接產出報表統計檔，子目錄已無用，完成安全清除。
+2. **工具指令與文檔更新**：
+   - `scratch/cleanup.cjs`：優化清理邏輯，使其支援遞迴刪除 `DataExtract/` 底下的過時子目錄（如 `2025/` 與 `2026/`），防止未來再次殘留。
    - `README.md`：移除 `report-templates/` 目錄的描述，使其符合目前的實際專案目錄結構。
    - `DEV_LOG.md`：追加本次清理與維護記錄。
-
-
-

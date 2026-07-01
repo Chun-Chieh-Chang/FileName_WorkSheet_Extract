@@ -1,5 +1,33 @@
 # 開發日誌 (DEV_LOG.md)
 
+## 2026-07-01 Tubing 月份提取 Bug 修復與專案最終清理
+
+### 需求說明
+1. 修復 Tubing 數據全部被歸類到 4 月的嚴重 Bug。
+2. 焊死 etl_pipeline.cjs 的正確邏輯，確保前後端同步。
+3. MECE 清理專案，刪除過時檔案，建立還原基準點。
+
+### 遇到的問題與根因分析 (RCA)
+- **問題：Tubing 數據全部集中在 4 月，其他月份為 0**
+  - *原因*：`processRawDataFile` 中的字母月份後綴匹配邏輯 `fileName.match(/[-_]?([A-L])\.xlsx$/i)` 錯誤地匹配了 Tubing 檔案名稱中的日期碼字母（如 `Tubing-250108D.xlsx` 中的 `D`），將 `D` 映射到月份 4。
+  - *影響*：所有 40 筆 Tubing 數據都被錯誤歸類到 4 月，而非正確的月份。
+
+### 矯正與預防措施 (CAPA)
+1. **etl_pipeline.cjs**：在 `initialQC === 'QC10007-R03'` 的字母月份匹配邏輯中加入 `if (relPath && relPath.indexOf('Tubing') < 0)` 條件，排除 Tubing 子分類。
+2. **browserETL.js**：同步相同修正在前端邏輯中。
+3. **過時檔案清理**：刪除 `2025品檢報表分析.html`、`2026品檢報表分析.html`、`品檢報表比較分析.html`（可由 ETL 重新生成）。
+4. **高價值資產保留**：`data_logic_spec.html`（邏輯規格）、`DEV_LOG.md`（開發日誌）、`generate_styled_reports.cjs`（HTML 報表生成器）、`README.md`、`task.md`。
+
+### 進度追蹤
+- [x] 識別並修復 Tubing 月份提取 Bug。
+- [x] 同步 etl_pipeline.cjs 與 browserETL.js。
+- [x] 重新執行 ETL Pipeline 產出正確統計檔案。
+- [x] 重新打包前端 (npm run build)。
+- [x] 刪除過時 HTML 檔案。
+- [x] 建立 git commit 還原基準點並推送至 GitHub。
+
+---
+
 ## 2026-06-28 Excel 報表結構與欄位重構
 
 ### 需求說明

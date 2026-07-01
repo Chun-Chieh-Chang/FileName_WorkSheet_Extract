@@ -272,14 +272,6 @@ function findDateInSheetFallback(json) {
 }
 
 function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC) {
-  // Priority 0: For Tubing files, directly use the month suffix from the parent folder (e.g. Tubing-2025-02 -> Month 2)
-  if (relPath && relPath.indexOf('Tubing') >= 0) {
-    var folderMatch = relPath.match(/Tubing-\d{4}-(\d{1,2})/);
-    if (folderMatch) {
-      return parseInt(folderMatch[1], 10);
-    }
-  }
-
   // Priority 1: Specific cell inspection by QC Code
   var dateInfo = findDateInSheet(ws, actualQC);
   if (dateInfo) {
@@ -341,21 +333,7 @@ function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC)
     if (mn >= 1 && mn <= 12) return mn;
   }
 
-  // Strategy 5: Sheet name has YYMMDD pattern
-  n = sheetName.match(/(\d{2})(\d{2})\d{2}/);
-  if (n) {
-    mn = parseInt(n[2], 10);
-    if (mn >= 1 && mn <= 12) return mn;
-  }
-
-  // Strategy 6: Sheet name has Chinese month format
-  n = sheetName.match(/(\d{1,2})月/);
-  if (n) {
-    mn = parseInt(n[1], 10);
-    if (mn >= 1 && mn <= 12) return mn;
-  }
-
-  // Strategy 7: Folder/relPath name has month suffix
+  // Strategy 5: Folder/relPath name has month suffix (PRIORITY OVER SHEET NAME!)
   if (relPath) {
     n = relPath.match(/[-_](\d{1,2})$/);
     if (n) {
@@ -367,6 +345,20 @@ function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC)
       mn = parseInt(n[1], 10);
       if (mn >= 1 && mn <= 12) return mn;
     }
+  }
+
+  // Strategy 6: Sheet name has YYMMDD pattern
+  n = sheetName.match(/(\d{2})(\d{2})\d{2}/);
+  if (n) {
+    mn = parseInt(n[2], 10);
+    if (mn >= 1 && mn <= 12) return mn;
+  }
+
+  // Strategy 7: Sheet name has Chinese month format
+  n = sheetName.match(/(\d{1,2})月/);
+  if (n) {
+    mn = parseInt(n[1], 10);
+    if (mn >= 1 && mn <= 12) return mn;
   }
 
   // Strategy 8: Scan sheet content for date patterns (Fallback)
@@ -516,28 +508,20 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
     // Special override for QC10007-R03 (零組件入庫) files:
     // 1. If the file is in QC10007-R03 and ends with a month letter suffix (e.g. 裝配B-2025A.xlsx, 裝配A-2025-G.xlsx),
     //    route it to QC10007-R03 and parse month as A=1, B=2, ... L=12.
+    //    BUT ONLY for subcategories that actually use letter suffixes (射出, 射出A, 射出C, 裝配A, etc.)
+    //    Tubing uses date code suffixes like Tubing-250108D.xlsx, NOT letter suffixes!
     // 2. Override actualQC to QC10002-R02 if the relPath matches 射出D (original logic in determineQCFromSheet).
     if (initialQC === 'QC10007-R03') {
       actualQC = 'QC10007-R03';
-      var letterMatch = fileName.match(/(?:202[56]|2[56])[-_]?([A-L])\.xlsx$/i);
-      if (letterMatch) {
-        month = LETTER_MONTH[letterMatch[1].toUpperCase()];
+      // Only apply letter suffix matching for non-Tubing subcategories
+      if (relPath && relPath.indexOf('Tubing') < 0) {
+        var letterMatch = fileName.match(/[-_]?([A-L])\.xlsx$/i);
+        if (letterMatch) {
+          month = LETTER_MONTH[letterMatch[1].toUpperCase()];
+        }
       }
       if (relPath && relPath.indexOf('射出D') >= 0 && relPath.indexOf('射出D(組件)') < 0) {
         actualQC = 'QC10002-R02';
-      }
-
-      // Blank template guard for QC10007-R03 (零組件入庫品檢):
-      // The 批號 (lot number) is at cell G4 (json row index 3, col index 6).
-      // Blank pre-formatted template sheets have 批號 = 0 or empty. Skip them.
-      if (actualQC === 'QC10007-R03' && json && json.length > 3) {
-        var _lotRow = json[3];
-        var _lotVal = (_lotRow && _lotRow.length > 6) ? _lotRow[6] : '';
-        var _lotIsBlank = (_lotVal === '' || _lotVal === null || _lotVal === undefined ||
-                          _lotVal === 0 || String(_lotVal).trim() === '' || String(_lotVal).trim() === '0');
-        if (_lotIsBlank) {
-          return; // Skip blank template worksheet (no valid lot number)
-        }
       }
     }
 

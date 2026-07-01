@@ -5,11 +5,15 @@ const LETTER_MONTH = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, I: 9, J: 
 
 const FOLDER_QC_MAP = {
   '原物料品檢': 'QC10002-R02',
-  '裝配巡檢': 'QC10006-R01',
+  '進料檢驗': 'QC10002-R02',
+  '出貨檢驗': 'QC10008-R02',
   '裝配檢驗': 'QC10006-R02',
-  '完成品品檢': 'QC10007-R01',
+  '裝配巡檢': 'QC10006-R01',
   '零組件入庫': 'QC10007-R03',
-  '出貨檢驗': 'QC10008-R02'
+  '完成品品檢': 'QC10007-R01',
+  'QIP尺寸檢驗': 'QC10004-R02',
+  '射出檢驗': 'QC10004-R02',
+  '押出檢驗': 'QC10004-R02'
 };
 
 const FORM_TITLE_MAP = {
@@ -178,32 +182,35 @@ function determineQCFromSheet(json, initialQC, relPath) {
 
 function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
   if (qc === 'QC10002-R02') {
-    if (relPath && relPath.indexOf('原料') >= 0) return '原料';
-    const matMap = {
-      'B膠': '物料-B膠', '塑膠袋': '物料-塑膠袋', '塑膠袋40': '物料-塑膠袋40X50',
-      '收縮膜': '物料-收縮膜', '標籤': '物料-標籤', '空白包裝袋': '物料-空白包裝袋',
-      '空白感壓紙': '物料-空白感壓紙', '紙箱': '物料-紙箱', '色粉': '物料-色粉',
-      '過濾網': '物料-過濾網連蓋'
-    };
-    const keys = Object.keys(matMap);
-    for (let i = 0; i < keys.length; i++) {
-      if (relPath && relPath.indexOf(keys[i]) >= 0) return matMap[keys[i]];
+    const parts = relPath.split('/');
+    if (parts[0] === '原料') return '原料';
+    if (parts[0] === '物料') {
+      if (parts.length > 1) {
+        const sub = parts[1].replace(/\s+/g, '');
+        if (sub) return '物料-' + sub;
+        return '物料-' + parts[1];
+      }
+      let name = fileName.replace(/\.xlsx$/i, '');
+      name = name.replace(/[-_]\d{4}[-_]\d{1,2}$/, '');
+      name = name.replace(/[-_]\d{1,2}$/, '');
+      name = name.replace(/\s+/g, '');
+      return '物料-' + name;
     }
-    if (relPath && relPath.indexOf('射出D') >= 0) return '射出D';
-    return '原料';
+    if (parts[0].indexOf('射出D') >= 0) return '射出D';
+    return null;
   }
 
   if (qc === 'QC10008-R02') {
-    if (sheetName.indexOf('ICU') >= 0) return 'ICU';
-    return '其他';
+    return relPath.replace(/[-_](20\d{2})$/, '');
   }
 
-  if (qc === 'QC10006-R02' || qc === 'QC10007-R01') {
-    const name = relPath.split('/')[0].replace(/[-_](20\d{2})$/, '');
-    return name;
+  if (qc === 'QC10006-R02' || qc === 'QC10007-R01' || qc === 'QC10007-R02') {
+    return relPath.replace(/[-_](20\d{2})$/, '');
   }
 
-  if (qc === 'QC10006-R01') return '裝配巡檢';
+  if (qc === 'QC10006-R01') {
+    return '裝配巡檢';
+  }
 
   if (qc === 'QC10007-R03') {
     const parts = relPath.split('/');
@@ -217,17 +224,14 @@ function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
     return catMap[name] || name;
   }
 
+  if (qc === 'QC10004-R02') {
+    return null; // QC10004-R02 is processed separately via scanInjectionData and scanExtrusionData
+  }
+
   return null;
 }
 
 function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC) {
-  if (relPath && relPath.indexOf('Tubing') >= 0) {
-    const folderMatch = relPath.match(/Tubing-\d{4}-(\d{1,2})/);
-    if (folderMatch) {
-      return parseInt(folderMatch[1], 10);
-    }
-  }
-
   const dateInfo = findDateInSheet(ws, actualQC);
   if (dateInfo) {
     if (dateInfo.year === year + 1 && dateInfo.month === 1) return 12;
@@ -267,16 +271,6 @@ function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC)
     mn = parseInt(n[1], 10);
     if (mn >= 1 && mn <= 12) return mn;
   }
-  n = sheetName.match(/(\d{2})(\d{2})\d{2}/);
-  if (n) {
-    mn = parseInt(n[2], 10);
-    if (mn >= 1 && mn <= 12) return mn;
-  }
-  n = sheetName.match(/(\d{1,2})月/);
-  if (n) {
-    mn = parseInt(n[1], 10);
-    if (mn >= 1 && mn <= 12) return mn;
-  }
   if (relPath) {
     n = relPath.match(/[-_](\d{1,2})$/);
     if (n) {
@@ -288,6 +282,16 @@ function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC)
       mn = parseInt(n[1], 10);
       if (mn >= 1 && mn <= 12) return mn;
     }
+  }
+  n = sheetName.match(/(\d{2})(\d{2})\d{2}/);
+  if (n) {
+    mn = parseInt(n[2], 10);
+    if (mn >= 1 && mn <= 12) return mn;
+  }
+  n = sheetName.match(/(\d{1,2})月/);
+  if (n) {
+    mn = parseInt(n[1], 10);
+    if (mn >= 1 && mn <= 12) return mn;
   }
   if (json) {
     mn = findDateInSheetFallback(json);
@@ -310,10 +314,15 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
   const generalFiles = [];
 
   activeFiles.forEach(file => {
-    const pathLower = file.webkitRelativePath.toLowerCase();
-    if (pathLower.includes('射出檢驗') && (pathLower.includes('qip') || pathLower.includes('setup') || pathLower.includes('patrol'))) {
+    const normalizedPath = file.webkitRelativePath.replace(/\\/g, '/');
+    const pathLower = normalizedPath.toLowerCase();
+    
+    const isExtrusion = pathLower.includes('押出檢驗-' + year);
+    const isInjection = pathLower.includes('射出檢驗-' + year);
+    
+    if (isInjection) {
       qipInjFiles.push(file);
-    } else if (pathLower.includes('押出檢驗')) {
+    } else if (isExtrusion) {
       qipExtFiles.push(file);
     } else {
       generalFiles.push(file);
@@ -367,36 +376,10 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
         const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
         let actualQC = determineQCFromSheet(json, initialQC, relPath);
-        let subCat = getRawSubCategory(actualQC, relPath, fileName, sheetName, qcFolder);
-        let month = extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC);
+        let subCat = null;
+        let month = null;
 
-        // Special overrides
-        if (initialQC === 'QC10007-R03') {
-          actualQC = 'QC10007-R03';
-          const shortYear = String(year).slice(-2);
-          const letterMatchRegex = new RegExp(`(?:${year}|${shortYear})[-_]?([A-L])\\.xlsx$`, 'i');
-          const letterMatch = fileName.match(letterMatchRegex);
-          if (letterMatch) {
-            month = LETTER_MONTH[letterMatch[1].toUpperCase()];
-          }
-          if (relPath && relPath.indexOf('射出D') >= 0 && relPath.indexOf('射出D(組件)') < 0) {
-            actualQC = 'QC10002-R02';
-          }
-
-          // Blank template guard for QC10007-R03 (零組件入庫品檢):
-          // The 批號 (lot number) is at cell G4 (json row index 3, col index 6).
-          // Blank pre-formatted template sheets have 批號 = 0 or empty. Skip them.
-          if (actualQC === 'QC10007-R03' && json && json.length > 3) {
-            const _lotRow = json[3];
-            const _lotVal = (_lotRow && _lotRow.length > 6) ? _lotRow[6] : '';
-            const _lotIsBlank = (_lotVal === '' || _lotVal === null || _lotVal === undefined ||
-                              _lotVal === 0 || String(_lotVal).trim() === '' || String(_lotVal).trim() === '0');
-            if (_lotIsBlank) {
-              return; // Skip blank template worksheet (no valid lot number)
-            }
-          }
-        }
-
+        // Overrides and blank guards
         const isSemiFinishedTable = /半成品品檢表-20\d{2}\.xlsx$/i.test(fileName);
         if (isSemiFinishedTable) {
           actualQC = 'QC10006-R02';
@@ -407,6 +390,39 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
           if (sheetMatch) {
             month = LETTER_MONTH[sheetMatch[1].toUpperCase()];
           }
+        } else if (initialQC === 'QC10007-R03') {
+          actualQC = 'QC10007-R03';
+          // Only apply letter suffix matching for non-Tubing subcategories
+          if (relPath && relPath.indexOf('Tubing') < 0) {
+            const shortYear = String(year).slice(-2);
+            const letterMatchRegex = new RegExp(`(?:${year}|${shortYear})[-_]?([A-L])\\.xlsx$`, 'i');
+            const letterMatch = fileName.match(letterMatchRegex);
+            if (letterMatch) {
+              month = LETTER_MONTH[letterMatch[1].toUpperCase()];
+            }
+          }
+          if (relPath && relPath.indexOf('射出D') >= 0 && relPath.indexOf('射出D(組件)') < 0) {
+            actualQC = 'QC10002-R02';
+          }
+
+          // Blank template guard for QC10007-R03 (零組件入庫品檢):
+          if (actualQC === 'QC10007-R03' && json && json.length > 3) {
+            const _lotRow = json[3];
+            const _lotVal = (_lotRow && _lotRow.length > 6) ? _lotRow[6] : '';
+            const _lotIsBlank = (_lotVal === '' || _lotVal === null || _lotVal === undefined ||
+                              _lotVal === 0 || String(_lotVal).trim() === '' || String(_lotVal).trim() === '0');
+            if (_lotIsBlank) {
+              return; // Skip blank template worksheet
+            }
+          }
+        }
+
+        // If not set by override, compute them now
+        if (subCat === null) {
+          subCat = getRawSubCategory(actualQC, relPath, fileName, sheetName, qcFolder);
+        }
+        if (month === null) {
+          month = extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC);
         }
 
         if (actualQC === 'QC10007-R01') {
@@ -433,22 +449,23 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
 
   for (let file of qipInjFiles) {
     updateProgress(file.name);
-    const pathLower = file.webkitRelativePath.toLowerCase();
+    const normalizedPath = file.webkitRelativePath.replace(/\\/g, '/');
+    const parts = normalizedPath.split('/');
+    if (parts.length < 2) continue;
     
-    // Extract month from folder name ending in -MM (like QIP-2025(1-10)-02)
-    const mMatch = file.webkitRelativePath.match(/-(\d{2})[/\\]/);
+    const parentDir = parts[parts.length - 2];
+    const mMatch = parentDir.match(/-(\d{2})$/);
     if (!mMatch) continue;
     const month = parseInt(mMatch[1], 10);
     if (month < 1 || month > 12) continue;
-
-    // Is it under QIP Patrol folder?
-    const isPatrol = pathLower.includes('qip-') && (pathLower.includes('(1~10)') || pathLower.includes('(1-10)'));
     
-    if (!isPatrol) {
-      // Setup count
-      injSetupCounts[month]++;
-    } else {
-      // Patrol count
+    // Every file in the folder is counted as Setup
+    injSetupCounts[month]++;
+    
+    // If it is in the patrol folder, also parse sheets for patrol counts
+    const pathLower = normalizedPath.toLowerCase();
+    const isPatrol = pathLower.includes('qip-' + year + '(1~10)') || pathLower.includes('qip-' + year + '(1-10)');
+    if (isPatrol) {
       try {
         const data = await file.arrayBuffer();
         const wb = XLSX.read(data, { type: 'array' });
@@ -461,7 +478,7 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
         });
         injPatrolCounts[month] += Object.keys(uniqueBaseInFile).length;
       } catch (e) {
-        console.error(e);
+        console.error(`Error reading QIP Patrol ${file.name}:`, e);
       }
     }
   }
@@ -476,8 +493,12 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
 
   for (let file of qipExtFiles) {
     updateProgress(file.name);
+    const normalizedPath = file.webkitRelativePath.replace(/\\/g, '/');
+    const parts = normalizedPath.split('/');
+    if (parts.length < 2) continue;
     
-    const mMatch = file.webkitRelativePath.match(/-(\d{2})[/\\]/);
+    const parentDir = parts[parts.length - 2];
+    const mMatch = parentDir.match(/-(\d{2})$/);
     if (!mMatch) continue;
     const month = parseInt(mMatch[1], 10);
     if (month < 1 || month > 12) continue;
@@ -492,15 +513,21 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
       const wb = XLSX.read(data, { type: 'array' });
       const uniqueBaseInFile = {};
       wb.SheetNames.forEach(sheetName => {
-        if (sheetName.toUpperCase().includes('SETUP')) return;
-        const baseName = sheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
-        if (/^\d{6}[a-zA-Z]?$/.test(baseName)) {
+        if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別' || sheetName.indexOf('Sheet1') === 0) return;
+        if (sheetName.indexOf('.K(') >= 0 || sheetName.indexOf('範例樣本') >= 0 || /^QC[-_]?\d+/i.test(sheetName.trim())) return;
+        if (/^(工作表|Sheet)\d+/i.test(sheetName.trim())) return;
+        
+        const snLower = sheetName.toLowerCase();
+        const isSetup = (snLower.indexOf('setup') >= 0 || snLower.indexOf('set up') >= 0 || snLower.indexOf('set-up') >= 0 || snLower === 'setup');
+        
+        if (!isSetup) {
+          const baseName = sheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
           uniqueBaseInFile[baseName] = true;
         }
       });
       extPatrolCounts[month] += Object.keys(uniqueBaseInFile).length;
     } catch (e) {
-      console.error(e);
+      console.error(`Error reading Extrusion ${file.name}:`, e);
     }
   }
   counts['QC10004-R02']['押出-Setup'] = extSetupCounts;
@@ -577,15 +604,25 @@ export const exportSummaryExcelInBrowser = (counts, year) => {
     {key:'物料-塑膠袋', label:'物料-塑膠袋'}, {key:'物料-塑膠袋40X50', label:'物料-塑膠袋40X50'}, {key:'物料-紙箱', label:'物料-紙箱'},
     {key:'物料-過濾網連蓋', label:'物料-過濾網連蓋'}, {key:'物料-標籤', label:'物料-標籤'}, {key:'射出D', label:'射出D'}
   ];
-  const rawSubCatMap = {
-    '原料': 0, '物料-B膠': 1, '物料-收縮膜': 2, '物料-色粉': 3, '物料-空白包裝袋': 4,
-    '物料-空白感壓紙': 5, '物料-塑膠袋': 6, '物料-塑膠袋40X50': 7, '物料-紙箱': 8,
-    '物料-過濾網連蓋': 9, '物料-標籤': 10, '射出D': 11
+  const rawSubCatMap = (subCat) => {
+    if (subCat === '原料') return 0;
+    if (subCat === '物料-B膠') return 1;
+    if (subCat === '物料-收縮膜') return 2;
+    if (subCat === '物料-色粉') return 3;
+    if (subCat === '物料-空白包裝袋') return 4;
+    if (subCat === '物料-空白感壓紙') return 5;
+    if (subCat === '物料-塑膠袋') return 6;
+    if (subCat === '物料-塑膠袋40*50' || subCat === '物料-塑膠袋40X50') return 7;
+    if (subCat === '物料-紙箱') return 8;
+    if (subCat === '物料-過濾網連蓋') return 9;
+    if (subCat === '物料-標籤') return 10;
+    if (subCat === '射出D') return 11;
+    return null;
   };
   addCategorySheet(
     '原物料品檢(QC10002-R02)',
     rawCols,
-    (sub) => rawSubCatMap[sub],
+    rawSubCatMap,
     'QC10002-R02',
     null,
     '原物料/配件進料品檢'

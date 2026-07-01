@@ -376,12 +376,27 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
         // Special overrides
         if (initialQC === 'QC10007-R03') {
           actualQC = 'QC10007-R03';
-          const letterMatch = fileName.match(/(?:202[56]|2[56])[-_]?([A-L])\.xlsx$/i);
+          const shortYear = String(year).slice(-2);
+          const letterMatchRegex = new RegExp(`(?:${year}|${shortYear})[-_]?([A-L])\\.xlsx$`, 'i');
+          const letterMatch = fileName.match(letterMatchRegex);
           if (letterMatch) {
             month = LETTER_MONTH[letterMatch[1].toUpperCase()];
           }
           if (relPath && relPath.indexOf('射出D') >= 0 && relPath.indexOf('射出D(組件)') < 0) {
             actualQC = 'QC10002-R02';
+          }
+
+          // Blank template guard for QC10007-R03 (零組件入庫品檢):
+          // The 批號 (lot number) is at cell G4 (json row index 3, col index 6).
+          // Blank pre-formatted template sheets have 批號 = 0 or empty. Skip them.
+          if (actualQC === 'QC10007-R03' && json && json.length > 3) {
+            const _lotRow = json[3];
+            const _lotVal = (_lotRow && _lotRow.length > 6) ? _lotRow[6] : '';
+            const _lotIsBlank = (_lotVal === '' || _lotVal === null || _lotVal === undefined ||
+                              _lotVal === 0 || String(_lotVal).trim() === '' || String(_lotVal).trim() === '0');
+            if (_lotIsBlank) {
+              return; // Skip blank template worksheet (no valid lot number)
+            }
           }
         }
 
@@ -389,7 +404,9 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
         if (isSemiFinishedTable) {
           actualQC = 'QC10006-R02';
           subCat = '裝配C';
-          const sheetMatch = sheetName.match(/2[56]([A-L])/i);
+          const shortYear = String(year).slice(-2);
+          const sheetMatchRegex = new RegExp(`${shortYear}([A-L])`, 'i');
+          const sheetMatch = sheetName.match(sheetMatchRegex) || sheetName.match(/(?:2\d)([A-L])/i);
           if (sheetMatch) {
             month = LETTER_MONTH[sheetMatch[1].toUpperCase()];
           }

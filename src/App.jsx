@@ -49,6 +49,7 @@ function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [etlProgress, setEtlProgress] = useState(null);
   const [isProcessingETL, setIsProcessingETL] = useState(false);
+  const [etlYear, setEtlYear] = useState(2025);
 
   const folderInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -157,6 +158,34 @@ function App() {
     setIsScanning(true);
     setFolderName(nameOfFolder || "個別檔案統計");
     
+    // Auto-detect year (between 2010 and 2040)
+    let detected = null;
+    const folderMatch = (nameOfFolder || "").match(/20\d{2}/);
+    if (folderMatch) {
+      const parsed = parseInt(folderMatch[0], 10);
+      if (parsed >= 2010 && parsed <= 2040) {
+        detected = parsed;
+      }
+    }
+    if (!detected) {
+      for (let i = 0; i < Math.min(files.length, 50); i++) {
+        const path = files[i].webkitRelativePath || files[i].name || "";
+        const m = path.match(/20\d{2}/);
+        if (m) {
+          const parsed = parseInt(m[0], 10);
+          if (parsed >= 2010 && parsed <= 2040) {
+            detected = parsed;
+            break;
+          }
+        }
+      }
+    }
+    if (detected) {
+      setEtlYear(detected);
+    } else {
+      setEtlYear(new Date().getFullYear());
+    }
+
     const excelFiles = Array.from(files).filter(f => 
       f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || f.name.endsWith('.xlsm')
     );
@@ -885,20 +914,38 @@ function App() {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#664d03' }}>報表年度：</span>
+                      <select 
+                        value={etlYear}
+                        onChange={(e) => setEtlYear(parseInt(e.target.value, 10))}
+                        style={{
+                          padding: '6px 24px 6px 12px',
+                          fontSize: '13px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--mck-accent-gold)',
+                          background: '#ffffff',
+                          color: 'var(--mck-navy)',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          outline: 'none',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                          transition: 'border-color 0.2s'
+                        }}
+                      >
+                        {Array.from({ length: 31 }, (_, i) => 2010 + i).map(year => (
+                          <option key={year} value={year}>{year} 年</option>
+                        ))}
+                      </select>
+                    </div>
+                    
                     <button 
                       className="btn btn-primary" 
-                      onClick={() => handleRunBrowserETL(2025)}
+                      onClick={() => handleRunBrowserETL(etlYear)}
                       style={{ background: 'var(--mck-navy)', borderColor: 'var(--mck-navy)' }}
                     >
-                      🚀 輸出 2025 品檢報表統計.xlsx
-                    </button>
-                    <button 
-                      className="btn btn-primary" 
-                      onClick={() => handleRunBrowserETL(2026)}
-                      style={{ background: 'var(--mck-navy)', borderColor: 'var(--mck-navy)' }}
-                    >
-                      🚀 輸出 2026 品檢報表統計.xlsx
+                      🚀 輸出 {etlYear} 品檢報表統計.xlsx
                     </button>
                   </div>
                 )}

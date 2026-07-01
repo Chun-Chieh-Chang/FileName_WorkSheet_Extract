@@ -452,6 +452,18 @@
             <td><span class="badge badge-success">完全對齊</span></td>
           </tr>
           <tr>
+            <td><strong>日期儲存格精準定位</strong></td>
+            <td>依品檢單號類型精確定位日期儲存格（如原物料 <code>N4/O4</code>、半成品 <code>N5</code>、出貨 <code>R6</code>），並支援 QIP 緊湊型日期代碼字串解析。</td>
+            <td>重構對齊，採用與後端 100% 相同的儲存格查找定位字典、緊湊型日期代碼正則，並提供相同的 Strategy 8 掃描 Fallback。</td>
+            <td><span class="badge badge-success">完全對齊</span></td>
+          </tr>
+          <tr>
+            <td><strong>併發防護與狀態保護</strong></td>
+            <td>無需求（CLI 為單步同步執行，無併發安全隱患）。</td>
+            <td>在背景掃描未完成時（<code>isScanning</code> 為真時）將 UI 年度選單與輸出按鈕設為 <strong>停用 (disabled)</strong>，避免重複點擊致使記憶體溢出或崩潰。</td>
+            <td><span class="badge badge-success">已加固防禦</span></td>
+          </tr>
+          <tr>
             <td><strong>Excel 匯出格式</strong></td>
             <td>產出 McKinsey 標準樣板（包含大標題列、特定欄位順序、不加總小計工作表）。</td>
             <td>透過 <code>exportSummaryExcelInBrowser</code> 調用 SheetJS 產生相同結構的 xlsx 下載。</td>

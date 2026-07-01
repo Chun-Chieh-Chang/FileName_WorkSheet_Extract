@@ -38,32 +38,34 @@ function detectQCFromFolder(dirname) {
   return null;
 }
 
-function parseDateFromValue(val, formatted) {
-  if (!val) return null;
+function parseDateFromString(str) {
+  if (!str) return null;
+  str = String(str).trim();
+  let m = str.match(/\b(20\d{2})[-/](\d{1,2})[-/]\d{1,2}\b/);
+  if (m) return { year: parseInt(m[1], 10), month: parseInt(m[2], 10) };
   
+  let m2 = str.match(/\b(\d{2})[-/](\d{1,2})[-/]\d{1,2}\b/);
+  if (m2) return { year: 2000 + parseInt(m2[1], 10), month: parseInt(m2[2], 10) };
+  
+  let m3 = str.match(/\b(\d{2})(\d{2})(\d{2})[A-Za-z]?\b/);
+  if (m3) {
+    const mm = parseInt(m3[2], 10);
+    if (mm >= 1 && mm <= 12) return { year: 2000 + parseInt(m3[1], 10), month: mm };
+  }
+  return null;
+}
+
+function parseDateFromValue(val, formatted) {
   if (val instanceof Date) {
     return { year: val.getFullYear(), month: val.getMonth() + 1 };
   }
-  
-  if (typeof val === 'number') {
-    if (val > 20000 && val < 60000) {
-      const d = new Date((val - 25569) * 86400 * 1000);
-      return { year: d.getFullYear(), month: d.getMonth() + 1 };
+  if (typeof val === 'number' && val >= 40000 && val <= 50000) {
+    const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+    if (!isNaN(date.getTime())) {
+      return { year: date.getFullYear(), month: date.getMonth() + 1 };
     }
   }
-
-  const s = String(formatted || val || '').trim();
-  const mYMD = s.match(/(20\d{2})[-/年](\d{1,2})[-/月](\d{1,2})/);
-  if (mYMD) {
-    return { year: parseInt(mYMD[1], 10), month: parseInt(mYMD[2], 10) };
-  }
-
-  const mYY = s.match(/(2\d)[-/年](\d{1,2})[-/月](\d{1,2})/);
-  if (mYY) {
-    return { year: 2000 + parseInt(mYY[1], 10), month: parseInt(mYY[2], 10) };
-  }
-
-  return null;
+  return parseDateFromString(formatted || val);
 }
 
 function findDateInSheet(ws, qc) {
@@ -72,66 +74,57 @@ function findDateInSheet(ws, qc) {
   const getCellValAndFormatted = (addr) => {
     const cell = ws[addr];
     if (!cell) return { val: null, formatted: null };
-    return { val: cell.v, formatted: cell.w };
+    return { val: cell.v, formatted: cell.w || '' };
   };
 
-  let cellInfo, dateInfo;
+  let cellInfo;
+  let dateInfo = null;
+
   switch (qc) {
-    case 'QC10002-R02':
-      cellInfo = getCellValAndFormatted('J3');
+    case 'QC10002-R02': // 原物料進料品檢
+      cellInfo = getCellValAndFormatted('N4');
       dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
-      if (dateInfo) return dateInfo;
-      cellInfo = getCellValAndFormatted('K3');
-      dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
-      if (dateInfo) return dateInfo;
+      if (!dateInfo) {
+        cellInfo = getCellValAndFormatted('O4');
+        dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
+      }
       break;
-
-    case 'QC10006-R02':
-      cellInfo = getCellValAndFormatted('J3');
+    case 'QC10004-R02': // QIP 尺寸檢驗 (製程)
+      cellInfo = getCellValAndFormatted('Q4');
       dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
-      if (dateInfo) return dateInfo;
       break;
-
-    case 'QC10007-R01':
-      cellInfo = getCellValAndFormatted('J3');
+    case 'QC10006-R02': // 半成品品檢表
+    case 'QC10007-R01': // 完成品品檢表
+    case 'QC10007-R02': // 完成品品檢表 R02
+      cellInfo = getCellValAndFormatted('N5');
       dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
-      if (dateInfo) return dateInfo;
       break;
-
-    case 'QC10007-R03':
+    case 'QC10007-R03': // 零組件入庫品檢表
       cellInfo = getCellValAndFormatted('O4');
       dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
-      if (dateInfo) return dateInfo;
       break;
-
-    case 'QC10008-R02':
-      cellInfo = getCellValAndFormatted('I3');
+    case 'QC10008-R02': // 出貨檢驗報告
+      cellInfo = getCellValAndFormatted('R6');
       dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
-      if (dateInfo) return dateInfo;
-      cellInfo = getCellValAndFormatted('H3');
-      dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
-      if (dateInfo) return dateInfo;
-      cellInfo = getCellValAndFormatted('G3');
-      dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
-      if (dateInfo) return dateInfo;
       break;
   }
 
-  // Scan first 15 rows for any date
-  const cellKeys = Object.keys(ws).filter(k => !k.startsWith('!'));
-  for (let key of cellKeys) {
-    const parseRow = parseInt(key.replace(/^[A-Z]+/i, ''), 10);
-    if (parseRow <= 15) {
-      const cell = ws[key];
-      if (cell && cell.v) {
-        const info = parseDateFromValue(cell.v, cell.w);
-        if (info && info.year >= 2024 && info.year <= 2028) {
-          return info;
-        }
-      }
+  return dateInfo;
+}
+
+function findDateInSheetFallback(json) {
+  const limit = Math.min(10, json.length);
+  for (let r = 0; r < limit; r++) {
+    const row = json[r];
+    if (!row || !row.length) continue;
+    for (let c = 0; c < Math.min(row.length, 5); c++) {
+      const v = String(row[c] || '');
+      let d = v.match(/(20\d{2})\/(\d{1,2})\/\d{1,2}/);
+      if (d) { const mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
+      d = v.match(/(20\d{2})-(\d{1,2})-\d{1,2}/);
+      if (d) { const mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
     }
   }
-
   return null;
 }
 
@@ -295,6 +288,10 @@ function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC)
       mn = parseInt(n[1], 10);
       if (mn >= 1 && mn <= 12) return mn;
     }
+  }
+  if (json) {
+    mn = findDateInSheetFallback(json);
+    if (mn) return mn;
   }
   return null;
 }

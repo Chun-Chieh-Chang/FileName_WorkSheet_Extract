@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>品檢數據提取與輸出邏輯技術規格書</title>
+  <style>
+    :root {
+      --mck-navy: #0A2540;
+      --mck-accent-gold: #C5A059;
+      --mck-bg: #F8FAFC;
+      --mck-card-bg: #FFFFFF;
+      --text-primary: #1E293B;
+      --text-secondary: #64748B;
+      --border-color: #E2E8F0;
+      --success-green: #10B981;
+      --warn-orange: #F59E0B;
+    }
+
+    body {
+      font-family: 'Outfit', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--mck-bg);
+      color: var(--text-primary);
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background-color: var(--mck-navy);
+      color: #FFFFFF;
+      padding: 40px 20px;
+      text-align: center;
+      border-bottom: 4px solid var(--mck-accent-gold);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    header p {
+      margin: 10px 0 0;
+      color: #94A3B8;
+      font-size: 16px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    /* Table of Contents */
+    .toc-card {
+      background: var(--mck-card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .toc-card h2 {
+      margin-top: 0;
+      color: var(--mck-navy);
+      font-size: 18px;
+      border-bottom: 2px solid var(--mck-accent-gold);
+      padding-bottom: 8px;
+      display: inline-block;
+    }
+
+    .toc-list {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 10px;
+    }
+
+    .toc-list a {
+      color: var(--mck-navy);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .toc-list a:hover {
+      color: var(--mck-accent-gold);
+      text-decoration: underline;
+    }
+
+    /* Section styling */
+    section {
+      background: var(--mck-card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    section h2 {
+      color: var(--mck-navy);
+      font-size: 22px;
+      margin-top: 0;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    section h2::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      bottom: -1px;
+      width: 60px;
+      height: 3px;
+      background-color: var(--mck-accent-gold);
+    }
+
+    h3 {
+      color: var(--mck-navy);
+      font-size: 18px;
+      margin-top: 24px;
+    }
+
+    /* Table styling */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 12px 16px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #F8FAFC;
+      color: var(--mck-navy);
+      font-weight: 600;
+    }
+
+    tr:nth-child(even) td {
+      background-color: #FAFBFD;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge-qc {
+      background-color: #E0F2FE;
+      color: #0369A1;
+    }
+
+    .badge-success {
+      background-color: #D1FAE5;
+      color: #065F46;
+    }
+
+    .badge-warn {
+      background-color: #FEF3C7;
+      color: #92400E;
+    }
+
+    /* Flow Chart Mock */
+    .flow-diagram {
+      background: #F1F5F9;
+      border-radius: 8px;
+      padding: 20px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #334155;
+      border-left: 4px solid var(--mck-navy);
+      margin: 20px 0;
+    }
+
+    /* Highlight list */
+    ul.highlight-list {
+      padding-left: 20px;
+    }
+
+    ul.highlight-list li {
+      margin-bottom: 10px;
+    }
+
+    ul.highlight-list strong {
+      color: var(--mck-navy);
+    }
+
+    footer {
+      text-align: center;
+      padding: 30px 20px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      border-top: 1px solid var(--border-color);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>品檢數據提取與輸出邏輯技術規格書</h1>
+    <p>統整 Node.js CLI (etl_pipeline.cjs) 與 瀏覽器端 (browserETL.js) 之數據分析核心定義</p>
+  </header>
+
+  <div class="container">
+
+    <!-- Table of Contents -->
+    <div class="toc-card">
+      <h2>快速導覽</h2>
+      <ul class="toc-list">
+        <li><a href="#section1">一、 品檢表單編碼與自動識別規則</a></li>
+        <li><a href="#section2">二、 細項類別 (Sub-Category) 提取與分流定義</a></li>
+        <li><a href="#section3">三、 品檢月份 (Month) 提取演算法優先級</a></li>
+        <li><a href="#section4">四、 空白預建樣板過濾守衛 (Blank Guard)</a></li>
+        <li><a href="#section5">五、 特定表單特殊邏輯 (Deduplication & QIP)</a></li>
+        <li><a href="#section6">六、 後端 CLI 與前端 瀏覽器端 ETL 差異對齊</a></li>
+      </ul>
+    </div>
+
+    <!-- Section 1 -->
+    <section id="section1">
+      <h2>一、 品檢表單編碼與自動識別規則</h2>
+      <p>管線支援 7 大核心品檢表單編碼的自動識別。識別分為「路徑偵測」與「內容掃描」雙重防禦機制，避免工作表路由錯誤：</p>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>編碼 ID</th>
+            <th>標準表單名稱</th>
+            <th>路徑關鍵字偵測 (Folder Keyword)</th>
+            <th>單元格內容指紋偵測 (Sheet Content Fingerprint)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-qc">QC10002-R02</span></td>
+            <td>原物料/配件進料品檢表</td>
+            <td>原物料品檢</td>
+            <td>"QC10002-R02", "原物料/配件進料品檢表", "進料檢驗紀錄表"</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-qc">QC10004-R02</span></td>
+            <td>QIP 尺寸檢驗記錄表 (射出/押出)</td>
+            <td>射出檢驗 (且含 patrol/setup/qip) 或 押出檢驗</td>
+            <td>由專屬 QIP 管線解析，不作內容模糊比對</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-qc">QC10006-R01</span></td>
+            <td>裝配對樣巡檢記錄表</td>
+            <td>裝配巡檢</td>
+            <td>"QC10006-R01", "裝配對樣巡檢記錄表"</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-qc">QC10006-R02</span></td>
+            <td>半成品檢驗記錄表</td>
+            <td>裝配檢驗</td>
+            <td>"QC10006-R02", "半成品檢驗記錄表", "半成品巡檢品檢表", "SUB-ASSEMBLED SETS QIP"</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-qc">QC10007-R01</span></td>
+            <td>完成品裝配品檢記錄表</td>
+            <td>完成品品檢</td>
+            <td>"QC10007-R01", "QC10007-R02", "QC10007", "完成品裝配品檢紀錄表", "FINISHED SETS QIP"</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-qc">QC10007-R03</span></td>
+            <td>零組件入庫品檢表</td>
+            <td>零組件入庫</td>
+            <td>"QC10007-R03", "零組件入庫品檢表", "COMPONENT QIP FOR WAREHOUSING"</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-qc">QC10008-R02</span></td>
+            <td>出貨品檢記錄表</td>
+            <td>出貨檢驗</td>
+            <td>"QC10008-R02", "出貨品檢記錄表", "OUT-GOING QUALITY INSPECTION PLAN"</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Section 2 -->
+    <section id="section2">
+      <h2>二、 細項類別 (Sub-Category) 提取與分流定義</h2>
+      <p>數據提取時，必須依據特定表單之版面結構，將檔案路由至正確的細項欄位中：</p>
+      
+      <ul class="highlight-list">
+        <li><strong>QC10002-R02 (原物料品檢)</strong>：
+          <ul>
+            <li>優先依據檔案所在之相對路徑 (relPath) 進行物料關鍵字對照，例如：<code>B膠</code> 歸於 <code>物料-B膠</code>，<code>紙箱</code> 歸於 <code>物料-紙箱</code>。</li>
+            <li>若包含 <code>射出D</code> 關鍵字，則歸於 <code>射出D</code> 欄位。</li>
+            <li>若路徑包含 <code>原料</code> 且無特定匹配，或無任何匹配，則預設歸為 <code>原料</code>。</li>
+          </ul>
+        </li>
+        <li><strong>QC10006-R02 (半成品) 及 QC10007-R01 (完成品)</strong>：
+          <ul>
+            <li>細項名稱直接取自檔案所在之首層子目錄名稱，並剝除年份後綴（如 <code>Vivus-2025</code> 提取為 <code>Vivus</code>，<code>MPS-2026</code> 提取為 <code>MPS</code>）。</li>
+          </ul>
+        </li>
+        <li><strong>QC10007-R03 (零組件入庫)</strong>：
+          <ul>
+            <li>細項名稱為首層子目錄名，但嚴格限定並分流至：<code>射出</code>、<code>射出A</code>、<code>射出C</code>、<code>射出D</code>、<code>射出D(組件)</code>、<code>Tubing</code>、<code>裝配A</code>、<code>裝配B</code>、<code>裝配C</code> 欄位。</li>
+            <li>若首層子目錄名為 <code>射出D</code> 且相對路徑中無「組件」標記，系統會將該檔案重定向至 <strong>QC10002-R02</strong> 的 <code>射出D</code> 中統計。</li>
+          </ul>
+        </li>
+        <li><strong>QC10008-R02 (出貨檢驗)</strong>：
+          <ul>
+            <li>工作表名稱包含 <code>ICU</code> 歸於 <code>ICU</code> 欄位，其餘歸入 <code>其他</code>。</li>
+          </ul>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Section 3 -->
+    <section id="section3">
+      <h2>三、 品檢月份 (Month) 提取演算法優先級</h2>
+      <p>由於各品檢 Excel 檔案中日期填寫位置可能因版本修訂而偏移，系統採用以下 5 層降級（Fallback）優先順序進行月份提取：</p>
+      
+      <div class="flow-diagram">
+【優先級 1】特定工作表儲存格精準讀取 (Cell Exact Value)
+  ├─ QC10002-R02: 優先讀取 N4 (Rev C)；無效則讀取 O4 (Rev D)。
+  ├─ QC10006-R02 / QC10007-R01: 讀取 N5。
+  ├─ QC10007-R03: 讀取 O4。
+  ├─ QC10008-R02: 讀取 R6。
+  └─ QIP (QC10004-R02): 讀取 Q4 (提取 YYMMDD 中的 MM)。
+        ▼ 失敗
+【優先級 2】輕量化工作表首 15 列自動日期掃描 (Header Range Date Scan)
+  └─ 遍歷 Column A 至 Z 的前 15 列單元格，匹配 2024~2028 年份的日期值或字串，提取其月份。
+        ▼ 失敗
+【優先級 3】檔案名稱正規表示式匹配 (Filename Regex Match)
+  ├─ 模式 A: 檔名結尾為 `YYYY-MM.xlsx` (如 `2025-02.xlsx` → 2月)
+  ├─ 模式 B: 檔名內嵌 `YYYYMMDD` (如 `20250312...xlsx` → 3月)
+  └─ 模式 C: 檔名結尾為簡寫 `YYMM.xlsx` 或 `-M.xlsx` (如 `2504.xlsx` → 4月)
+        ▼ 失敗
+【優先級 4】工作表名稱或資料夾路徑特徵 (Sheet/Folder Name Match)
+  ├─ 工作表名稱包含 `MM月` (如 `12月` → 12月)
+  └─ 相對路徑包含 `MM月` 或 `Tubing-YYYY-MM` (如 `Tubing-2025-06` → 6月)
+        ▼ 失敗
+【優先級 5】後綴月份字母對照 (Month Suffix Letter - A=1, B=2 ... L=12)
+  ├─ 適用於零組件入庫 (QC10007-R03): 檔名後綴為大寫字母 (如 `裝配B-2025A.xlsx` → 1月)
+  └─ 適用於半成品 (QC10006-R02): 工作表名稱含有 `YYLetter` (如 `25D` → 4月)
+      </div>
+    </section>
+
+    <!-- Section 4 -->
+    <section id="section4">
+      <h2>四、 空白預建樣板過濾守衛 (Blank Guard)</h2>
+      <p>針對零組件入庫品檢 <span class="badge badge-qc">QC10007-R03</span> 表單，專案在 RawData 中通常會預建全年度 1-12 月的空白模板檔案。為防止未檢驗月份產生幻象數據，本專案在前後端均實作了空白模板守衛：</p>
+      
+      <div style="background-color: #FEF3C7; border-left: 4px solid var(--mck-accent-gold); padding: 16px; margin: 16px 0; border-radius: 6px;">
+        <strong>過濾核心邏輯：</strong><br>
+        在處理 `QC10007-R03` 類型工作表時，代碼會檢索工作表的 <strong>Cell G4</strong>（對應 JSON 轉出矩陣的 <code>json[3][6]</code>，即「批號」欄位）：
+        <ul>
+          <li>如果該儲存格的值為 <code>''</code> (空字串)、<code>null</code>、<code>undefined</code>、數值 <code>0</code> 或字串 <code>"0"</code>，則直接判定為<strong>空白樣板</strong>。</li>
+          <li><strong>一體適用性</strong>：此過濾邏輯不限於特定月份，而是對 <strong>1 月至 12 月的所有工作表</strong>均進行一致性攔截，直接跳過該工作表的數據統計。</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Section 5 -->
+    <section id="section5">
+      <h2>五、 特定表單特殊邏輯 (Deduplication & QIP)</h2>
+      
+      <h3>1. QIP 尺寸製程檢驗 (QC10004-R02) 獨立統計規則</h3>
+      <p>依照製程品檢規格定義，QIP 表單不進行常规的單元格掃描，而是直接針對 <code>射出檢驗</code> 與 <code>押出檢驗</code> 目錄做特殊分流：</p>
+      <table>
+        <thead>
+          <tr>
+            <th>統計項目</th>
+            <th>資料夾限制範圍</th>
+            <th>Setup (架機數) 計算規則</th>
+            <th>Patrol (巡檢數) 計算規則</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>QIP 射出 (Injection)</strong></td>
+            <td><code>RawData/{year}/射出檢驗-{year}/QIP-{year}(1~10)/</code> 及其子目錄</td>
+            <td>該月份資料夾內所有的 <code>.xlsx</code> 檔案數（排除 <code>~$</code> 開頭的暫存檔）。</td>
+            <td>
+              1. 僅保留工作表名稱符合 <strong>Date Code 格式</strong>（即 6 位數字或 6 位數字加一個字母，正則 <code>/^\d{6}[a-zA-Z]?$/</code>）的工作表。<br>
+              2. <strong>去重規則</strong>：單一檔案內後綴去重（例如 <code>260521-1</code> 與 <code>260521(2)</code> 歸併為 <code>260521</code>），去重後的工作表數量即為巡檢數。
+            </td>
+          </tr>
+          <tr>
+            <td><strong>QIP 押出 (Extrusion)</strong></td>
+            <td><code>RawData/{year}/押出檢驗-{year}/</code> 及其子目錄</td>
+            <td>符合 6 位數 Date Code 檔名的檔案個數（一個檔案計為 1 次 Setup）。</td>
+            <td>
+              1. 排除工作表名稱中包含 <code>SETUP</code> 的工作表。<br>
+              2. 僅統計工作表名稱符合 <strong>Date Code 格式</strong>且於單一檔案內去重後的工作表數量。
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>2. 完成品裝配品檢 (QC10007-R01) 批次去重邏輯</h3>
+      <p>同一批次完成品出廠時，其品檢表內可能包含多個續頁工作表（例如 <code>251201 (1)</code>, <code>251201 (2)</code>, <code>251201 (NG)</code> 等）。</p>
+      <ul>
+        <li><strong>去重做法</strong>：代碼會剔除工作表尾部的括號及流水號（正則 <code>/\s*\([^)]+\)\s*$/</code>），還原為基礎批次名稱（如 <code>251201</code>）。</li>
+        <li><strong>統計約束</strong>：在同一個 Excel 檔案中，同一個基礎批次名稱<strong>僅會被統計一次</strong>，避免因多頁檢驗報告導致合格批次數量虛增。</li>
+      </ul>
+    </section>
+
+    <!-- Section 6 -->
+    <section id="section6">
+      <h2>六、 後端 CLI 與前端 瀏覽器端 ETL 差異對齊</h2>
+      <p>為確保系統在不同運行環境下產生一致的 Excel 報表，此處列出兩套 Pipeline 的主要對齊關係：</p>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>功能維度</th>
+            <th>後端 CLI Pipeline (etl_pipeline.cjs)</th>
+            <th>前端 瀏覽器端 ETL (browserETL.js)</th>
+            <th>對齊狀態</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>執行環境</strong></td>
+            <td>Node.js 執行環境，直接讀取本機硬碟 RawData 資料夾。</td>
+            <td>瀏覽器 Web 環境，使用者透過 HTML5 Drag-and-Drop / Folder Upload 上傳。</td>
+            <td><span class="badge badge-success">完全對齊</span></td>
+          </tr>
+          <tr>
+            <td><strong>目標年份解析</strong></td>
+            <td>透過 CLI 參數傳入 (<code>node etl_pipeline.cjs 2027</code>)。</td>
+            <td>智慧偵測上傳路徑與檔名特徵，自動設定並提供下拉選單 override。</td>
+            <td><span class="badge badge-success">完全對齊</span></td>
+          </tr>
+          <tr>
+            <td><strong>空白預建樣板過濾</strong></td>
+            <td>在 <code>processRawDataFile</code> 中執行 Cell G4 批號攔截。</td>
+            <td>在 <code>runETLInBrowser</code> 遍歷工作表時執行 Cell G4 批號攔截。</td>
+            <td><span class="badge badge-success">完全對齊</span></td>
+          </tr>
+          <tr>
+            <td><strong>Excel 匯出格式</strong></td>
+            <td>產出 McKinsey 標準樣板（包含大標題列、特定欄位順序、不加總小計工作表）。</td>
+            <td>透過 <code>exportSummaryExcelInBrowser</code> 調用 SheetJS 產生相同結構的 xlsx 下載。</td>
+            <td><span class="badge badge-success">完全對齊</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+  </div>
+
+  <footer>
+    <p>品檢報表統計 ETL Pipeline 技術規格文檔 &copy; 2026 Wesley Chang @Mouldex. All rights reserved.</p>
+  </footer>
+
+</body>
+</html>

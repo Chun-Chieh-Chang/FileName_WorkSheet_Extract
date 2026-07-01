@@ -920,6 +920,7 @@ function App() {
                       <select 
                         value={etlYear}
                         onChange={(e) => setEtlYear(parseInt(e.target.value, 10))}
+                        disabled={isScanning}
                         style={{
                           padding: '6px 24px 6px 12px',
                           fontSize: '13px',
@@ -928,10 +929,11 @@ function App() {
                           background: '#ffffff',
                           color: 'var(--mck-navy)',
                           fontWeight: 600,
-                          cursor: 'pointer',
+                          cursor: isScanning ? 'not-allowed' : 'pointer',
+                          opacity: isScanning ? 0.6 : 1,
                           outline: 'none',
                           boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                          transition: 'border-color 0.2s'
+                          transition: 'all 0.2s'
                         }}
                       >
                         {Array.from({ length: 31 }, (_, i) => 2010 + i).map(year => (
@@ -943,9 +945,15 @@ function App() {
                     <button 
                       className="btn btn-primary" 
                       onClick={() => handleRunBrowserETL(etlYear)}
-                      style={{ background: 'var(--mck-navy)', borderColor: 'var(--mck-navy)' }}
+                      disabled={isScanning}
+                      style={{ 
+                        background: 'var(--mck-navy)', 
+                        borderColor: 'var(--mck-navy)',
+                        opacity: isScanning ? 0.6 : 1,
+                        cursor: isScanning ? 'not-allowed' : 'pointer'
+                      }}
                     >
-                      🚀 輸出 {etlYear} 品檢報表統計.xlsx
+                      {isScanning ? '🔍 正在解析原始檔案中...' : `🚀 輸出 ${etlYear} 品檢報表統計.xlsx`}
                     </button>
                   </div>
                 )}

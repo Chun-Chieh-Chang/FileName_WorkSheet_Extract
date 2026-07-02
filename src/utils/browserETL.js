@@ -394,11 +394,16 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
           actualQC = 'QC10007-R03';
           // Only apply letter suffix matching for non-Tubing subcategories
           if (relPath && relPath.indexOf('Tubing') < 0) {
-            const shortYear = String(year).slice(-2);
-            const letterMatchRegex = new RegExp(`(?:${year}|${shortYear})[-_]?([A-L])\\.xlsx$`, 'i');
-            const letterMatch = fileName.match(letterMatchRegex);
+            const letterMatch = fileName.match(/[-_]?([A-L])\.xlsx$/i);
             if (letterMatch) {
-              month = LETTER_MONTH[letterMatch[1].toUpperCase()];
+              const derivedMonth = LETTER_MONTH[letterMatch[1].toUpperCase()];
+              // Verify the derived month matches actual file date content
+              // If not, fall through to extractRawMonth() for proper detection
+              const fileDate = findDateInSheet(ws, actualQC);
+              if (fileDate && fileDate.month === derivedMonth) {
+                month = derivedMonth;
+              }
+              // If no date in cell or mismatch, let extractRawMonth() handle it
             }
           }
           if (relPath && relPath.indexOf('射出D') >= 0 && relPath.indexOf('射出D(組件)') < 0) {

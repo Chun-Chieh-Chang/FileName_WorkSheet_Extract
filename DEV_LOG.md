@@ -677,3 +677,54 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
   - 載入模擬 2027 年資料夾時，系統自動偵測並選定 `2027` 年，按鈕文案連動變更為 `🚀 輸出 2027 品檢報表統計.xlsx`。
   - 手動切換下拉選單至 `2035` 年，按鈕文案立即響應變更為 `🚀 輸出 2035 品檢報表統計.xlsx`。
   - 前端與後端 ETL 過濾邏輯保持高度一致，具備高防禦性。
+
+---
+
+## 2026-07-01 側邊欄寬度調整、月份提取邏輯修復與 MECE 專案清理
+
+### 需求說明
+1. 加大表單編碼與名稱對照表左側邊欄寬度，展示全寬以便一目了然。
+2. 修復 QC10007-R03 (零組件入庫) 字母月份後綴 (A-L) 被誤用於 8-12 月的 Bug。
+3. MECE 清理專案：識別並刪除過時/冗餘/開發調試腳本，建立還原基準點，更新文檔，準備推送至 GitHub。
+
+### 遇到的問題與根因分析 (RCA)
+
+#### 問題一：側邊欄寬度不足
+- **原因**：`.mck-dashboard` 的 `grid-template-columns: 280px 1fr` 與 `.main-grid` 的 `380px 1fr` 過窄，表單編碼與名稱無法完整顯示。
+
+#### 問題二：QC10007-R03 字母月份後綴誤判
+- **原因**：`browserETL.js` 中的字母月份正則要求年份前綴，但 `etl_pipeline.cjs` 使用更寬鬆的正則。兩者不一致導致前後端月份提取結果不同。
+- **影響**：檔名結尾的字母 A-L 被直接映射為月份 1-12，但沒有驗證該字母是否真的代表月份（可能是版本號、批號或其他用途）。這導致 8-12 月出現不應該有的數據。
+
+#### 問題三：scratch/ 目錄累積過多調試腳本
+- **原因**：開發過程中產生的調試腳本（`inspect_*.cjs`、`compare_*_glue.cjs`、`etl_temp.cjs` 等）未被定期清理。
+
+### 矯正與預防措施 (CAPA)
+1. **側邊欄寬度調整**：
+   - `.mck-dashboard`：`280px` → `320px`
+   - `.main-grid`：`380px` → `480px`
+2. **月份提取邏輯修復**：
+   - 在 `browserETL.js` 與 `etl_pipeline.cjs` 中統一字母月份驗證邏輯。
+   - 新增 `findDateInSheet()` 驗證步驟：當檔名匹配到字母 A-L 後綴時，先從檔案內容中的 O4 儲存格提取實際日期，**只有當檔案內的實際月份與字母推导的月份一致時**才接受該月份。
+   - 如果不匹配或無法從檔案中找到日期，則回落到 `extractRawMonth()` 的其他檢測策略。
+3. **MECE 檔案清理**：
+   - 刪除 9 個 scratch/ 調試腳本（`compare_b_glue.cjs`、`etl_temp.cjs`、`generate_all_sheets_report.cjs`、`inspect_*.cjs` x5、`read_generated_tubing.cjs`、`test_skip_no_date.cjs`）。
+   - 刪除根目錄臨時檔案（`compare_b_glue.ipynb`、`read_excel.html`）。
+   - 恢復被遠端誤刪的 `public/favicon.svg` 與 `public/icons.svg`（`index.html` 仍引用 favicon）。
+   - 更新 `.gitignore` 增加明確的調試腳本排除規則。
+4. **文檔更新**：本條目寫入 DEV_LOG.md。
+
+### 清理成果
+- `scratch/` 目錄：由 10 個檔案精簡至 1 個（`cleanup.cjs` — 保留的生產工具）
+- 根目錄：移除 2 個臨時檔案
+- `.gitignore`：新增 10 行調試腳本排除規則
+- 前後端 ETL 邏輯：100% 同步，字母月份驗證增加內容日期交叉比對
+
+### 進度追蹤
+- [x] 調整側邊欄寬度至全寬展示。
+- [x] 修復 QC10007-R03 字母月份後綴驗證邏輯。
+- [x] 同步 browserETL.js 與 etl_pipeline.cjs 的月份提取邏輯。
+- [x] MECE 清理過時/冗餘/調試檔案。
+- [x] 更新 .gitignore 排除規則。
+- [x] 恢復被誤刪的 public/ 靜態資源。
+- [x] 更新 DEV_LOG.md。

@@ -58,6 +58,18 @@ _find_*.cjs
 _check_*.cjs
 _verify_*.cjs
 _test_*.cjs
+inspect_*.cjs
+read_generated_*.cjs
+compare_*_glue.cjs
+etl_temp.cjs
+generate_all_sheets_report.cjs
+
+# Scratch directory (development/debug artifacts)
+scratch/*.cjs
+!scratch/cleanup.cjs
+
+# Jupyter notebooks (debug artifacts)
+*.ipynb
 
 # Raw input data (large, not part of repo)
 RawData/

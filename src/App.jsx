@@ -807,28 +807,30 @@ function App() {
                 <div className="mck-card-subtitle" style={{ marginTop: '2px' }}>切換單一年度數據，或啟動跨年度數據對比</div>
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ fontSize: '12px', color: 'var(--mck-slate)', fontWeight: 600 }}>月份篩選：</span>
-                <select 
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
-                  style={{
-                    padding: '6px 24px 6px 12px',
-                    fontSize: '13px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-color)',
-                    background: '#ffffff',
-                    color: 'var(--mck-navy)',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    outline: 'none',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                  }}
-                >
-                  <option value={0}>全部月份</option>
-                  {MONTH_LABELS.map((label, idx) => (
-                    <option key={idx + 1} value={idx + 1}>{label}</option>
-                  ))}
-                </select>
+                  <span style={{ fontSize: '12px', color: 'var(--mck-slate)', fontWeight: 600 }}>月份篩選：</span>
+                  <select 
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+                    style={{
+                      padding: '6px 24px 6px 12px',
+                      fontSize: '13px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--bg-surface)',
+                      color: 'var(--text-primary)',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      outline: 'none',
+                      boxShadow: 'none',
+                      transition: 'var(--transition-smooth)',
+                      minHeight: '38px',
+                    }}
+                  >
+                    <option value={0}>全部月份</option>
+                    {MONTH_LABELS.map((label, idx) => (
+                      <option key={idx + 1} value={idx + 1}>{label}</option>
+                    ))}
+                  </select>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {Object.keys(summaryFiles).sort().map(year => (
                     <button 

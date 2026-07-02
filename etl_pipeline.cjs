@@ -106,6 +106,7 @@ function extractMonth(row, sheetName, fileName) {
 
 // Map folder name prefix to QC code
 var QC_FOLDER_MAP = {
+  '半成品品檢表': 'QC10006-R02',  // Keyword-driven: matches filename OR folder path (PRIORITY over 零組件入庫)
   '進料檢驗': 'QC10002-R02',
   '出貨檢驗': 'QC10008-R02',
   '裝配檢驗': 'QC10006-R02',
@@ -531,15 +532,33 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
       }
     }
 
-    // Special override for 半成品品檢表-20XX.xlsx files:
-    // Route to QC10006-R02 under subcategory '裝配C' and determine month from sheet name letter (e.g., PJW25D13 -> D -> 4)
-    var isSemiFinishedTable = /半成品品檢表-20\d{2}\.xlsx$/i.test(fileName);
+    // Special override for 半成品品檢表 files:
+    // Route to QC10006-R02 under subcategory '裝配C' and determine month flexibly
+    // Matches: 半成品品檢表-2025.xlsx, 半成品品檢表2023-01.xlsx, 半成品品檢表2023(限組件用)/xxx.xlsx
+    var isSemiFinishedTable = /半成品品檢表/i.test(fileName) || /半成品品檢表/i.test(relPath || '');
     if (isSemiFinishedTable) {
       actualQC = 'QC10006-R02';
       subCat = '裝配C';
-      var sheetMatch = sheetName.match(/2[56]([A-L])/i);
+      // Flexible month extraction for 半成品品檢表:
+      // 1. Sheet name pattern: PJW25D13 → 25=D(4月)
+      var sheetMatch = sheetName.match(/2[34567]([A-L])/i);
       if (sheetMatch) {
         month = LETTER_MONTH[sheetMatch[1].toUpperCase()];
+      }
+      // 2. Filename pattern: 半成品品檢表2023-01.xlsx → 1月
+      if (!month) {
+        var fnMonthMatch = fileName.match(/半成品品檢表\d{4}[-_](\d{1,2})/i);
+        if (fnMonthMatch) {
+          month = parseInt(fnMonthMatch[1], 10);
+        }
+      }
+      // 3. Sheet name YYMMDD pattern: 230115 → 1月
+      if (!month) {
+        var sheetYymmdd = sheetName.match(/23(\d{2})(\d{2})/);
+        if (sheetYymmdd) {
+          var m = parseInt(sheetYymmdd[2], 10);
+          if (m >= 1 && m <= 12) month = m;
+        }
       }
     }
 

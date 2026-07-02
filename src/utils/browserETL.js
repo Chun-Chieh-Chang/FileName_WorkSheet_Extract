@@ -4,6 +4,7 @@ const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const LETTER_MONTH = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, I: 9, J: 10, K: 11, L: 12 };
 
 const FOLDER_QC_MAP = {
+  '半成品品檢表': 'QC10006-R02',  // Keyword-driven: matches filename OR folder path (PRIORITY over 零組件入庫)
   '原物料品檢': 'QC10002-R02',
   '進料檢驗': 'QC10002-R02',
   '出貨檢驗': 'QC10008-R02',
@@ -380,15 +381,31 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
         let month = null;
 
         // Overrides and blank guards
-        const isSemiFinishedTable = /半成品品檢表-20\d{2}\.xlsx$/i.test(fileName);
+        // Keyword-driven: matches filename OR folder path (e.g., 半成品品檢表2023(限組件用)/xxx.xlsx)
+        const isSemiFinishedTable = /半成品品檢表/i.test(fileName) || /半成品品檢表/i.test(relPath || '');
         if (isSemiFinishedTable) {
           actualQC = 'QC10006-R02';
           subCat = '裝配C';
-          const shortYear = String(year).slice(-2);
-          const sheetMatchRegex = new RegExp(`${shortYear}([A-L])`, 'i');
-          const sheetMatch = sheetName.match(sheetMatchRegex) || sheetName.match(/(?:2\d)([A-L])/i);
+          // Flexible month extraction for 半成品品檢表:
+          // 1. Sheet name letter pattern: PJW25D13 → D=4月 (years 2023-2027)
+          const sheetMatch = sheetName.match(/2[34567]([A-L])/i);
           if (sheetMatch) {
             month = LETTER_MONTH[sheetMatch[1].toUpperCase()];
+          }
+          // 2. Filename pattern: 半成品品檢表2023-01.xlsx → 1月
+          if (!month) {
+            const fnMonthMatch = fileName.match(/半成品品檢表\d{4}[-_](\d{1,2})/i);
+            if (fnMonthMatch) {
+              month = parseInt(fnMonthMatch[1], 10);
+            }
+          }
+          // 3. Sheet name YYMMDD pattern: 230115 → 1月
+          if (!month) {
+            const sheetYymmdd = sheetName.match(/23(\d{2})(\d{2})/);
+            if (sheetYymmdd) {
+              const m = parseInt(sheetYymmdd[2], 10);
+              if (m >= 1 && m <= 12) month = m;
+            }
           }
         } else if (initialQC === 'QC10007-R03') {
           actualQC = 'QC10007-R03';

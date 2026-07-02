@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getMappings, saveMappings, resetMappings } from './utils/db';
 import { parseExcelFile, exportToExcel, parseSummaryExcel } from './utils/excelParser';
 import { runETLInBrowser, exportSummaryExcelInBrowser } from './utils/browserETL';
+import * as XLSX from 'xlsx';
 
 const MONTH_LABELS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
 
@@ -31,6 +32,7 @@ function App() {
   const [selectedItems, setSelectedItems] = useState([]); // Array of {name, idx}
   const [summaryFileName, setSummaryFileName] = useState("");
   const [dashboardInsights, setDashboardInsights] = useState({ total: 0, peakMonth: "", peakVal: 0, avg: 0 });
+  const [selectedMonth, setSelectedMonth] = useState(0); // 0=all, 1-12=specific month
 
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
@@ -246,6 +248,178 @@ function App() {
     }
   };
 
+  // Export individual QC report sheets
+  const handleExportIndividualReports = (year) => {
+    if (!uploadedFiles || uploadedFiles.length === 0) {
+      alert("請先選取或拖入原始品檢資料夾以執行 ETL。");
+      return;
+    }
+    setIsProcessingETL(true);
+    setEtlProgress({ current: 0, total: uploadedFiles.length, filename: "初始化中..." });
+    
+    (async () => {
+      try {
+        const counts = await runETLInBrowser(uploadedFiles, year, (current, total, filename) => {
+          setEtlProgress({ current, total, filename });
+        });
+        
+        exportIndividualReports(counts, year);
+        alert(`🎉 ${year} 年度獨立報表全部匯出成功！已下載所有 QC 表單的獨立 Excel 檔案。`);
+      } catch (e) {
+        console.error(e);
+        alert("匯出失敗，請確認選取的是正確的年度品檢原始資料夾。");
+      } finally {
+        setIsProcessingETL(false);
+      }
+    })();
+  };
+
+  // Helper: export individual QC reports as separate Excel files
+  const exportIndividualReports = (counts, year) => {
+    const MONTHS_ARR = ["1","2","3","4","5","6","7","8","9","10","11","12"];
+    
+    const reports = [
+      {
+        name: `進料檢驗-${year}`,
+        qcCode: 'QC10002-R02',
+        categories: ['原料','物料-B膠','物料-收縮膜','物料-色粉','物料-空白包裝袋','物料-空白感壓紙','物料-塑膠袋','物料-塑膠袋40X50','物料-紙箱','物料-過濾網連蓋','物料-標籤','射出D'],
+        title: '原物料/配件進料品檢'
+      },
+      {
+        name: `QIP尺寸檢驗-${year}`,
+        qcCode: 'QC10004-R02',
+        categories: ['QIP-Setup','QIP-Patrol','押出-Setup','押出-Patrol'],
+        title: 'QIP尺寸檢驗'
+      },
+      {
+        name: `裝配巡檢-${year}`,
+        qcCode: 'QC10006-R01',
+        categories: ['裝配巡檢'],
+        title: '裝配對樣巡檢'
+      },
+      {
+        name: `裝配檢驗-${year}`,
+        qcCode: 'QC10006-R02',
+        categories: ['裝配C','BD','Biometrix','MPS','Vivus'],
+        title: '半成品品檢'
+      },
+      {
+        name: `完成品品檢-${year}`,
+        qcCode: 'QC10007-R01',
+        categories: ['Biometrix','MarMed','Saxon','Vivus'],
+        title: '完成品品檢'
+      },
+      {
+        name: `零組件入庫-${year}_Tubing`,
+        qcCode: 'QC10007-R03',
+        categories: ['Tubing'],
+        title: '零組件入庫品檢'
+      },
+      {
+        name: `零組件入庫-${year}_射出`,
+        qcCode: 'QC10007-R03',
+        categories: ['射出'],
+        title: '零組件入庫品檢'
+      },
+      {
+        name: `零組件入庫-${year}_射出A`,
+        qcCode: 'QC10007-R03',
+        categories: ['射出A'],
+        title: '零組件入庫品檢'
+      },
+      {
+        name: `零組件入庫-${year}_射出C`,
+        qcCode: 'QC10007-R03',
+        categories: ['射出C'],
+        title: '零組件入庫品檢'
+      },
+      {
+        name: `零組件入庫-${year}_射出D(組件)`,
+        qcCode: 'QC10007-R03',
+        categories: ['射出D(組件)'],
+        title: '零組件入庫品檢'
+      },
+      {
+        name: `零組件入庫-${year}_射出D`,
+        qcCode: 'QC10007-R03',
+        categories: ['射出D'],
+        title: '零組件入庫品檢'
+      },
+      {
+        name: `零組件入庫-${year}_裝配A`,
+        qcCode: 'QC10007-R03',
+        categories: ['裝配A'],
+        title: '零組件入庫品檢'
+      },
+      {
+        name: `零組件入庫-${year}_裝配B`,
+        qcCode: 'QC10007-R03',
+        categories: ['裝配B'],
+        title: '零組件入庫品檢'
+      },
+      {
+        name: `零組件入庫-${year}_裝配C`,
+        qcCode: 'QC10007-R03',
+        categories: ['裝配C'],
+        title: '零組件入庫品檢'
+      },
+      {
+        name: `出貨檢驗-${year}`,
+        qcCode: 'QC10008-R02',
+        categories: ['ICU','其他'],
+        title: '出貨檢驗'
+      }
+    ];
+
+    reports.forEach(report => {
+      const { name, qcCode, categories, title } = report;
+      const qcCounts = counts[qcCode] || {};
+      
+      // Aggregate data for this report's categories
+      const colData = categories.map(() => ({}));
+      
+      for (let subCat in qcCounts) {
+        const colIdx = categories.indexOf(subCat);
+        if (colIdx === -1) continue;
+        const monthly = qcCounts[subCat];
+        for (let m = 1; m <= 12; m++) {
+          if (monthly[m]) {
+            colData[colIdx][m] = (colData[colIdx][m] || 0) + monthly[m];
+          }
+        }
+      }
+
+      const rows = [[title], ['月份', ...categories]];
+      for (let m = 1; m <= 12; m++) {
+        const row = [`${MONTHS_ARR[m-1]}月`];
+        let total = 0;
+        categories.forEach((_, ci) => {
+          const v = colData[ci][m] || 0;
+          row.push(v);
+          total += v;
+        });
+        row.push(total);
+        rows.push(row);
+      }
+      
+      // Total row
+      const totalRow = ['小計'];
+      let grandTotal = 0;
+      categories.forEach((_, ci) => {
+        let t = 0;
+        for (let m = 1; m <= 12; m++) t += (colData[ci][m] || 0);
+        totalRow.push(t);
+        grandTotal += t;
+      });
+      totalRow.push(grandTotal);
+      rows.push(totalRow);
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
+      XLSX.writeFile(wb, `${name}.xlsx`);
+    });
+  };
+
   const handleFolderChange = (e) => {
     if (e.target.files.length === 0) return;
     const firstFile = e.target.files[0];
@@ -357,6 +531,11 @@ function App() {
           const dataYr = [];
           const rowsYr = summaryFiles[yr] ? summaryFiles[yr][activeSheet] : null;
           for (let m = 2; m <= 13; m++) {
+            // Respect month filter
+            if (selectedMonth > 0 && m - 1 !== selectedMonth) {
+              dataYr.push(0);
+              continue;
+            }
             const val = rowsYr && rowsYr[m] ? Number(rowsYr[m][item.idx]) || 0 : 0;
             dataYr.push(val);
           }
@@ -375,6 +554,11 @@ function App() {
         // Monthly data is at rows 2 to 13 (index 2-13)
         const dataPoints = [];
         for (let m = 2; m <= 13; m++) {
+          // Respect month filter
+          if (selectedMonth > 0 && m - 1 !== selectedMonth) {
+            dataPoints.push(0);
+            continue;
+          }
           const val = rows[m] ? Number(rows[m][item.idx]) || 0 : 0;
           dataPoints.push(val);
         }
@@ -456,6 +640,9 @@ function App() {
     
     // Sum month by month
     for (let m = 0; m < 12; m++) {
+      // Respect month filter
+      if (selectedMonth > 0 && m + 1 !== selectedMonth) continue;
+      
       let monthlySum = 0;
       selectedItems.forEach(item => {
         const val = rows[m + 2] ? Number(rows[m + 2][item.idx]) || 0 : 0;
@@ -468,14 +655,16 @@ function App() {
       }
     }
     
+    // Adjust average calculation based on filtered months
+    const filteredMonths = selectedMonth > 0 ? 1 : 12;
     setDashboardInsights({
       total: totalSum,
       peakMonth: peakM || "N/A",
       peakVal: peakValue,
-      avg: Math.round(totalSum / 12)
+      avg: filteredMonths > 0 ? Math.round(totalSum / filteredMonths) : 0
     });
 
-  }, [selectedItems, activeSheet, summaryData]);
+  }, [selectedItems, activeSheet, summaryData, selectedMonth, activeYear, summaryFiles]);
 
   // Toggle dynamic selection pill
   const handleTogglePill = (item) => {
@@ -497,6 +686,9 @@ function App() {
     
     // Monthly rows (indices 2 to 13)
     for (let m = 2; m <= 13; m++) {
+      // Respect month filter
+      if (selectedMonth > 0 && m - 1 !== selectedMonth) continue;
+      
       const monthRow = rows[m];
       const rowArr = [monthRow ? monthRow[0] : `${m-1}月`];
       selectedItems.forEach(item => {
@@ -505,13 +697,25 @@ function App() {
       tableRows.push(rowArr);
     }
 
-    // Totals row (Row 14)
-    const totalsRow = rows[14];
-    const totalArr = ["小計"];
-    selectedItems.forEach(item => {
-      totalArr.push(totalsRow ? Number(totalsRow[item.idx]) || 0 : 0);
-    });
-    tableRows.push(totalArr);
+    // Totals row (Row 14) - only show if month filter is active
+    if (selectedMonth > 0 && selectedMonth <= 12) {
+      const totalsRow = rows[selectedMonth + 1]; // Row index = month + 1
+      if (totalsRow) {
+        const totalArr = [`${selectedMonth}月`];
+        selectedItems.forEach(item => {
+          totalArr.push(totalsRow ? Number(totalsRow[item.idx]) || 0 : 0);
+        });
+        tableRows.push(totalArr);
+      }
+    } else {
+      // Normal total row
+      const totalsRow = rows[14];
+      const totalArr = ["小計"];
+      selectedItems.forEach(item => {
+        totalArr.push(totalsRow ? Number(totalsRow[item.idx]) || 0 : 0);
+      });
+      tableRows.push(totalArr);
+    }
 
     return { columns, rows: tableRows };
   };
@@ -602,25 +806,49 @@ function App() {
                 <h3 className="mck-card-title" style={{ fontSize: '15px' }}>📅 選擇分析年度與跨年對比</h3>
                 <div className="mck-card-subtitle" style={{ marginTop: '2px' }}>切換單一年度數據，或啟動跨年度數據對比</div>
               </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {Object.keys(summaryFiles).sort().map(year => (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', color: 'var(--mck-slate)', fontWeight: 600 }}>月份篩選：</span>
+                <select 
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+                  style={{
+                    padding: '6px 24px 6px 12px',
+                    fontSize: '13px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    background: '#ffffff',
+                    color: 'var(--mck-navy)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    outline: 'none',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  }}
+                >
+                  <option value={0}>全部月份</option>
+                  {MONTH_LABELS.map((label, idx) => (
+                    <option key={idx + 1} value={idx + 1}>{label}</option>
+                  ))}
+                </select>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {Object.keys(summaryFiles).sort().map(year => (
+                    <button 
+                      key={year}
+                      className={`btn ${activeYear === year ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setActiveYear(year)}
+                      style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
+                    >
+                      {year} 年度 ✓
+                    </button>
+                  ))}
                   <button 
-                    key={year}
-                    className={`btn ${activeYear === year ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={() => setActiveYear(year)}
+                    className={`btn ${activeYear === 'compare' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setActiveYear('compare')}
+                    disabled={Object.keys(summaryFiles).length < 2}
                     style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
                   >
-                    {year} 年度 ✓
+                    📊 跨年度對比 ({Object.keys(summaryFiles).sort().join(' vs ')})
                   </button>
-                ))}
-                <button 
-                  className={`btn ${activeYear === 'compare' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setActiveYear('compare')}
-                  disabled={Object.keys(summaryFiles).length < 2}
-                  style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
-                >
-                  📊 跨年度對比 ({Object.keys(summaryFiles).sort().join(' vs ')})
-                </button>
+                </div>
               </div>
             </div>
           )}
@@ -954,6 +1182,20 @@ function App() {
                       }}
                     >
                       {isScanning ? '🔍 正在解析原始檔案中...' : `🚀 輸出 ${etlYear} 品檢報表統計.xlsx`}
+                    </button>
+                    
+                    <button 
+                      className="btn btn-secondary" 
+                      onClick={() => handleExportIndividualReports(etlYear)}
+                      disabled={isScanning}
+                      style={{ 
+                        borderColor: 'var(--mck-navy)',
+                        color: 'var(--mck-navy)',
+                        opacity: isScanning ? 0.6 : 1,
+                        cursor: isScanning ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {isScanning ? '🔍 解析中...' : `📦 輸出 ${etlYear} 獨立報表 (全部 QC)`}
                     </button>
                   </div>
                 )}

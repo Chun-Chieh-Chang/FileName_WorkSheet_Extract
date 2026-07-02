@@ -217,6 +217,7 @@
   <header>
     <h1>品檢數據提取與輸出邏輯技術規格書</h1>
     <p>統整 Node.js CLI (etl_pipeline.cjs) 與 瀏覽器端 (browserETL.js) 之數據分析核心定義</p>
+    <p style="margin-top: 8px; font-size: 13px; color: #64748B;">最後更新: 2026-07-01 | 版本: v3.2 (關鍵字驅動路由 + 彈性月份提取)</p>
   </header>
 
   <div class="container">
@@ -231,6 +232,7 @@
         <li><a href="#section4">四、 空白預建樣板過濾守衛 (Blank Guard)</a></li>
         <li><a href="#section5">五、 特定表單特殊邏輯 (Deduplication & QIP)</a></li>
         <li><a href="#section6">六、 後端 CLI 與前端 瀏覽器端 ETL 差異對齊</a></li>
+        <li><a href="#section7">七、 關鍵字驅動路由與彈性月份提取 (v3.2 新增)</a></li>
       </ul>
     </div>
 
@@ -270,7 +272,7 @@
           <tr>
             <td><span class="badge badge-qc">QC10006-R02</span></td>
             <td>半成品檢驗記錄表</td>
-            <td>裝配檢驗</td>
+            <td>裝配檢驗<br><strong>或關鍵字「半成品品檢表」(檔名/路徑)</strong></td>
             <td>"QC10006-R02", "半成品檢驗記錄表", "半成品巡檢品檢表", "SUB-ASSEMBLED SETS QIP"</td>
           </tr>
           <tr>
@@ -308,9 +310,16 @@
             <li>若路徑包含 <code>原料</code> 且無特定匹配，或無任何匹配，則預設歸為 <code>原料</code>。</li>
           </ul>
         </li>
-        <li><strong>QC10006-R02 (半成品) 及 QC10007-R01 (完成品)</strong>：
+        <li><strong>QC10006-R02 (半成品)</strong>：
           <ul>
-            <li>細項名稱直接取自檔案所在之首層子目錄名稱，並剝除年份後綴（如 <code>Vivus-2025</code> 提取為 <code>Vivus</code>，<code>MPS-2026</code> 提取為 <code>MPS</code>）。</li>
+            <li><strong>標準路徑</strong>：細項名稱取自檔案所在之首層子目錄名稱，並剝除年份後綴（如 <code>Vivus-2025</code> → <code>Vivus</code>）。</li>
+            <li><strong>關鍵字驅動路由</strong>：若檔案名稱或相對於 QC 根目錄的路徑包含 <code>半成品品檢表</code>（例如 <code>零組件入庫-2023/半成品品檢表2023(限組件用)/</code>），強制路由至 <strong>QC10006-R02</strong> 且細項類別固定為 <code>裝配C</code>。</li>
+            <li><strong>月份提取彈性化</strong>（支援 2015-2099）：</li>
+            <ul>
+              <li>策略 1: Sheet name 字母模式 <code>(\d{2})([A-L])</code> + 年份驗證 (15-99)，如 <code>PJW25D13</code> → D=4月</li>
+              <li>策略 2: 檔名模式 <code>半成品品檢表\d{4}[-_]\d{1,2}</code>，如 <code>半成品品檢表2023-01.xlsx</code> → 1月</li>
+              <li>策略 3: Sheet name YYMMDD 模式 <code>(\d{2})(\d{2})(\d{2})</code>，如 <code>230115</code> → 1月</li>
+            </ul>
           </ul>
         </li>
         <li><strong>QC10007-R03 (零組件入庫)</strong>：
@@ -341,7 +350,7 @@
   └─ QIP (QC10004-R02): 讀取 Q4 (提取 YYMMDD 中的 MM)。
         ▼ 失敗
 【優先級 2】輕量化工作表首 15 列自動日期掃描 (Header Range Date Scan)
-  └─ 遍歷 Column A 至 Z 的前 15 列單元格，匹配 2024~2028 年份的日期值或字串，提取其月份。
+  └─ 遍歷 Column A 至 Z 的前 15 列單元格，匹配任意年份的日期值或字串，提取其月份。
         ▼ 失敗
 【優先級 3】檔案名稱正規表示式匹配 (Filename Regex Match)
   ├─ 模式 A: 檔名結尾為 `YYYY-MM.xlsx` (如 `2025-02.xlsx` → 2月)
@@ -355,6 +364,12 @@
 【優先級 5】後綴月份字母對照 (Month Suffix Letter - A=1, B=2 ... L=12)
   ├─ 適用於零組件入庫 (QC10007-R03): 檔名後綴為大寫字母 (如 `裝配B-2025A.xlsx` → 1月)
   └─ 適用於半成品 (QC10006-R02): 工作表名稱含有 `YYLetter` (如 `25D` → 4月)
+
+【特殊路由：關鍵字驅動半成品品檢表】
+  └─ 檔名/路徑包含「半成品品檢表」→ 強制 QC10006-R02 / 裝配C
+      ├─ 策略 1: Sheet name `(\d{2})([A-L])` + 年份驗證 15-99 (PJW25D13 → 4月)
+      ├─ 策略 2: 檔名 `半成品品檢表\d{4}[-_]\d{1,2}` (半成品品檢表2023-01 → 1月)
+      └─ 策略 3: Sheet name `(\d{2})(\d{2})(\d{2})` (230115 → 1月)
       </div>
     </section>
 
@@ -471,6 +486,77 @@
           </tr>
         </tbody>
       </table>
+    </section>
+
+    <!-- Section 7 -->
+    <section id="section7">
+      <h2>七、 關鍵字驅動路由與彈性月份提取 (v3.2 新增)</h2>
+      <p>為解決 2023 年及以前資料夾結構與 2025/2026 年不同的問題，系統引入關鍵字驅動路由機制：</p>
+      
+      <h3>1. 問題背景</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>年份</th>
+            <th>半成品品檢表路徑</th>
+            <th>問題</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>2025/2026</td>
+            <td><code>RawData/2025/裝配檢驗-2025/BD/</code></td>
+            <td>路徑包含「裝配檢驗」→ 正常匹配 QC10006-R02</td>
+          </tr>
+          <tr>
+            <td>2023</td>
+            <td><code>RawData/2023報表/零組件入庫-2023/半成品品檢表2023(限組件用)/</code></td>
+            <td>路徑包含「零組件入庫」→ 被誤判為 QC10007-R03</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>2. 解決方案：關鍵字驅動路由</h3>
+      <ul>
+        <li><strong>檔名/路徑關鍵字優先</strong>：若檔案名稱或相對於 QC 根目錄的路徑包含 <code>半成品品檢表</code>，強制路由至 <strong>QC10006-R02</strong>，子類別固定為 <code>裝配C</code>。</li>
+        <li><strong>資料夾映射優先級</strong>：在 <code>QC_FOLDER_MAP</code> 中，<code>半成品品檢表</code> 排在 <code>零組件入庫</code> 之前，確保優先匹配。</li>
+      </ul>
+
+      <h3>3. 彈性月份提取 (支援 2015-2099)</h3>
+      <p>針對關鍵字驅動的半成品品檢表檔案，系統採用三層彈性月份提取策略：</p>
+      <table>
+        <thead>
+          <tr>
+            <th>策略</th>
+            <th>正則模式</th>
+            <th>範例</th>
+            <th>提取月份</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1. Sheet name 字母模式</td>
+            <td><code>(\d{2})([A-L])</code> + 年份驗證 (15-99)</td>
+            <td><code>PJW25D13</code></td>
+            <td>D → 4月</td>
+          </tr>
+          <tr>
+            <td>2. 檔名月份模式</td>
+            <td><code>半成品品檢表\d{4}[-_]\d{1,2}</code></td>
+            <td><code>半成品品檢表2023-01.xlsx</code></td>
+            <td>01 → 1月</td>
+          </tr>
+          <tr>
+            <td>3. Sheet name YYMMDD 模式</td>
+            <td><code>(\d{2})(\d{2})(\d{2})</code></td>
+            <td><code>230115</code></td>
+            <td>01 → 1月</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>4. 驗證結果</h3>
+      <p>已建立自動化驗證腳本 <code>scratch/test_semi_finished_month.cjs</code>，測試 2015-2027 年共 468 個用例，<strong>100% 通過</strong>。</p>
     </section>
 
   </div>

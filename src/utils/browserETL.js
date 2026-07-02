@@ -387,10 +387,13 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
           actualQC = 'QC10006-R02';
           subCat = '裝配C';
           // Flexible month extraction for 半成品品檢表:
-          // 1. Sheet name letter pattern: PJW25D13 → D=4月 (years 2023-2027)
-          const sheetMatch = sheetName.match(/2[34567]([A-L])/i);
+          // 1. Sheet name letter pattern: PJW25D13 → D=4月 (covers 2015-2027+)
+          const sheetMatch = sheetName.match(/(\d{2})([A-L])/i);
           if (sheetMatch) {
-            month = LETTER_MONTH[sheetMatch[1].toUpperCase()];
+            const yr = parseInt(sheetMatch[1], 10);
+            if (yr >= 15 && yr <= 99) {
+              month = LETTER_MONTH[sheetMatch[2].toUpperCase()];
+            }
           }
           // 2. Filename pattern: 半成品品檢表2023-01.xlsx → 1月
           if (!month) {
@@ -399,9 +402,9 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
               month = parseInt(fnMonthMatch[1], 10);
             }
           }
-          // 3. Sheet name YYMMDD pattern: 230115 → 1月
+          // 3. Sheet name YYMMDD pattern: 230115 → 1月 (matches any 2-digit year prefix)
           if (!month) {
-            const sheetYymmdd = sheetName.match(/23(\d{2})(\d{2})/);
+            const sheetYymmdd = sheetName.match(/(\d{2})(\d{2})(\d{2})/);
             if (sheetYymmdd) {
               const m = parseInt(sheetYymmdd[2], 10);
               if (m >= 1 && m <= 12) month = m;

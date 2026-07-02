@@ -565,7 +565,7 @@ function App() {
             <div className="mck-card-header" style={{ marginBottom: '12px' }}>
               <div>
                 <h2 className="mck-card-title">匯入年度報表統計檔</h2>
-                <div className="mck-card-subtitle">請上傳由 ETL Pipeline 產出的 2025/2026 品檢報表統計.xlsx 檔案</div>
+                <div className="mck-card-subtitle">請上傳由 ETL Pipeline 產出的品檢報表統計 .xlsx 檔案</div>
               </div>
               {summaryFileName && (
                 <div style={{ fontSize: '13px', color: 'var(--color-success)', fontWeight: '600' }}>
@@ -807,7 +807,7 @@ function App() {
               <span style={{ fontSize: '48px' }}>📂</span>
               <h3 style={{ margin: '16px 0 8px 0', fontSize: '18px', fontWeight: '600' }}>尚未載入品檢統計報表</h3>
               <p style={{ color: 'var(--mck-slate)', maxWidth: '500px', margin: '0 auto 24px auto', fontSize: '14px' }}>
-                請點擊上方按鈕，載入生成的 <code>2025品檢報表統計.xlsx</code>。載入後，系統將依麥肯錫風格為您呈現自訂動態製圖與數據分析。
+                請點擊上方按鈕，載入生成的品檢報表統計 .xlsx 檔案。載入後，系統將依麥肯錫風格為您呈現自訂動態製圖與數據分析。
               </p>
             </div>
           )}

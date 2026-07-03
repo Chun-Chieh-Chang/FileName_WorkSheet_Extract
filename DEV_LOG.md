@@ -757,4 +757,40 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
 - [x] 確認品檢數據鏈路圖.html 存在並加入追蹤。
 - [x] 確認品檢報表分析.html 不存在，跳過刪除。
 - [x] MECE 識別所有檔案用途，無冗餘。
-- [x] 更新 DEV_LOG.md。
+
+---
+
+## 2026-07-03 v3.3 跨年度對比、月份篩選、獨立報表、年份後綴兼容、空白過濾
+
+### 需求說明
+1. **跨年度對比模式**：允許使用者一次選擇多個年份進行數據對比，圖表 X 軸顯示年份，每個項目 1 根柱子。
+2. **月份篩選器**：下拉選單可篩選特定月份，圖表、KPI、數據表格即時更新。
+3. **獨立報表匯出**：Extractor 頁籤新增「輸出獨立報表」按鈕，一次產出 16 個獨立 QC 表單 Excel 檔案。
+4. **年份後綴兼容**：2020 年及以前的資料夾結構帶有年份後綴（`原料-2020` vs `原料`），`getRawSubCategory` 需自動剝除。
+5. **Letter 後綴月份提取 (Strategy 9)**：新增正則匹配 `YEAR+LETTER` 格式（如 `裝配C-2021A.xlsx` → A=1月）。
+6. **空白檔案/工作表過濾**：檔名含「空白」的檔案跳過；工作表名稱含「Sheet」或「工作表」的跳過。
+7. **多檔案匯入**：報表檔案上傳支援 `multiple` 屬性，一次選擇多個年份的 `.xlsx` 統計檔。
+8. **工作表內容日期掃描擴展**：`findDateInSheetFallback` 從 10 行×5 欄擴充至 20 行×全部欄位，新增 `YY-MM-DD`、`YYMMDD`、`MM月` 等格式匹配。
+
+### 修改檔案
+| 檔案 | 變更 |
+|------|------|
+| `src/App.jsx` | 新增 `selectedMonth`、`compareYearSelection` state；重構圖表邏輯支援跨年度對比；新增 `handleExportIndividualReports`、`exportIndividualReports`；新增月份篩選器 UI；多檔案匯入支援 |
+| `etl_pipeline.cjs` | 新增 Strategy 9（Letter 後綴）；`getRawSubCategory` 支援年份後綴剝除；`findDateInSheetFallback` 擴展掃描範圍；新增空白檔案過濾 |
+| `src/utils/browserETL.js` | 同步以上所有修改至前端 ETL |
+| `data_logic_spec.html` | 新增 Sections 8-10（Letter 後綴、空白過濾、跨年度對比） |
+| `品檢數據鏈路圖.html` | 更新版本號與最後更新日期 |
+
+### 進度追蹤
+- [x] 新增跨年度對比模式（多年份勾選、圖表 X 軸顯示年份）
+- [x] 新增月份篩選器（下拉選單即時更新圖表/KPI/表格）
+- [x] 新增獨立報表匯出功能（16 個 QC 表單獨立 Excel）
+- [x] 修復 Letter 後綴月份提取（Strategy 9）
+- [x] 修復年份後綴兼容（`原料-2020` → `原料`）
+- [x] 新增空白檔案/工作表過濾
+- [x] 擴展工作表內容日期掃描範圍
+- [x] 多檔案匯入支援
+- [x] 更新 `data_logic_spec.html` 技術規格書
+- [x] 更新 `品檢數據鏈路圖.html` 版本
+- [x] 更新 `README.md` 功能列表
+- [x] 更新 `DEV_LOG.md` 開發日誌

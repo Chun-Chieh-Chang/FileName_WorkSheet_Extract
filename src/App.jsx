@@ -864,7 +864,7 @@ function App() {
               )}
             </div>
             
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
               <input 
                 type="file" 
                 accept=".xlsx" 
@@ -880,6 +880,22 @@ function App() {
               >
                 📁 選擇報表檔案...
               </label>
+              {Object.keys(summaryFiles).length > 0 && (
+                <button 
+                  className="btn btn-danger"
+                  onClick={() => {
+                    if (window.confirm("確定要清空所有已載入的報表檔案嗎？")) {
+                      setSummaryFiles({});
+                      setSummaryData(null);
+                      setActiveSheet("");
+                      setSelectedItems([]);
+                    }
+                  }}
+                  style={{ minHeight: '40px', padding: '8px 16px', fontSize: '13px' }}
+                >
+                  🗑 清空所有報表
+                </button>
+              )}
               <span style={{ fontSize: '13px', color: 'var(--mck-slate)' }}>
                 或在本地執行 <code>node etl_pipeline.cjs all</code> 產出後，拖入檔案進行互動解讀。
               </span>
@@ -1387,7 +1403,7 @@ function App() {
           </aside>
 
           {/* Right Panel: Result data table */}
-          <section className="panel-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '500px' }}>
+          <section className="panel-card" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <div className="table-controls">
               <h2 className="card-title" style={{ margin: 0 }}>📊 工作表表單編碼提取結果</h2>
               

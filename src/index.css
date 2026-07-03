@@ -40,7 +40,7 @@ body {
 
 /* Base Layout */
 .app-container {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 24px;
   display: flex;
@@ -84,7 +84,9 @@ body {
   display: grid;
   grid-template-columns: 480px 1fr;
   gap: 24px;
-  align-items: start;
+  align-items: stretch;
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 @media (max-width: 1024px) {
@@ -391,6 +393,31 @@ body {
   padding: 14px 16px;
   border-bottom: 1px solid var(--color-border);
   color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.data-table td:first-child {
+  min-width: 60px;
+}
+
+.data-table td:nth-child(2) {
+  min-width: 200px;
+}
+
+.data-table td:nth-child(3) {
+  min-width: 150px;
+}
+
+.data-table td:nth-child(4) {
+  min-width: 120px;
+}
+
+.data-table td:nth-child(5) {
+  min-width: 180px;
+}
+
+.data-table td:last-child {
+  min-width: 120px;
 }
 
 .data-table tr:last-child td {
@@ -410,6 +437,7 @@ body {
   font-size: 12px;
   font-weight: 500;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .status-matched {

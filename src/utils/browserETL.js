@@ -379,7 +379,7 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
     const fileName = file.name;
 
     // Skip files with "空白" in the name
-    if (fileName.indexOf('空白') >= 0) return;
+    if (fileName.indexOf('空白') >= 0) continue;
 
     try {
       const data = await file.arrayBuffer();

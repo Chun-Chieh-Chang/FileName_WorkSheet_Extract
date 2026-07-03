@@ -257,16 +257,20 @@ function findDateInSheet(ws, actualQC) {
 }
 
 function findDateInSheetFallback(json) {
-  var limit = Math.min(10, json.length);
+  var limit = Math.min(20, json.length);
   for (var r = 0; r < limit; r++) {
     var row = json[r];
     if (!row || !row.length) continue;
-    for (var c = 0; c < Math.min(row.length, 5); c++) {
+    for (var c = 0; c < row.length; c++) {
       var v = String(row[c] || '');
-      var d = v.match(/(20\d{2})\/(\d{1,2})\/\d{1,2}/);
+      var d = v.match(/(20\d{2})[-/](\d{1,2})[-/]\d{1,2}/);
       if (d) { var mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
-      d = v.match(/(20\d{2})-(\d{1,2})-\d{1,2}/);
+      d = v.match(/(\d{2})[-/](\d{1,2})[-/]\d{1,2}/);
       if (d) { var mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
+      d = v.match(/(\d{2})(\d{2})(\d{2})/);
+      if (d) { var mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
+      d = v.match(/(\d{1,2})月/);
+      if (d) { var mn = parseInt(d[1], 10); if (mn >= 1 && mn <= 12) return mn; }
     }
   }
   return null;
@@ -385,19 +389,20 @@ function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
   if (qc === 'QC10002-R02') {
     // 進料檢驗
     // relPath examples: "原料", "物料/紙箱", "物料/B膠"
-    // Also handles 射出D from 零組件入庫 folder (actual QC overrides to QC10002-R02)
+    // Also handles year-suffixed folders: "原料-2020", "物料-2020"
     var parts = relPath.split('/');
-    if (parts[0] === '原料') return '原料';
-    if (parts[0] === '物料') {
+    var p0 = parts[0].replace(/[-_]\d{4}$/, '').replace(/\s+/g, '');
+    if (p0 === '原料') return '原料';
+    if (p0 === '物料') {
       if (parts.length > 1) {
-        // Normalize: remove spaces around special chars
-        var sub = parts[1].replace(/\s+/g, '');
+        var sub = parts[1].replace(/[-_]\d{4}$/, '').replace(/\s+/g, '');
         if (sub) return '物料-' + sub;
         return '物料-' + parts[1];
       }
       // File directly in 物料/ (e.g., B膠.xlsx, 塑膠袋.xlsx)
       var name = path.basename(fileName, '.xlsx');
       name = name.replace(/[-_]\d{4}[-_]\d{1,2}$/, '');
+      name = name.replace(/[-_]\d{4}$/, '');
       name = name.replace(/[-_]\d{1,2}$/, '');
       name = name.replace(/\s+/g, ''); // normalize spaces
       return '物料-' + name;
@@ -467,6 +472,9 @@ function walkRawDataDir(dirPath, relPath, initialQC, qcFolder, year, counts) {
 }
 
 function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, year, counts) {
+  // Skip files with "空白" in the name
+  if (fileName.indexOf('空白') >= 0) return;
+
   var wb;
   try {
     wb = XLSX.readFile(filePath);
@@ -487,6 +495,7 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
     if (sheetName.indexOf('範例樣本') >= 0) return; // skip sample sheets
     if (/^QC[-_]?\d+/i.test(sheetName.trim())) return; // skip template sheets named after QC form codes (e.g. QC-009)
     if (/^(工作表|Sheet)\d+/i.test(sheetName.trim())) return; // skip default un-renamed sheets
+    if (/^(工作表|Sheet)/i.test(sheetName.trim())) return; // skip any sheet named "工作表" or "Sheet"
     if (sheetName.trim().indexOf('出貨') === 0) return; // skip shipping summary sheets (e.g. "出貨 (14)")
 
     var ws = wb.Sheets[sheetName];

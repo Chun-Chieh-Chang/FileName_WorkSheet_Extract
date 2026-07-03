@@ -118,16 +118,20 @@ function findDateInSheet(ws, qc) {
 }
 
 function findDateInSheetFallback(json) {
-  const limit = Math.min(10, json.length);
+  const limit = Math.min(20, json.length);
   for (let r = 0; r < limit; r++) {
     const row = json[r];
     if (!row || !row.length) continue;
-    for (let c = 0; c < Math.min(row.length, 5); c++) {
+    for (let c = 0; c < row.length; c++) {
       const v = String(row[c] || '');
-      let d = v.match(/(20\d{2})\/(\d{1,2})\/\d{1,2}/);
+      let d = v.match(/(20\d{2})[-/](\d{1,2})[-/]\d{1,2}/);
       if (d) { const mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
-      d = v.match(/(20\d{2})-(\d{1,2})-\d{1,2}/);
+      d = v.match(/(\d{2})[-/](\d{1,2})[-/]\d{1,2}/);
       if (d) { const mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
+      d = v.match(/(\d{2})(\d{2})(\d{2})/);
+      if (d) { const mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
+      d = v.match(/(\d{1,2})月/);
+      if (d) { const mn = parseInt(d[1], 10); if (mn >= 1 && mn <= 12) return mn; }
     }
   }
   return null;
@@ -184,15 +188,17 @@ function determineQCFromSheet(json, initialQC, relPath) {
 function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
   if (qc === 'QC10002-R02') {
     const parts = relPath.split('/');
-    if (parts[0] === '原料') return '原料';
-    if (parts[0] === '物料') {
+    const p0 = parts[0].replace(/[-_]\d{4}$/, '').replace(/\s+/g, '');
+    if (p0 === '原料') return '原料';
+    if (p0 === '物料') {
       if (parts.length > 1) {
-        const sub = parts[1].replace(/\s+/g, '');
+        const sub = parts[1].replace(/[-_]\d{4}$/, '').replace(/\s+/g, '');
         if (sub) return '物料-' + sub;
         return '物料-' + parts[1];
       }
       let name = fileName.replace(/\.xlsx$/i, '');
       name = name.replace(/[-_]\d{4}[-_]\d{1,2}$/, '');
+      name = name.replace(/[-_]\d{4}$/, '');
       name = name.replace(/[-_]\d{1,2}$/, '');
       name = name.replace(/\s+/g, '');
       return '物料-' + name;
@@ -372,6 +378,9 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
     const relPath = pathParts.slice(folderIdx + 1, pathParts.length - 1).join('/');
     const fileName = file.name;
 
+    // Skip files with "空白" in the name
+    if (fileName.indexOf('空白') >= 0) return;
+
     try {
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data, { type: 'array' });
@@ -550,6 +559,7 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
         if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別' || sheetName.indexOf('Sheet1') === 0) return;
         if (sheetName.indexOf('.K(') >= 0 || sheetName.indexOf('範例樣本') >= 0 || /^QC[-_]?\d+/i.test(sheetName.trim())) return;
         if (/^(工作表|Sheet)\d+/i.test(sheetName.trim())) return;
+        if (/^(工作表|Sheet)/i.test(sheetName.trim())) return; // skip any sheet named "工作表" or "Sheet"
         
         const snLower = sheetName.toLowerCase();
         const isSetup = (snLower.indexOf('setup') >= 0 || snLower.indexOf('set up') >= 0 || snLower.indexOf('set-up') >= 0 || snLower === 'setup');

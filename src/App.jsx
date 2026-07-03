@@ -33,6 +33,7 @@ function App() {
   const [summaryFileName, setSummaryFileName] = useState("");
   const [dashboardInsights, setDashboardInsights] = useState({ total: 0, peakMonth: "", peakVal: 0, avg: 0 });
   const [selectedMonth, setSelectedMonth] = useState(0); // 0=all, 1-12=specific month
+  const [compareYearSelection, setCompareYearSelection] = useState({}); // { "2023": true, "2024": false, ... }
 
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
@@ -263,8 +264,10 @@ function App() {
           setEtlProgress({ current, total, filename });
         });
         
-        exportIndividualReports(counts, year);
-        alert(`🎉 ${year} 年度獨立報表全部匯出成功！已下載所有 QC 表單的獨立 Excel 檔案。`);
+        // Ask user for output directory
+        const outputPath = await promptExportDirectory();
+        exportIndividualReports(counts, year, outputPath);
+        alert(`🎉 ${year} 年度獨立報表全部匯出成功！\n已儲存至：${outputPath}`);
       } catch (e) {
         console.error(e);
         alert("匯出失敗，請確認選取的是正確的年度品檢原始資料夾。");
@@ -274,8 +277,29 @@ function App() {
     })();
   };
 
+  // Prompt user to select export directory
+  const promptExportDirectory = async () => {
+    // Try File System Access API first (Chrome/Edge)
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: `${Date.now()}_品檢報表統計.xlsx`,
+          types: [{
+            description: 'Excel Files',
+            accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] }
+          }]
+        });
+        return handle.name;
+      } catch (e) {
+        if (e.name === 'AbortError') return null; // User cancelled
+      }
+    }
+    // Fallback: return null to use default download location
+    return null;
+  };
+
   // Helper: export individual QC reports as separate Excel files
-  const exportIndividualReports = (counts, year) => {
+  const exportIndividualReports = (counts, year, outputPath = null) => {
     const MONTHS_ARR = ["1","2","3","4","5","6","7","8","9","10","11","12"];
     
     const reports = [
@@ -416,7 +440,14 @@ function App() {
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
-      XLSX.writeFile(wb, `${name}.xlsx`);
+      const fileName = `${name}.xlsx`;
+      if (outputPath) {
+        // Use File System Access API to save to specific location
+        XLSX.writeFile(wb, `${outputPath}/${fileName}`);
+      } else {
+        // Default: browser downloads to Downloads folder
+        XLSX.writeFile(wb, fileName);
+      }
     });
   };
 
@@ -467,10 +498,18 @@ function App() {
   };
 
   const handleSummaryFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      handleLoadSummaryFile(file);
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      Promise.all(files.map(file => handleLoadSummaryFile(file))).then(() => {
+        // After loading all files, set the active year to the most recently loaded one
+        const years = Object.keys(summaryFiles);
+        if (years.length > 0) {
+          setActiveYear(years[years.length - 1]);
+        }
+      });
     }
+    // Reset input so same files can be re-selected
+    e.target.value = null;
   };
 
   // Sync summaryData when activeYear or summaryFiles changes
@@ -524,32 +563,37 @@ function App() {
 
     // Create datasets
     let datasets = [];
-    if (activeYear === 'compare') {
-      const years = Object.keys(summaryFiles).sort();
-      selectedItems.forEach((item, idx) => {
-        years.forEach((yr, yrIdx) => {
-          const dataYr = [];
+    const allYears = Object.keys(summaryFiles).sort();
+    const selectedCompareYears = activeYear === 'compare'
+      ? Object.keys(compareYearSelection).filter(k => compareYearSelection[k]).sort()
+      : [];
+    const years = selectedCompareYears.length > 0 ? selectedCompareYears : allYears;
+    
+    if (activeYear === 'compare' || (selectedMonth > 0 && allYears.length > 1)) {
+      // Cross-year mode: x-axis = selected years, each item = 1 bar per year
+      datasets = selectedItems.map((item, idx) => {
+        const dataPoints = years.map((yr) => {
           const rowsYr = summaryFiles[yr] ? summaryFiles[yr][activeSheet] : null;
+          let sum = 0;
           for (let m = 2; m <= 13; m++) {
             // Respect month filter
-            if (selectedMonth > 0 && m - 1 !== selectedMonth) {
-              dataYr.push(0);
-              continue;
-            }
+            if (selectedMonth > 0 && m - 1 !== selectedMonth) continue;
             const val = rowsYr && rowsYr[m] ? Number(rowsYr[m][item.idx]) || 0 : 0;
-            dataYr.push(val);
+            sum += val;
           }
-          datasets.push({
-            label: `${yr} - ${item.name}`,
-            data: dataYr,
-            borderColor: MCK_COLORS[(idx * years.length + yrIdx) % MCK_COLORS.length],
-            backgroundColor: MCK_COLORS[(idx * years.length + yrIdx) % MCK_COLORS.length] + 'CC',
-            borderWidth: 1,
-            borderRadius: 4,
-          });
+          return sum;
         });
+        return {
+          label: item.name,
+          data: dataPoints,
+          borderColor: MCK_COLORS[idx % MCK_COLORS.length],
+          backgroundColor: MCK_COLORS[idx % MCK_COLORS.length] + 'CC',
+          borderWidth: 1,
+          borderRadius: 4,
+        };
       });
     } else {
+      // Single year mode: x-axis = months
       datasets = selectedItems.map((item, idx) => {
         // Monthly data is at rows 2 to 13 (index 2-13)
         const dataPoints = [];
@@ -579,10 +623,14 @@ function App() {
     }
 
     // McK style: Minimal grid, clean legend and title
+    const chartLabels = (activeYear === 'compare' || (selectedMonth > 0 && years.length > 1))
+      ? years
+      : MONTH_LABELS;
+
     chartInstance.current = new window.Chart(ctx, {
       type: 'bar',
       data: {
-        labels: MONTH_LABELS,
+        labels: chartLabels,
         datasets: datasets
       },
       options: {
@@ -638,16 +686,26 @@ function App() {
     let peakValue = 0;
     let peakM = "";
     
-    // Sum month by month
+    // Sum month by month across all years (or single year)
     for (let m = 0; m < 12; m++) {
       // Respect month filter
       if (selectedMonth > 0 && m + 1 !== selectedMonth) continue;
       
       let monthlySum = 0;
-      selectedItems.forEach(item => {
-        const val = rows[m + 2] ? Number(rows[m + 2][item.idx]) || 0 : 0;
-        monthlySum += val;
+      const selectedCompareYears = activeYear === 'compare'
+        ? Object.keys(compareYearSelection).filter(k => compareYearSelection[k]).sort()
+        : [];
+      const yearsToAggregate = selectedCompareYears.length > 0 ? selectedCompareYears : allYears;
+      
+      yearsToAggregate.forEach(yr => {
+        const yrRows = summaryFiles[yr] ? summaryFiles[yr][activeSheet] : null;
+        if (!yrRows) return;
+        selectedItems.forEach(item => {
+          const val = yrRows[m + 2] ? Number(yrRows[m + 2][item.idx]) || 0 : 0;
+          monthlySum += val;
+        });
       });
+      
       totalSum += monthlySum;
       if (monthlySum > peakValue) {
         peakValue = monthlySum;
@@ -655,16 +713,19 @@ function App() {
       }
     }
     
-    // Adjust average calculation based on filtered months
+    // Adjust average calculation based on filtered months and active mode
     const filteredMonths = selectedMonth > 0 ? 1 : 12;
+    const yearMultiplier = activeYear === 'compare'
+      ? (selectedCompareYears.length > 0 ? selectedCompareYears.length : allYears.length)
+      : 1;
     setDashboardInsights({
       total: totalSum,
       peakMonth: peakM || "N/A",
       peakVal: peakValue,
-      avg: filteredMonths > 0 ? Math.round(totalSum / filteredMonths) : 0
+      avg: filteredMonths > 0 ? Math.round(totalSum / (filteredMonths * yearMultiplier)) : 0
     });
 
-  }, [selectedItems, activeSheet, summaryData, selectedMonth, activeYear, summaryFiles]);
+  }, [selectedItems, activeSheet, summaryData, selectedMonth, activeYear, summaryFiles, compareYearSelection]);
 
   // Toggle dynamic selection pill
   const handleTogglePill = (item) => {
@@ -679,8 +740,14 @@ function App() {
   // Render Table content for Dashboard
   const getDashboardTableData = () => {
     if (!summaryData || !activeSheet || selectedItems.length === 0) return { columns: [], rows: [] };
-    const rows = summaryData[activeSheet];
     
+    const allYears = Object.keys(summaryFiles).sort();
+    const selectedCompareYears = activeYear === 'compare'
+      ? Object.keys(compareYearSelection).filter(k => compareYearSelection[k]).sort()
+      : [];
+    const yearsToAggregate = selectedCompareYears.length > 0 ? selectedCompareYears : allYears;
+    
+    // Build columns based on mode
     const columns = ["月份", ...selectedItems.map(i => i.name)];
     const tableRows = [];
     
@@ -689,30 +756,49 @@ function App() {
       // Respect month filter
       if (selectedMonth > 0 && m - 1 !== selectedMonth) continue;
       
-      const monthRow = rows[m];
-      const rowArr = [monthRow ? monthRow[0] : `${m-1}月`];
+      const rowArr = [`${m-1}月`];
+      let monthTotal = 0;
+      
       selectedItems.forEach(item => {
-        rowArr.push(monthRow ? Number(monthRow[item.idx]) || 0 : 0);
+        let sum = 0;
+        yearsToAggregate.forEach(yr => {
+          const yrRows = summaryFiles[yr] ? summaryFiles[yr][activeSheet] : null;
+          if (!yrRows) return;
+          const val = yrRows[m] ? Number(yrRows[m][item.idx]) || 0 : 0;
+          sum += val;
+        });
+        rowArr.push(sum);
+        monthTotal += sum;
       });
       tableRows.push(rowArr);
     }
 
-    // Totals row (Row 14) - only show if month filter is active
+    // Totals row - only show if month filter is active
     if (selectedMonth > 0 && selectedMonth <= 12) {
-      const totalsRow = rows[selectedMonth + 1]; // Row index = month + 1
-      if (totalsRow) {
-        const totalArr = [`${selectedMonth}月`];
-        selectedItems.forEach(item => {
-          totalArr.push(totalsRow ? Number(totalsRow[item.idx]) || 0 : 0);
+      const totalArr = [`${selectedMonth}月`];
+      selectedItems.forEach(item => {
+        let sum = 0;
+        yearsToAggregate.forEach(yr => {
+          const yrRows = summaryFiles[yr] ? summaryFiles[yr][activeSheet] : null;
+          if (!yrRows) return;
+          const totalsRow = yrRows[selectedMonth + 1];
+          sum += totalsRow ? Number(totalsRow[item.idx]) || 0 : 0;
         });
-        tableRows.push(totalArr);
-      }
+        totalArr.push(sum);
+      });
+      tableRows.push(totalArr);
     } else {
-      // Normal total row
-      const totalsRow = rows[14];
+      // Normal total row - aggregate across all years
       const totalArr = ["小計"];
       selectedItems.forEach(item => {
-        totalArr.push(totalsRow ? Number(totalsRow[item.idx]) || 0 : 0);
+        let sum = 0;
+        yearsToAggregate.forEach(yr => {
+          const yrRows = summaryFiles[yr] ? summaryFiles[yr][activeSheet] : null;
+          if (!yrRows) return;
+          const tr = yrRows[14];
+          sum += tr ? Number(tr[item.idx]) || 0 : 0;
+        });
+        totalArr.push(sum);
       });
       tableRows.push(totalArr);
     }
@@ -771,9 +857,9 @@ function App() {
                 <h2 className="mck-card-title">匯入年度報表統計檔</h2>
                 <div className="mck-card-subtitle">請上傳由 ETL Pipeline 產出的品檢報表統計 .xlsx 檔案</div>
               </div>
-              {summaryFileName && (
+              {Object.keys(summaryFiles).length > 0 && (
                 <div style={{ fontSize: '13px', color: 'var(--color-success)', fontWeight: '600' }}>
-                  ✓ 已載入: {summaryFileName}
+                  ✓ 已載入 {Object.keys(summaryFiles).length} 個檔案: {Object.keys(summaryFiles).sort().join(', ')}
                 </div>
               )}
             </div>
@@ -784,6 +870,7 @@ function App() {
                 accept=".xlsx" 
                 onChange={handleSummaryFileChange} 
                 id="summary-file-input" 
+                multiple
                 style={{ display: 'none' }}
               />
               <label 
@@ -848,9 +935,36 @@ function App() {
                     disabled={Object.keys(summaryFiles).length < 2}
                     style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
                   >
-                    📊 跨年度對比 ({Object.keys(summaryFiles).sort().join(' vs ')})
+                    📊 跨年度對比
                   </button>
                 </div>
+                
+                {/* Year selector for cross-year comparison */}
+                {activeYear === 'compare' && (
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--mck-border)', width: '100%' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--mck-slate)', fontWeight: 600 }}>選擇對比年份：</span>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      {Object.keys(summaryFiles).sort().map(year => {
+                        const isSelected = compareYearSelection[year];
+                        return (
+                          <button
+                            key={year}
+                            className={`btn ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => {
+                              setCompareYearSelection(prev => ({
+                                ...prev,
+                                [year]: !prev[year]
+                              }));
+                            }}
+                            style={{ minHeight: '28px', height: '28px', padding: '0 10px', fontSize: '12px' }}
+                          >
+                            {isSelected ? '✓' : '+'} {year}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

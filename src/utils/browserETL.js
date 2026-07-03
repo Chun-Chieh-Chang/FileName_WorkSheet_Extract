@@ -298,6 +298,15 @@ function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC)
     mn = findDateInSheetFallback(json);
     if (mn) return mn;
   }
+  // Strategy 9: Letter suffix A-L in filename (e.g., 裝配C-2021A.xlsx → A=1月)
+  n = fileName.match(/[-_](\d{4})([A-L])\.xlsx$/i);
+  if (n) {
+    const yr = parseInt(n[1], 10);
+    if (yr === year || yr === parseInt(String(year).slice(-2), 10)) {
+      const letter = n[2].toUpperCase();
+      if (LETTER_MONTH[letter]) return LETTER_MONTH[letter];
+    }
+  }
   return null;
 }
 

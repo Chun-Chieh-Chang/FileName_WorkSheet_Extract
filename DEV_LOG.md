@@ -1,5 +1,48 @@
 # 開發日誌 (DEV_LOG.md)
 
+## 2026-07-04 專案整體優化與 MECE 清理
+
+### 清理作業
+- **刪除**：`html_backup_20260704/` 整個備份目錄（功能已整合到主專案）
+- **刪除**：5 個臨時 CSV 檔案（`2026品檢報表統計_field_mapping_*.csv`、`進料檢驗-2026_field_mapping_*.csv`）
+- **刪除**：`extract_field_mapping.cjs`（已被 `extract_raw_field_mapping.cjs` 取代）
+- **刪除**：`data_logic_spec.html`、`品檢數據鏈路圖.html`（與備份重複）
+- **刪除**：`scratch/` 目錄（清理腳本已無必要）
+
+### 功能新增
+- **欄位映射匯出功能**：在「品管檔案夾掃描」區域新增「📋 匯出欄位映射」按鈕
+  - 支援從選取的 Excel 檔案中提取每個工作表的欄位名稱
+  - 輸出格式：`品管標籤編號,欄位名稱,資料路徑`
+  - 自動推斷每個工作表對應的 QC 標籤編號
+  - 使用 `Promise.all` 確保所有檔案讀取完成後再生成 CSV
+  - 修復 `FileReader.readAsBinaryString` 與 `XLSX.read` 的相容性问题
+
+### 邏輯優化
+- **QC10002-R02 日期檢查範圍擴大**：從 N4/O4 改為檢查 **N4:P5** 範圍內的所有 6 個欄位
+- **日期解析強化**：新增月份和日期範圍驗證，確保只有有效日期才被識別
+- **工作表過濾規則簡化**：統一為「排除 QC 開頭、Sheet、空白的工作表」
+
+### 按鈕顏色統一 (MECE)
+| 按鈕類型 | 用途 | 樣式 |
+|---------|------|------|
+| btn-primary | 主要操作、匯出功能 | 深藍背景，白色文字 |
+| btn-secondary | 次要操作 | 白色背景，深色邊框 |
+| btn-danger | 刪除/清除 | 紅色 |
+| btn-success | 成功/完成 | 綠色 |
+| btn-info | 資訊/查看 | 淺藍色 |
+| btn-warning | 警告/注意 | 黃色 |
+| btn-dark | 中性操作 | 灰色 |
+
+### 修改檔案
+| 檔案 | 變更 |
+|------|------|
+| `src/App.jsx` | 新增 `exportFieldMapping` 函數；統一按鈕顏色；修復異步檔案讀取 |
+| `etl_pipeline.cjs` | 擴大 QC10002-R02 日期檢查範圍；強化日期解析邏輯 |
+| `src/utils/browserETL.js` | 同步 etl_pipeline.cjs 的日期檢查邏輯 |
+| `extract_raw_field_mapping.cjs` | 新增 - 原始資料欄位映射提取工具 |
+
+---
+
 ## 2026-07-03 ETL Bug 修復、UI 優化與 MECE 專案清理
 
 ### Bug 修復：browserETL.js 空白檔案過濾邏輯錯誤

@@ -212,6 +212,54 @@ body {
   box-shadow: 0 4px 10px rgba(239, 68, 68, 0.12);
 }
 
+.btn-warning {
+  background-color: #FFFBEB;
+  color: #f59e0b;
+  border-color: #FCD34D;
+}
+
+.btn-warning:hover {
+  background-color: #FEF3C7;
+  border-color: #f59e0b;
+  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.12);
+}
+
+.btn-info {
+  background-color: #F0F9FF;
+  color: #0ea5e9;
+  border-color: #7DD3FC;
+}
+
+.btn-info:hover {
+  background-color: #E0F2FE;
+  border-color: #0ea5e9;
+  box-shadow: 0 4px 10px rgba(14, 165, 233, 0.12);
+}
+
+.btn-success {
+  background-color: #ECFDF5;
+  color: var(--success);
+  border-color: #6EE7B7;
+}
+
+.btn-success:hover {
+  background-color: #D1FAE5;
+  border-color: var(--success);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.12);
+}
+
+.btn-dark {
+  background-color: #F9FAFB;
+  color: #374151;
+  border-color: #D1D5DB;
+}
+
+.btn-dark:hover {
+  background-color: #F3F4F6;
+  border-color: #374151;
+  box-shadow: 0 4px 10px rgba(55, 65, 81, 0.12);
+}
+
 /* Mapping Editor */
 .mapping-list {
   display: flex;

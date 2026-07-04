@@ -145,7 +145,28 @@ function determineQCFromSheet(json, initialQC, relPath) {
   for (let ri = 0; ri < scanLimit; ri++) {
     const row = json[ri];
     if (!row) continue;
-    for (let ci = 0; ci < row.length; ci++) {
+    
+    // OPTIMIZATION: Check column A first (index 0), return immediately if QC code found
+    const colA = String(row[0] || '').trim();
+    if (colA) {
+      if (colA.indexOf('QC10002-R02') >= 0) return 'QC10002-R02';
+      if (colA.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
+      if (colA.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
+      if (colA.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
+      if (colA.indexOf('QC10007-R01') >= 0 || colA.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
+      if (colA.indexOf('QC10008') >= 0) return 'QC10008-R02';
+      
+      // Check for form title in column A (header only)
+      if (ri === 0) {
+        const titleKeys = Object.keys(FORM_TITLE_MAP);
+        for (let k = 0; k < titleKeys.length; k++) {
+          if (colA.indexOf(titleKeys[k]) >= 0) return FORM_TITLE_MAP[titleKeys[k]];
+        }
+      }
+    }
+    
+    // If column A doesn't have QC code, check remaining columns (B-H, indices 1-7)
+    for (let ci = 1; ci < row.length && ci < 8; ci++) {
       const val = String(row[ci] || '').trim();
       if (!val) continue;
 
@@ -153,7 +174,7 @@ function determineQCFromSheet(json, initialQC, relPath) {
       if (val.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
       if (val.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
       if (val.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
-      if (val.indexOf('QC10007-R01') >= 0 || val.indexOf('QC10007-R02') >= 0 || val.indexOf('QC10007') >= 0) return 'QC10007-R01';
+      if (val.indexOf('QC10007-R01') >= 0 || val.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
       if (val.indexOf('QC10008') >= 0) return 'QC10008-R02';
 
       if (ri === 0 || ri === 1 || ri === 2) {
@@ -170,14 +191,27 @@ function determineQCFromSheet(json, initialQC, relPath) {
   for (let ri = footerStart; ri < json.length; ri++) {
     const row = json[ri];
     if (!row) continue;
-    for (let ci = 0; ci < row.length; ci++) {
+    
+    // OPTIMIZATION: Check column A first
+    const colA = String(row[0] || '').trim();
+    if (colA) {
+      if (colA.indexOf('QC10002-R02') >= 0) return 'QC10002-R02';
+      if (colA.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
+      if (colA.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
+      if (colA.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
+      if (colA.indexOf('QC10007-R01') >= 0 || colA.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
+      if (colA.indexOf('QC10008') >= 0) return 'QC10008-R02';
+    }
+    
+    // Check remaining columns
+    for (let ci = 1; ci < row.length && ci < 8; ci++) {
       const val = String(row[ci] || '').trim();
       if (!val) continue;
       if (val.indexOf('QC10002-R02') >= 0) return 'QC10002-R02';
       if (val.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
       if (val.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
       if (val.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
-      if (val.indexOf('QC10007-R01') >= 0 || val.indexOf('QC10007-R02') >= 0 || val.indexOf('QC10007') >= 0) return 'QC10007-R01';
+      if (val.indexOf('QC10007-R01') >= 0 || val.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
       if (val.indexOf('QC10008') >= 0) return 'QC10008-R02';
     }
   }
@@ -387,7 +421,10 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
       const seenQC7R1BaseNames = new Set();
 
       wb.SheetNames.forEach(sheetName => {
+        // Skip non-data sheets: QC開頭、Sheet、空白
         if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別') return;
+        if (sheetName.indexOf('Sheet') >= 0) return; // skip any sheet with "Sheet" in name
+        if (/^QC[-_]?\d+/i.test(sheetName.trim())) return; // skip template sheets named QC-xxx
         if (sheetName.trim().indexOf('出貨') === 0) return;
 
         const ws = wb.Sheets[sheetName];

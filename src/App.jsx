@@ -474,6 +474,113 @@ function App() {
     }
   };
 
+  /**
+   * 匯出欄位映射數據（檔案級別）
+   * 格式：品管標籤編號,欄位名稱,資料路徑
+   */
+  const exportFieldMapping = async () => {
+    if (!uploadedFiles || uploadedFiles.length === 0) {
+      alert('請先選取檔案');
+      return;
+    }
+
+    const mappings = [];
+    const files = Array.from(uploadedFiles);
+    
+    // 使用 Promise.all 等待所有檔案讀取完成
+    await Promise.all(files.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            // 使用 binary string 方式讀取
+            const workbook = XLSX.read(e.target.result, { type: 'binary' });
+            
+            // 推斷 QC 標籤
+            const inferQCLabel = (sheetName) => {
+              if (sheetName.includes('QC10002') || sheetName.includes('原物料')) return 'QC10002-R02';
+              if (sheetName.includes('QC10004') || sheetName.includes('QIP') || sheetName.includes('尺寸')) return 'QC10004-R02';
+              if (sheetName.includes('QC10006-R01') || sheetName.includes('裝配巡檢')) return 'QC10006-R01';
+              if (sheetName.includes('QC10006-R02') || sheetName.includes('半成品')) return 'QC10006-R02';
+              if (sheetName.includes('QC10007-R01') || sheetName.includes('完成品')) return 'QC10007-R01';
+              if (sheetName.includes('QC10007-R03') || sheetName.includes('零組件入庫') || sheetName.includes('Tubing')) return 'QC10007-R03';
+              if (sheetName.includes('QC10008') || sheetName.includes('出貨')) return 'QC10008-R02';
+              return 'Unknown';
+            };
+            
+            // 對每個工作表處理
+            workbook.SheetNames.forEach(sheetName => {
+              // 過濾特定名稱的工作表
+              if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別') return;
+              if (sheetName.indexOf('Sheet') >= 0) return;
+              if (/^QC[-_]?\d+/i.test(sheetName.trim())) return;
+              
+              const sheet = workbook.Sheets[sheetName];
+              if (!sheet || !sheet['!ref']) return;
+              
+              const qcLabel = inferQCLabel(sheetName);
+              
+              // 從第 1 行（row index 0）提取欄位標題（只取前 5 個欄位）
+              const range = XLSX.utils.decode_range(sheet['!ref']);
+              const maxCol = Math.min(range.e.c, 10); // 最多取前 10 個欄位
+              
+              for (let col = range.s.c + 1; col <= maxCol; col++) {
+                const cellAddr = XLSX.utils.encode_cell({ r: 0, c: col });
+                const cell = sheet[cellAddr];
+                
+                if (cell && cell.v !== undefined && cell.v !== null && String(cell.v).trim() !== '') {
+                  const fieldName = String(cell.v).trim();
+                  
+                  // 資料路徑 = 檔案的完整路徑（不含工作表名稱）
+                  const dataPath = file.webkitRelativePath || file.name;
+                  
+                  mappings.push({
+                    qcLabel: qcLabel,
+                    fieldName: fieldName,
+                    dataPath: dataPath
+                  });
+                }
+              }
+            });
+          } catch (error) {
+            console.error('讀取檔案失敗:', error);
+          }
+          resolve();
+        };
+        reader.readAsBinaryString(file);
+      });
+    }));
+
+    if (mappings.length === 0) {
+      alert('未找到任何欄位數據');
+      return;
+    }
+
+    // 生成 CSV
+    const header = '品管標籤編號,欄位名稱,資料路徑';
+    const rows = mappings.map(m => {
+      const qcLabel = `"${m.qcLabel}"`;
+      const fieldName = `"${m.fieldName}"`;
+      const dataPath = `"${m.dataPath}"`;
+      return `${qcLabel},${fieldName},${dataPath}`;
+    });
+    
+    const csvContent = [header, ...rows].join('\n');
+    
+    // 下載檔案
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `field_mapping_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    alert(`已成功匯出 ${mappings.length} 筆欄位映射數據`);
+  };
+
   // ==========================================
   // MCKINSEY SUMMARY EXCEL PARSER HANDLERS
   // ==========================================
@@ -1190,22 +1297,15 @@ function App() {
               >
                 <div className="upload-icon">📥</div>
                 <p style={{ fontWeight: 500 }}>拖曳檔案或資料夾至此</p>
-                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>支援批次讀取多個 Excel 檔案</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>支援批次讀取多個 QC 報表檔案</p>
                 
                 <div className="upload-btn-group">
                   <button 
-                    className="btn btn-secondary" 
+                    className="btn btn-primary" 
                     style={{ flex: 1 }}
                     onClick={() => folderInputRef.current.click()}
                   >
-                    選取資料夾
-                  </button>
-                  <button 
-                    className="btn btn-secondary" 
-                    style={{ flex: 1 }}
-                    onClick={() => fileInputRef.current.click()}
-                  >
-                    選擇多檔案
+                    📂 選取資料夾
                   </button>
                 </div>
 
@@ -1216,13 +1316,6 @@ function App() {
                   directory="true" 
                   multiple 
                   onChange={handleFolderChange} 
-                  style={{ display: 'none' }} 
-                />
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  multiple 
-                  onChange={handleFilesChange} 
                   style={{ display: 'none' }} 
                 />
               </div>
@@ -1239,6 +1332,14 @@ function App() {
                       onClick={() => exportToExcel(scannedRows, folderName)}
                     >
                       💾 匯出 Excel
+                    </button>
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ flex: 1, minHeight: '36px' }}
+                      onClick={() => exportFieldMapping()}
+                      disabled={!folderName}
+                    >
+                      📋 匯出欄位映射
                     </button>
                     <button 
                       className="btn btn-danger btn-icon" 
@@ -1274,61 +1375,89 @@ function App() {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#664d03' }}>報表年度：</span>
-                      <select 
-                        value={etlYear}
-                        onChange={(e) => setEtlYear(parseInt(e.target.value, 10))}
-                        disabled={isScanning}
-                        style={{
-                          padding: '6px 24px 6px 12px',
-                          fontSize: '13px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--mck-accent-gold)',
-                          background: '#ffffff',
-                          color: 'var(--mck-navy)',
-                          fontWeight: 600,
-                          cursor: isScanning ? 'not-allowed' : 'pointer',
-                          opacity: isScanning ? 0.6 : 1,
-                          outline: 'none',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                          transition: 'all 0.2s'
-                        }}
-                      >
-                        {Array.from({ length: 31 }, (_, i) => 2010 + i).map(year => (
-                          <option key={year} value={year}>{year} 年</option>
-                        ))}
-                      </select>
+                  <div>
+                    {/* 主流程操作區 */}
+                    <div style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        🚀 主流程操作
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#664d03' }}>報表年度：</span>
+                          <select 
+                            value={etlYear}
+                            onChange={(e) => setEtlYear(parseInt(e.target.value, 10))}
+                            disabled={isScanning}
+                            style={{
+                              padding: '6px 24px 6px 12px',
+                              fontSize: '13px',
+                              borderRadius: '6px',
+                              border: '1px solid var(--mck-accent-gold)',
+                              background: '#ffffff',
+                              color: 'var(--mck-navy)',
+                              fontWeight: 600,
+                              cursor: isScanning ? 'not-allowed' : 'pointer',
+                              opacity: isScanning ? 0.6 : 1,
+                              outline: 'none',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            {Array.from({ length: 31 }, (_, i) => 2010 + i).map(year => (
+                              <option key={year} value={year}>{year} 年</option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <button 
+                          className="btn btn-primary" 
+                          onClick={() => handleRunBrowserETL(etlYear)}
+                          disabled={isScanning}
+                          style={{ 
+                            background: 'var(--mck-navy)', 
+                            borderColor: 'var(--mck-navy)',
+                            opacity: isScanning ? 0.6 : 1,
+                            cursor: isScanning ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          {isScanning ? '🔍 正在解析原始檔案中...' : `📊 輸出 ${etlYear} 品檢報表統計`}
+                        </button>
+                        
+                        <button 
+                          className="btn btn-secondary" 
+                          onClick={() => handleExportIndividualReports(etlYear)}
+                          disabled={isScanning}
+                          style={{ 
+                            borderColor: 'var(--mck-navy)',
+                            color: 'var(--mck-navy)',
+                            opacity: isScanning ? 0.6 : 1,
+                            cursor: isScanning ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          {isScanning ? '🔍 解析中...' : `📦 輸出 ${etlYear} 獨立報表 (全部 QC)`}
+                        </button>
+                      </div>
                     </div>
-                    
-                    <button 
-                      className="btn btn-primary" 
-                      onClick={() => handleRunBrowserETL(etlYear)}
-                      disabled={isScanning}
-                      style={{ 
-                        background: 'var(--mck-navy)', 
-                        borderColor: 'var(--mck-navy)',
-                        opacity: isScanning ? 0.6 : 1,
-                        cursor: isScanning ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      {isScanning ? '🔍 正在解析原始檔案中...' : `🚀 輸出 ${etlYear} 品檢報表統計.xlsx`}
-                    </button>
-                    
-                    <button 
-                      className="btn btn-secondary" 
-                      onClick={() => handleExportIndividualReports(etlYear)}
-                      disabled={isScanning}
-                      style={{ 
-                        borderColor: 'var(--mck-navy)',
-                        color: 'var(--mck-navy)',
-                        opacity: isScanning ? 0.6 : 1,
-                        cursor: isScanning ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      {isScanning ? '🔍 解析中...' : `📦 輸出 ${etlYear} 獨立報表 (全部 QC)`}
-                    </button>
+
+                    {/* 資料分析工具區 - 已整合到「品管檔案夾掃描」中 */}
+                    <div style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        🔍 資料分析工具
+                      </div>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0' }}>
+                        請先在上方點擊「📂 選取資料夾」按鈕，選取包含 QC 報表的資料夾後即可自動顯示資料夾結構與 QC 標籤查看結果。
+                      </p>
+                    </div>
+
+                    {/* 資料管理工具區 - 已整合到「品管檔案夾掃描」中 */}
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        🗂 資料管理工具
+                      </div>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0' }}>
+                        請先在上方選擇 QC 報表檔案後使用。
+                      </p>
+                    </div>
                   </div>
                 )}
               </section>

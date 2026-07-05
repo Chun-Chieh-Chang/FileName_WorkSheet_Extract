@@ -105,67 +105,9 @@ function extractMonth(row, sheetName, fileName) {
 // ============================================================
 
 // Map folder name prefix to QC code
-// ============================================================
-// QC 標籤表單與資料夾/檔案名稱對應圖譜
-// ============================================================
-
-// 資料夾/檔案名稱 → QC 碼 對應表
-var NAME_TO_QC = {
-  // 進料檢驗 (QC10002-R02)
-  '進料檢驗': 'QC10002-R02',
-  '原物料品檢': 'QC10002-R02',
-  '原料': 'QC10002-R02',
-  '物料': 'QC10002-R02',
-  
-  // 製程檢驗 (QC10004-R02)
-  'QIP尺寸檢驗': 'QC10004-R02',
-  '射出檢驗': 'QC10004-R02',
-  '押出檢驗': 'QC10004-R02',
-  '射出': 'QC10004-R02',
-  '押出': 'QC10004-R02',
-  
-  // 裝配巡檢 (QC10006-R01)
-  '裝配巡檢': 'QC10006-R01',
-  '裝配對樣': 'QC10006-R01',
-  
-  // 半成品檢驗 (QC10006-R02)
-  '半成品品檢表': 'QC10006-R02',
-  '裝配檢驗': 'QC10006-R02',
-  '半成品': 'QC10006-R02',
-  
-  // 完成品檢驗 (QC10007-R01)
-  '完成品品檢': 'QC10007-R01',
-  '完成品': 'QC10007-R01',
-  
-  // 零組件入庫 (QC10007-R03)
-  '零組件入庫': 'QC10007-R03',
-  'Tubing': 'QC10007-R03',
-  '裝配A': 'QC10007-R03',
-  '裝配B': 'QC10007-R03',
-  '裝配C': 'QC10007-R03',
-  
-  // 出貨檢驗 (QC10008-R02)
-  '出貨檢驗': 'QC10008-R02',
-  'ICU': 'QC10008-R02',
-  '其他': 'QC10008-R02'
-};
-
-// 射出D 特殊重定向
-var SPECIAL_REDIRECTS = {
-  '射出D': 'QC10002-R02'  // 射出D 重定向至原物料品檢
-};
-
-// QC 碼 → 資料夾/檔案名稱 對應表
-var QC_TO_NAMES = {};
-for (var name in NAME_TO_QC) {
-  var qc = NAME_TO_QC[name];
-  if (!QC_TO_NAMES[qc]) QC_TO_NAMES[qc] = [];
-  QC_TO_NAMES[qc].push(name);
-}
-
-// 保留舊版 QC_FOLDER_MAP 用於向後相容
 var QC_FOLDER_MAP = {
-  '半成品品檢表': 'QC10006-R02',  // Keyword-driven: matches filename OR folder path (PRIORITY over 零組件入庫)
+  '半成品品檢表': 'QC10006-R02',
+  '原物料品檢': 'QC10002-R02',
   '進料檢驗': 'QC10002-R02',
   '出貨檢驗': 'QC10008-R02',
   '裝配檢驗': 'QC10006-R02',
@@ -176,92 +118,113 @@ var QC_FOLDER_MAP = {
   '押出檢驗': 'QC10004-R02',
 };
 
-// 更新 detectQCFromFolder 使用新圖譜
 function detectQCFromFolder(dirname) {
-  // 先檢查特殊重定向
-  if (SPECIAL_REDIRECTS[dirname]) return SPECIAL_REDIRECTS[dirname];
-  
-  // 檢查名稱對應表
-  if (NAME_TO_QC[dirname]) return NAME_TO_QC[dirname];
-  
-  // 保留舊版 indexOf 搜尋（用於模糊匹配）
-  for (var prefix in QC_FOLDER_MAP) {
-    if (dirname.indexOf(prefix) >= 0) return QC_FOLDER_MAP[prefix];
+  var m = dirname.match(/QC\d{5}-R\d{2}/i);
+  if (m) return m[0].toUpperCase();
+  var keys = Object.keys(QC_FOLDER_MAP);
+  for (var ki = 0; ki < keys.length; ki++) {
+    if (dirname.indexOf(keys[ki]) >= 0) return QC_FOLDER_MAP[keys[ki]];
   }
   return null;
 }
 
 // Mapping of form title text → QC code
 var FORM_TITLE_MAP = {
-  '原物料品檢表': 'QC10002-R02',
-  'RAW MATERIAL QUALITY INSPECTION PLAN': 'QC10002-R02',
-  '零組件入庫品檢表': 'QC10007-R03',
-  'COMPONENT QUALITY INSPECTION PLAN FOR WAREHOUSING': 'QC10007-R03',
-  '出貨檢驗報告': 'QC10008-R02',
-  'OUTGOING INSPECTION REPORT': 'QC10008-R02',
-  '半成品品檢表': 'QC10006-R02',
-  'SUB-ASSEMBLED SETS QUALITY INSPECTION PLAN': 'QC10006-R02',
-  '完成品品檢表': 'QC10007-R01',
-  'FINISHED PRODUCT QUALITY INSPECTION PLAN': 'QC10007-R01',
+  '原物料/配件進料品檢表': 'QC10002-R02',
+  '進料檢驗紀錄表': 'QC10002-R02',
   '裝配對樣巡檢記錄表': 'QC10006-R01',
-  'QUALITY INSPECTION PLAN RECORD': 'QC10004-R02',
+  '半成品檢驗記錄表': 'QC10006-R02',
+  '半成品巡檢品檢表': 'QC10006-R02',
+  'SUB-ASSEMBLED SETS QUALITY INSPECTION PLAN': 'QC10006-R02',
+  '完成品裝配品檢紀錄表': 'QC10007-R01',
+  '完成品裝配品檢記錄表': 'QC10007-R01',
+  'FINISHED SETS QUALITY INSPECTION PLAN': 'QC10007-R01',
+  '零組件入庫品檢表': 'QC10007-R03',
+  '出貨品檢記錄表': 'QC10008-R02',
+  'OUT-GOING QUALITY INSPECTION PLAN': 'QC10008-R02',
+  '出貨品檢報告': 'QC10008-R02'
 };
 
 function determineQCFromSheet(json, initialQC, relPath) {
-  // Scan rows: first 15 rows AND last 30 rows (to catch footer-area QC codes like "MOULDEX QC10007-R02.D"
-  // which may appear at rows 40, 51, or 61+ depending on form length)
+  // Quick return for fixed QC types
+  if (initialQC === 'QC10006-R01') return 'QC10006-R01';
+  if (initialQC === 'QC10004-R02') return 'QC10004-R02';
+
   var totalRows = json.length;
-  var scanRanges = [
-    { start: 0, end: Math.min(15, totalRows) },
-    { start: Math.max(0, totalRows - 30), end: totalRows },
-  ];
 
-  for (var ri = 0; ri < scanRanges.length; ri++) {
-    var range = scanRanges[ri];
-    for (var r = range.start; r < range.end; r++) {
-      var row = json[r];
-      if (!row || !row.length) continue;
+  // Scan first 15 rows
+  var scanLimit = Math.min(15, totalRows);
+  for (var ri = 0; ri < scanLimit; ri++) {
+    var row = json[ri];
+    if (!row) continue;
+    
+    // Check column A first (index 0)
+    var colA = String(row[0] || '').trim();
+    if (colA) {
+      if (colA.indexOf('QC10002-R02') >= 0) return 'QC10002-R02';
+      if (colA.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
+      if (colA.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
+      if (colA.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
+      if (colA.indexOf('QC10007-R01') >= 0 || colA.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
+      if (colA.indexOf('QC10008') >= 0) return 'QC10008-R02';
       
-      // OPTIMIZATION: Check column A first (index 0), return immediately if QC code found
-      var colA = String(row[0] || '').trim();
-      if (colA) {
-        if (colA.indexOf('QC10002') >= 0) return 'QC10002-R02';
-        if (colA.indexOf('QC10004') >= 0) return 'QC10004-R02';
-        if (colA.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
-        if (colA.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
-        if (colA.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
-        if (colA.indexOf('QC10007-R01') >= 0 || colA.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
-        if (colA.indexOf('QC10008') >= 0) return 'QC10008-R02';
-        
-        // Check for form title in column A (header only)
-        if (ri === 0) {
-          for (var title in FORM_TITLE_MAP) {
-            if (colA.indexOf(title) >= 0) return FORM_TITLE_MAP[title];
-          }
+      // Check for form title in column A (header only)
+      if (ri === 0) {
+        var titleKeys = Object.keys(FORM_TITLE_MAP);
+        for (var tk = 0; tk < titleKeys.length; tk++) {
+          if (colA.indexOf(titleKeys[tk]) >= 0) return FORM_TITLE_MAP[titleKeys[tk]];
         }
       }
-      
-      // If column A doesn't have QC code, check remaining columns (B-H, indices 1-7)
-      for (var c = 1; c < Math.min(row.length, 8); c++) {
-        var v = String(row[c] || '').trim();
-        if (!v) continue;
+    }
+    
+    // If column A doesn't have QC code, check remaining columns (B-H, indices 1-7)
+    for (var ci = 1; ci < row.length && ci < 8; ci++) {
+      var val = String(row[ci] || '').trim();
+      if (!val) continue;
 
-        // Check for explicit QC code pattern
-        if (v.indexOf('QC10002') >= 0) return 'QC10002-R02';
-        if (v.indexOf('QC10004') >= 0) return 'QC10004-R02';
-        if (v.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
-        if (v.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
-        if (v.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
-        if (v.indexOf('QC10007-R01') >= 0 || v.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
-        if (v.indexOf('QC10008') >= 0) return 'QC10008-R02';
+      if (val.indexOf('QC10002-R02') >= 0) return 'QC10002-R02';
+      if (val.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
+      if (val.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
+      if (val.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
+      if (val.indexOf('QC10007-R01') >= 0 || val.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
+      if (val.indexOf('QC10008') >= 0) return 'QC10008-R02';
 
-        // Check for form title (header only)
-        if (ri === 0) {
-          for (var title in FORM_TITLE_MAP) {
-            if (v.indexOf(title) >= 0) return FORM_TITLE_MAP[title];
-          }
+      if (ri === 0 || ri === 1 || ri === 2) {
+        var titleKeys2 = Object.keys(FORM_TITLE_MAP);
+        for (var tk2 = 0; tk2 < titleKeys2.length; tk2++) {
+          if (val.indexOf(titleKeys2[tk2]) >= 0) return FORM_TITLE_MAP[titleKeys2[tk2]];
         }
       }
+    }
+  }
+
+  // Scan footer (last 30 rows) for merged or hidden sheet footprints
+  var footerStart = Math.max(0, totalRows - 30);
+  for (var ri2 = footerStart; ri2 < totalRows; ri2++) {
+    var row2 = json[ri2];
+    if (!row2) continue;
+    
+    // Check column A first
+    var colA2 = String(row2[0] || '').trim();
+    if (colA2) {
+      if (colA2.indexOf('QC10002-R02') >= 0) return 'QC10002-R02';
+      if (colA2.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
+      if (colA2.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
+      if (colA2.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
+      if (colA2.indexOf('QC10007-R01') >= 0 || colA2.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
+      if (colA2.indexOf('QC10008') >= 0) return 'QC10008-R02';
+    }
+    
+    // Check remaining columns
+    for (var ci2 = 1; ci2 < row2.length && ci2 < 8; ci2++) {
+      var val2 = String(row2[ci2] || '').trim();
+      if (!val2) continue;
+      if (val2.indexOf('QC10002-R02') >= 0) return 'QC10002-R02';
+      if (val2.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
+      if (val2.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
+      if (val2.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
+      if (val2.indexOf('QC10007-R01') >= 0 || val2.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
+      if (val2.indexOf('QC10008') >= 0) return 'QC10008-R02';
     }
   }
 
@@ -280,45 +243,24 @@ function findDateInSheet(ws, actualQC) {
   function parseDateFromString(str) {
     if (!str) return null;
     str = String(str).trim();
+    var m = str.match(/\b(20\d{2})[-/](\d{1,2})[-/]\d{1,2}\b/);
+    if (m) return { year: parseInt(m[1], 10), month: parseInt(m[2], 10) };
     
-    // 移除所有空白字符（包含不可見字符）
-    str = str.replace(/\s+/g, '');
+    var m2 = str.match(/\b(\d{2})[-/](\d{1,2})[-/]\d{1,2}\b/);
+    if (m2) return { year: 2000 + parseInt(m2[1], 10), month: parseInt(m2[2], 10) };
     
-    // 必須是純數字或日期格式，排除文字內容
-    if (/^[^0-9]/.test(str)) return null; // 不以數字開頭，可能是文字
-    
-    // 格式 1: YYYY-MM-DD 或 YYYY/MM/DD (例如: 2026-06-23)
-    var m = str.match(/\b(20\d{2})[-\/](\d{1,2})[-\/]\d{1,2}\b/);
-    if (m) {
-      var month = parseInt(m[2], 10);
-      if (month >= 1 && month <= 12) {
-        return { year: parseInt(m[1], 10), month: month };
-      }
-    }
-    
-    // 格式 2: YY-MM-DD 或 YY/MM/DD (例如: 26-06-23)
-    var m2 = str.match(/\b(\d{2})[-\/](\d{1,2})[-\/]\d{1,2}\b/);
-    if (m2) {
-      var month2 = parseInt(m2[2], 10);
-      if (month2 >= 1 && month2 <= 12) {
-        return { year: 2000 + parseInt(m2[1], 10), month: month2 };
-      }
-    }
-    
-    // 格式 3: YYMMDD (例如: 260623)
     var m3 = str.match(/\b(\d{2})(\d{2})(\d{2})[A-Za-z]?\b/);
     if (m3) {
       var mm = parseInt(m3[2], 10);
-      var dd = parseInt(m3[3], 10);
-      if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
-        return { year: 2000 + parseInt(m3[1], 10), month: mm };
-      }
+      if (mm >= 1 && mm <= 12) return { year: 2000 + parseInt(m3[1], 10), month: mm };
     }
-    
     return null;
   }
 
   function parseDateFromValue(val, formatted) {
+    if (val instanceof Date) {
+      return { year: val.getFullYear(), month: val.getMonth() + 1 };
+    }
     if (typeof val === 'number' && val >= 40000 && val <= 50000) {
       var date = new Date(Math.round((val - 25569) * 86400 * 1000));
       if (!isNaN(date.getTime())) {
@@ -339,28 +281,10 @@ function findDateInSheet(ws, actualQC) {
 
   switch (actualQC) {
     case 'QC10002-R02': // 原物料進料品檢
-      // 檢查 N4:P5 範圍內的日期欄位
-      // 優先檢查 N4, O4, N5, O5, P4, P5
       cellInfo = getCellValAndFormatted('N4');
       dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
       if (!dateInfo) {
         cellInfo = getCellValAndFormatted('O4');
-        dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
-      }
-      if (!dateInfo) {
-        cellInfo = getCellValAndFormatted('P4');
-        dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
-      }
-      if (!dateInfo) {
-        cellInfo = getCellValAndFormatted('N5');
-        dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
-      }
-      if (!dateInfo) {
-        cellInfo = getCellValAndFormatted('O5');
-        dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
-      }
-      if (!dateInfo) {
-        cellInfo = getCellValAndFormatted('P5');
         dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
       }
       break;
@@ -469,7 +393,28 @@ function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC)
     if (mn >= 1 && mn <= 12) return mn;
   }
 
-  // Strategy 5: Folder/relPath name has month suffix (PRIORITY OVER SHEET NAME!)
+  // Strategy 5: Sheet name has YYMMDD pattern
+  n = sheetName.match(/(\d{2})(\d{2})\d{2}/);
+  if (n) {
+    mn = parseInt(n[2], 10);
+    if (mn >= 1 && mn <= 12) return mn;
+  }
+
+  // Strategy 6: Sheet name has Chinese month format
+  n = sheetName.match(/(\d{1,2})月/);
+  if (n) {
+    mn = parseInt(n[1], 10);
+    if (mn >= 1 && mn <= 12) return mn;
+  }
+
+  // Strategy 6b: Sheet name has YYMMDD pattern (check before relPath)
+  n = sheetName.match(/(\d{2})(\d{2})\d{2}/);
+  if (n) {
+    mn = parseInt(n[2], 10);
+    if (mn >= 1 && mn <= 12) return mn;
+  }
+
+  // Strategy 7: Folder/relPath name has month suffix
   if (relPath) {
     n = relPath.match(/[-_](\d{1,2})$/);
     if (n) {
@@ -483,20 +428,6 @@ function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC)
     }
   }
 
-  // Strategy 6: Sheet name has YYMMDD pattern
-  n = sheetName.match(/(\d{2})(\d{2})\d{2}/);
-  if (n) {
-    mn = parseInt(n[2], 10);
-    if (mn >= 1 && mn <= 12) return mn;
-  }
-
-  // Strategy 7: Sheet name has Chinese month format
-  n = sheetName.match(/(\d{1,2})月/);
-  if (n) {
-    mn = parseInt(n[1], 10);
-    if (mn >= 1 && mn <= 12) return mn;
-  }
-
   // Strategy 8: Scan sheet content for date patterns (Fallback)
   if (json) {
     mn = findDateInSheetFallback(json);
@@ -507,7 +438,7 @@ function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC)
   n = fileName.match(/[-_](\d{4})([A-L])\.xlsx$/i);
   if (n) {
     var yr = parseInt(n[1], 10);
-    if (yr === year || yr === parseInt(y, 10)) {
+    if (yr === year || yr === parseInt(String(year).slice(-2), 10)) {
       var letter = n[2].toUpperCase();
       if (LETTER_MONTH[letter]) return LETTER_MONTH[letter];
     }
@@ -520,16 +451,9 @@ function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
   if (qc === 'QC10002-R02') {
     // 進料檢驗
     // relPath examples: "原料", "物料/紙箱", "物料/B膠"
-    // qcFolder is the top-level QC folder name
-    // Also handles year-suffixed folders: "原料-2020", "物料-2020"
+    // Also handles 射出D from 零組件入庫 folder (actual QC overrides to QC10002-R02)
     var parts = relPath.split('/');
     var p0 = parts[0].replace(/[-_]\d{4}$/, '').replace(/\s+/g, '');
-    
-    // If relPath is empty, use qcFolder as the first segment
-    if (!p0 && qcFolder) {
-      p0 = qcFolder.replace(/[-_]\d{4}$/, '').replace(/\s+/g, '');
-    }
-    
     if (p0 === '原料') return '原料';
     if (p0 === '物料') {
       if (parts.length > 1) {
@@ -538,15 +462,15 @@ function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
         return '物料-' + parts[1];
       }
       // File directly in 物料/ (e.g., B膠.xlsx, 塑膠袋.xlsx)
-      var name = path.basename(fileName, '.xlsx');
+      var name = fileName.replace(/\.xlsx$/i, '');
       name = name.replace(/[-_]\d{4}[-_]\d{1,2}$/, '');
       name = name.replace(/[-_]\d{4}$/, '');
       name = name.replace(/[-_]\d{1,2}$/, '');
-      name = name.replace(/\s+/g, ''); // normalize spaces
+      name = name.replace(/\s+/g, '');
       return '物料-' + name;
     }
     // 射出D from 零組件入庫 folder
-    if (parts[0].indexOf('射出D') >= 0 || (qcFolder && qcFolder.indexOf('射出D') >= 0)) return '射出D';
+    if (parts[0].indexOf('射出D') >= 0) return '射出D';
     return null;
   }
 
@@ -557,12 +481,7 @@ function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
 
   if (qc === 'QC10006-R02' || qc === 'QC10007-R01' || qc === 'QC10007-R02') {
     // 裝配檢驗 or 完成品品檢: relPath = "BD-2025", "Biometrix-2025"
-    var name = relPath.replace(/[-_](20\d{2})$/, '');
-    // Map also known 完成品 customer names
-    var finMap = { 'MarMed': 'MarMed', 'Saxon': 'Saxon' };
-    if (finMap[name]) return name;
-    // For other 裝配檢驗 subdirs, check if file is 半成品 or 完成品 based on qc
-    return name;
+    return relPath.replace(/[-_](20\d{2})$/, '');
   }
 
   if (qc === 'QC10006-R01') {
@@ -610,9 +529,6 @@ function walkRawDataDir(dirPath, relPath, initialQC, qcFolder, year, counts) {
 }
 
 function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, year, counts) {
-  // Skip files with "空白" in the name
-  if (fileName.indexOf('空白') >= 0) return;
-
   var wb;
   try {
     wb = XLSX.readFile(filePath);
@@ -626,7 +542,7 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
   var seenQC7R1BaseNames = new Set();
 
   wb.SheetNames.forEach(function(sheetName) {
-    // Skip non-data sheets: QC開頭、Sheet、空白
+    // Skip non-data sheets
     if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別') return;
     if (sheetName.indexOf('Sheet') >= 0) return; // skip any sheet with "Sheet" in name
     if (/^QC[-_]?\d+/i.test(sheetName.trim())) return; // skip template sheets named QC-xxx
@@ -660,11 +576,6 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
     var month = extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC);
 
     // Special override for QC10007-R03 (零組件入庫) files:
-    // 1. If the file is in QC10007-R03 and ends with a month letter suffix (e.g. 裝配B-2025A.xlsx, 裝配A-2025-G.xlsx),
-    //    route it to QC10007-R03 and parse month as A=1, B=2, ... L=12.
-    //    BUT ONLY for subcategories that actually use letter suffixes (射出, 射出A, 射出C, 裝配A, etc.)
-    //    Tubing uses date code suffixes like Tubing-250108D.xlsx, NOT letter suffixes!
-    // 2. Override actualQC to QC10002-R02 if the relPath matches 射出D (original logic in determineQCFromSheet).
     if (initialQC === 'QC10007-R03') {
       actualQC = 'QC10007-R03';
       // Only apply letter suffix matching for non-Tubing subcategories
@@ -673,6 +584,7 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
         if (letterMatch) {
           var derivedMonth = LETTER_MONTH[letterMatch[1].toUpperCase()];
           // Verify the derived month matches actual file date content
+          // If not, fall through to extractRawMonth() for proper detection
           var fileDate = findDateInSheet(ws, actualQC);
           if (fileDate && fileDate.month === derivedMonth) {
             month = derivedMonth;
@@ -683,17 +595,27 @@ function processRawDataFile(filePath, relPath, fileName, initialQC, qcFolder, ye
       if (relPath && relPath.indexOf('射出D') >= 0 && relPath.indexOf('射出D(組件)') < 0) {
         actualQC = 'QC10002-R02';
       }
+
+      // Blank template guard for QC10007-R03 (零組件入庫品檢):
+      if (actualQC === 'QC10007-R03' && json && json.length > 3) {
+        var _lotRow = json[3];
+        var _lotVal = (_lotRow && _lotRow.length > 6) ? _lotRow[6] : '';
+        var _lotIsBlank = (_lotVal === '' || _lotVal === null || _lotVal === undefined ||
+                          _lotVal === 0 || String(_lotVal).trim() === '' || String(_lotVal).trim() === '0');
+        if (_lotIsBlank) {
+          return; // Skip blank template worksheet
+        }
+      }
     }
 
     // Special override for 半成品品檢表 files:
-    // Route to QC10006-R02 under subcategory '裝配C' and determine month flexibly
-    // Matches: 半成品品檢表-2025.xlsx, 半成品品檢表2023-01.xlsx, 半成品品檢表2023(限組件用)/xxx.xlsx
+    // Keyword-driven: matches filename OR relPath
     var isSemiFinishedTable = /半成品品檢表/i.test(fileName) || /半成品品檢表/i.test(relPath || '');
     if (isSemiFinishedTable) {
       actualQC = 'QC10006-R02';
       subCat = '裝配C';
       // Flexible month extraction for 半成品品檢表:
-      // 1. Sheet name letter pattern: PJW25D13 → 25=D(4月) (covers 2015-2027+)
+      // 1. Sheet name letter pattern: PJW25D13 → D=4月 (covers 2015-2027+)
       var sheetMatch = sheetName.match(/(\d{2})([A-L])/i);
       if (sheetMatch) {
         var yr = parseInt(sheetMatch[1], 10);
@@ -783,9 +705,14 @@ function scanInjectionData(year) {
     walkSetup(setupBaseDir);
   }
 
-  // 2. Patrol counts only from 'QIP-{year}(1~10)' directory under '射出檢驗-{year}'
-  var patrolBaseDir = 'RawData/' + year + '/射出檢驗-' + year + '/QIP-' + year + '(1~10)';
-  if (fs.existsSync(patrolBaseDir)) {
+  // 2. Patrol counts from 'QIP-{year}(1~10)' and 'QIP-{year}(1-10)' directories under '射出檢驗-{year}'
+  var patrolBaseDirs = [
+    'RawData/' + year + '/射出檢驗-' + year + '/QIP-' + year + '(1~10)',
+    'RawData/' + year + '/射出檢驗-' + year + '/QIP-' + year + '(1-10)'
+  ];
+  
+  patrolBaseDirs.forEach(function(patrolBaseDir) {
+    if (!fs.existsSync(patrolBaseDir)) return;
     var subDirs;
     try {
       subDirs = fs.readdirSync(patrolBaseDir);
@@ -837,7 +764,7 @@ function scanInjectionData(year) {
         patrolCounts[month] += Object.keys(uniqueBaseInFile).length;
       });
     });
-  }
+  });
 
   return { setup: setupCounts, patrol: patrolCounts };
 }
@@ -895,9 +822,9 @@ function scanExtrusionData(year) {
 
         var uniqueBaseInFile = {};
         wb.SheetNames.forEach(function(sheetName) {
-          if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別' || sheetName.indexOf('Sheet1') === 0) return;
-          if (sheetName.indexOf('.K(') >= 0 || sheetName.indexOf('範例樣本') >= 0 || /^QC[-_]?\d+/i.test(sheetName.trim())) return;
-          if (/^(工作表|Sheet)\d+/i.test(sheetName.trim())) return;
+          if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別') return;
+          if (sheetName.indexOf('Sheet') >= 0) return; // skip any sheet with "Sheet" in name
+          if (/^QC[-_]?\d+/i.test(sheetName.trim())) return; // skip template sheets named QC-xxx
 
           var snLower = sheetName.toLowerCase();
           var isSetup = (snLower.indexOf('setup') >= 0 || snLower.indexOf('set up') >= 0 || snLower.indexOf('set-up') >= 0 || snLower === 'setup');
@@ -916,10 +843,10 @@ function scanExtrusionData(year) {
   return { setup: setupCounts, patrol: patrolCounts };
 }
 
-function scanRawData(year, customDir) {
-  var base = customDir || ('RawData/' + year);
+function scanRawData(year) {
+  var base = 'RawData/' + year;
   if (!fs.existsSync(base)) {
-    console.log('  ' + base + ' not found, skipping');
+    console.log('  RawData/' + year + ' not found, skipping');
     return {};
   }
 
@@ -930,42 +857,11 @@ function scanRawData(year, customDir) {
 
   topDirs.forEach(function(dirname) {
     var qc = detectQCFromFolder(dirname);
-    var fullPath = base + '/' + dirname;
-    
     if (!qc) {
-      // Try to find QC type by scanning subdirectories
-      var subDirs = [];
-      try {
-        subDirs = fs.readdirSync(fullPath).filter(function(d) {
-          try { return fs.statSync(fullPath + '/' + d).isDirectory(); } catch(e) { return false; }
-        });
-      } catch(e) {}
-      
-      var foundQC = null;
-      var foundFolder = '';
-      subDirs.forEach(function(subDir) {
-        if (foundQC) return;
-        var testQC = detectQCFromFolder(subDir);
-        if (testQC) {
-          foundQC = testQC;
-          foundFolder = subDir;
-        }
-      });
-      
-      if (foundQC) {
-        // Recurse into subdirectory
-        walkRawDataDir(fullPath + '/' + foundFolder, foundFolder, foundQC, foundFolder, year, counts);
-        return;
-      }
-      
-      // No QC marker found in any subdirectory.
-      // Scan all subdirectories and let processRawDataFile detect QC from file content.
-      subDirs.forEach(function(subDir) {
-        walkRawDataDir(fullPath + '/' + subDir, subDir, null, subDir, year, counts);
-      });
+      console.log('  SKIP (unknown QC type): ' + dirname);
       return;
     }
-    
+    var fullPath = base + '/' + dirname;
     walkRawDataDir(fullPath, '', qc, dirname, year, counts);
   });
 
@@ -1086,18 +982,10 @@ function writeSummaryExcel(counts, year) {
   
   // ---- Sheet 1: 原物料品檢(QC10002-R02) ----
   var rawCols = [
-    {key:'原料', label:'原料'},
-    {key:'物料-B膠', label:'B膠'},
-    {key:'物料-收縮膜', label:'收縮膜'},
-    {key:'物料-色粉', label:'色粉'},
-    {key:'物料-空白包裝袋', label:'空白包裝袋'},
-    {key:'物料-空白感壓紙', label:'空白感壓紙'},
-    {key:'物料-塑膠袋', label:'塑膠袋'},
-    {key:'物料-塑膠袋40*50', label:'塑膠袋40*50'},
-    {key:'物料-紙箱', label:'紙箱'},
-    {key:'物料-過濾網連蓋', label:'過濾網連蓋'},
-    {key:'物料-標籤', label:'標籤'},
-    {key:'射出D', label:'射出D'},
+    {key:'原料', label:'原料'}, {key:'物料-B膠', label:'物料-B膠'}, {key:'物料-收縮膜', label:'物料-收縮膜'},
+    {key:'物料-色粉', label:'物料-色粉'}, {key:'物料-空白包裝袋', label:'物料-空白包裝袋'}, {key:'物料-空白感壓紙', label:'物料-空白感壓紙'},
+    {key:'物料-塑膠袋', label:'物料-塑膠袋'}, {key:'物料-塑膠袋40X50', label:'物料-塑膠袋40X50'}, {key:'物料-紙箱', label:'物料-紙箱'},
+    {key:'物料-過濾網連蓋', label:'物料-過濾網連蓋'}, {key:'物料-標籤', label:'物料-標籤'}, {key:'射出D', label:'射出D'}
   ];
 
   addCategorySheet(
@@ -1120,46 +1008,25 @@ function writeSummaryExcel(counts, year) {
     },
     'QC10002-R02',
     null,
-    '原物料進料品檢'
+    '原物料/配件進料品檢'
   );
   
   // ---- Sheet 2: QIP(QC10004-R02) ----
-  var qipQC = counts['QC10004-R02'];
-  var qipSetupExt = {}; var qipSetupInj = {};
-  var qipPatrolExt = {}; var qipPatrolInj = {};
-  
-  if (qipQC) {
-    for (var subCat in qipQC) {
-      if (subCat === 'QIP-Setup') {
-        qipSetupInj = qipQC[subCat];
-      } else if (subCat === 'QIP-Patrol') {
-        qipPatrolInj = qipQC[subCat];
-      } else if (subCat === '押出-Setup') {
-        qipSetupExt = qipQC[subCat];
-      } else if (subCat === '押出-Patrol') {
-        qipPatrolExt = qipQC[subCat];
-      }
-    }
-  }
-  
-  var qipRows = [
-    ['射出、押出製程Setup','','','','','射出、押出製程巡檢'],
-    ['月份','押出(Setup)','射出(Setup)','小計','','月份','押出(巡檢)','射出(廠內)','小計']
+  var qipCols = [
+    {key:'QIP-Setup', label:'Setup(射出)'}, {key:'QIP-Patrol', label:'巡檢(射出)'},
+    {key:'押出-Setup', label:'Setup(押出)'}, {key:'押出-Patrol', label:'巡檢(押出)'}
   ];
-  MONTHS.forEach(function(m) {
-    var extS = qipSetupExt[m] || 0;
-    var injS = qipSetupInj[m] || 0;
-    var extP = qipPatrolExt[m] || 0;
-    var injP = qipPatrolInj[m] || 0;
-    qipRows.push([m, extS, injS, extS+injS, '', m, extP, injP, extP+injP]);
-  });
-  var tExtS = totalArray(qipSetupExt);
-  var tInjS = totalArray(qipSetupInj);
-  var tExtP = totalArray(qipPatrolExt);
-  var tInjP = totalArray(qipPatrolInj);
-  qipRows.push(['小計', tExtS, tInjS, tExtS+tInjS, '', '小計', tExtP, tInjP, tExtP+tInjP]);
-  
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(qipRows), 'QIP(QC10004-R02)');
+  var qipSubCatMap = {
+    'QIP-Setup': 0, 'QIP-Patrol': 1, '押出-Setup': 2, '押出-Patrol': 3
+  };
+  addCategorySheet(
+    'QIP(QC10004-R02)',
+    qipCols,
+    function(sub) { return qipSubCatMap[sub]; },
+    'QC10004-R02',
+    null,
+    'QIP品檢'
+  );
   
   // ---- Sheet 3: 裝配對樣巡檢(QC10006-R01) ----
   addCategorySheet('裝配對樣巡檢(QC10006-R01)',
@@ -1172,208 +1039,70 @@ function writeSummaryExcel(counts, year) {
   
   // ---- Sheet 4: 半成品品檢(QC10006-R02) ----
   var semiCols = [
-    {key:'裝配C', label:'裝配C'},
-    {key:'BD', label:'BD'},
-    {key:'Biometrix', label:'Biometrix'},
-    {key:'MPS', label:'MPS'},
-    {key:'Vivus', label:'Vivus'},
+    {key:'裝配C', label:'裝配C'}, {key:'BD', label:'BD'}, {key:'Biometrix', label:'Biometrix'},
+    {key:'MPS', label:'MPS'}, {key:'Vivus', label:'Vivus'}
   ];
-  
-  var semiQC = counts['QC10006-R02'];
-  var semiData = [];
-  semiCols.forEach(function() { semiData.push({}); });
-  
-  var semiSubCatMap = {
-    'BD': 1, 'Biometrix': 2, 'MPS': 3, 'Vivus': 4,
-    'MarMed': null, 'Saxon': null
-  };
-  
-  // Populate '裝配C' (index 0) normally from semiQC below
-  
-  if (semiQC) {
-    for (var subCat in semiQC) {
-      var actualIdx = semiSubCatMap[subCat];
-      if (actualIdx === null || actualIdx === undefined) {
-        if (subCat.indexOf('裝配C') >= 0) actualIdx = 0;
-      }
-      if (actualIdx === null || actualIdx === undefined) continue;
-      
-      var monthly = semiQC[subCat];
-      for (var m = 1; m <= 12; m++) {
-        if (monthly[m]) semiData[actualIdx][m] = (semiData[actualIdx][m] || 0) + monthly[m];
-      }
-    }
-  }
-  
-  var semiRows = [
-    ['裝配半成品品檢'],
-    ['月份','裝配C','BD','Biometrix','MPS','Vivus','小計']
-  ];
-  MONTHS.forEach(function(m) {
-    var row = [m];
-    var total = 0;
-    semiCols.forEach(function(c, ci) {
-      var v = semiData[ci][m] || 0;
-      row.push(v);
-      total += v;
-    });
-    row.push(total);
-    semiRows.push(row);
-  });
-  var semiTotalRow = ['小計'];
-  var semiGrandTotal = 0;
-  semiCols.forEach(function(c, ci) {
-    var t = totalArray(semiData[ci]);
-    semiTotalRow.push(t);
-    semiGrandTotal += t;
-  });
-  semiTotalRow.push(semiGrandTotal);
-  semiRows.push(semiTotalRow);
-  
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(semiRows), '半成品品檢(QC10006-R02)');
+  var semiSubCatMap = { 'BD': 1, 'Biometrix': 2, 'MPS': 3, 'Vivus': 4 };
+  addCategorySheet(
+    '半成品品檢(QC10006-R02)',
+    semiCols,
+    function(sub) {
+      var idx = semiSubCatMap[sub];
+      if (idx === undefined && sub.indexOf('裝配C') >= 0) return 0;
+      return idx;
+    },
+    'QC10006-R02',
+    null,
+    '裝配半成品品檢'
+  );
   
   // ---- Sheet 5: 完成品品檢(QC10007-R01 R02) ----
   var finCols = [
-    {key:'Biometrix', label:'Biometrix'},
-    {key:'MarMed', label:'MarMed'},
-    {key:'Saxon', label:'Saxon'},
-    {key:'Vivus', label:'Vivus'},
+    {key:'Biometrix', label:'Biometrix'}, {key:'MarMed', label:'MarMed'},
+    {key:'Saxon', label:'Saxon'}, {key:'Vivus', label:'Vivus'}
   ];
-  var finSubCatMap = {'Biometrix': 0, 'MarMed': 1, 'Saxon': 2, 'Vivus': 3};
-
-  var finQC = counts['QC10007-R01'];
-  var finData = [];
-  finCols.forEach(function() { finData.push({}); });
-
-  if (finQC) {
-    for (var subCat in finQC) {
-      var actualIdx = finSubCatMap[subCat];
-      if (actualIdx === undefined) continue;
-      var monthly = finQC[subCat];
-      for (var m = 1; m <= 12; m++) {
-        if (monthly[m]) finData[actualIdx][m] = (finData[actualIdx][m] || 0) + monthly[m];
-      }
-    }
-  }
-
-  var finRows = [
-    ['裝配完成品品檢'],
-    ['月份','Biometrix','MarMed','Saxon','Vivus','小計']
-  ];
-  MONTHS.forEach(function(m) {
-    var row = [m];
-    var total = 0;
-    finCols.forEach(function(c, ci) {
-      var v = finData[ci][m] || 0;
-      row.push(v);
-      total += v;
-    });
-    row.push(total);
-    finRows.push(row);
-  });
-  var finTotalRow = ['小計'];
-  var finGrandTotal = 0;
-  finCols.forEach(function(c, ci) {
-    var t = totalArray(finData[ci]);
-    finTotalRow.push(t);
-    finGrandTotal += t;
-  });
-  finTotalRow.push(finGrandTotal);
-  finRows.push(finTotalRow);
-
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(finRows), '完成品品檢(QC10007-R01 R02)');
+  var finSubCatMap = { 'Biometrix': 0, 'MarMed': 1, 'Saxon': 2, 'Vivus': 3 };
+  addCategorySheet(
+    '完成品品檢(QC10007-R01 R02)',
+    finCols,
+    function(sub) { return finSubCatMap[sub]; },
+    'QC10007-R01',
+    null,
+    '裝配完成品品檢'
+  );
   
   // ---- Sheet 6: 零組件入庫品檢(QC10007-R03) ----
   var partsCols = [
-    {key:'Tubing', label:'Tubing'},
-    {key:'射出', label:'射出(廠內)'},
-    {key:'射出A', label:'射出A'},
-    {key:'射出C', label:'射出C'},
-    {key:'射出D(組件)', label:'射出D(組件)'},
-    {key:'裝配A', label:'裝配A'},
-    {key:'裝配B', label:'裝配B'},
-    {key:'裝配C', label:'裝配C'},
+    {key:'Tubing', label:'Tubing'}, {key:'射出', label:'射出(廠內)'}, {key:'射出A', label:'射出A'},
+    {key:'射出C', label:'射出C'}, {key:'射出D(組件)', label:'射出D(組件)'}, {key:'裝配A', label:'裝配A'},
+    {key:'裝配B', label:'裝配B'}, {key:'裝配C', label:'裝配C'}
   ];
-  
-  var partsQC = counts['QC10007-R03'];
-  var partsData = [];
-  partsCols.forEach(function() { partsData.push({}); });
-  
   var partsSubCatMap = {
-    'Tubing': 0,
-    '射出': 1,
-    '射出A': 2,
-    '射出C': 3,
-    '射出D(組件)': 4,
-    '裝配A': 5,
-    '裝配B': 6,
-    '裝配C': 7,
+    'Tubing': 0, '射出': 1, '射出A': 2, '射出C': 3, '射出D(組件)': 4,
+    '裝配A': 5, '裝配B': 6, '裝配C': 7
   };
-  
-  if (partsQC) {
-    for (var subCat in partsQC) {
-      var actualIdx = partsSubCatMap[subCat];
-      if (actualIdx === undefined) continue;
-      
-      var monthly = partsQC[subCat];
-      for (var m = 1; m <= 12; m++) {
-        if (monthly[m]) partsData[actualIdx][m] = (partsData[actualIdx][m] || 0) + monthly[m];
-      }
-    }
-  }
-  
-  var partsRows = [
-    ['零組件入庫檢'],
-    ['月份','Tubing','射出(廠內)','射出A','射出C','射出D(組件)','裝配A','裝配B','裝配C','小計']
-  ];
-  MONTHS.forEach(function(m) {
-    var row = [m];
-    var total = 0;
-    partsCols.forEach(function(c, ci) {
-      var v = partsData[ci][m] || 0;
-      row.push(v);
-      total += v;
-    });
-    row.push(total);
-    partsRows.push(row);
-  });
-  var partsTotalRow = ['小計'];
-  var partsGrand = 0;
-  partsCols.forEach(function(c, ci) {
-    var t = totalArray(partsData[ci]);
-    partsTotalRow.push(t);
-    partsGrand += t;
-  });
-  partsTotalRow.push(partsGrand);
-  partsRows.push(partsTotalRow);
-  
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(partsRows), '零組件入庫品檢(QC10007-R03)');
+  addCategorySheet(
+    '零組件入庫品檢(QC10007-R03)',
+    partsCols,
+    function(sub) { return partsSubCatMap[sub]; },
+    'QC10007-R03',
+    null,
+    '零組件入庫檢'
+  );
   
   // ---- Sheet 7: 出貨檢驗(QC10008-R02) ----
-  var shipQC = counts['QC10008-R02'];
-  var shipICU = {}; var shipOther = {};
-  
-  if (shipQC) {
-    for (var subCat in shipQC) {
-      if (subCat.indexOf('ICU') >= 0) shipICU = shipQC[subCat];
-      else if (subCat.indexOf('其他') >= 0) shipOther = shipQC[subCat];
-    }
-  }
-  
-  var shipRows = [
-    ['出貨品檢'],
-    ['月份','ICU','其他','小計']
+  var shipCols = [
+    {key:'ICU', label:'ICU'}, {key:'其他', label:'其他'}
   ];
-  MONTHS.forEach(function(m) {
-    var icu = shipICU[m] || 0;
-    var oth = shipOther[m] || 0;
-    shipRows.push([m, icu, oth, icu+oth]);
-  });
-  var tICU = totalArray(shipICU);
-  var tOth = totalArray(shipOther);
-  shipRows.push(['小計', tICU, tOth, tICU+tOth]);
-  
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(shipRows), '出貨檢驗(QC10008-R02)');
+  var shipSubCatMap = { 'ICU': 0, '其他': 1 };
+  addCategorySheet(
+    '出貨檢驗(QC10008-R02)',
+    shipCols,
+    function(sub) { return shipSubCatMap[sub]; },
+    'QC10008-R02',
+    null,
+    '出貨檢驗'
+  );
   
   // ---- Sheet 8: NCA ---- (Skipped)
   
@@ -1433,7 +1162,6 @@ function deployToPublic(year) {
 function main() {
   var years = [];
   var targetYear = process.argv[2] || 'all';
-  var customDir = process.argv[3]; // Optional: custom directory path
   
   if (targetYear === 'all') {
     years = [2025, 2026];
@@ -1443,8 +1171,8 @@ function main() {
   
   years.forEach(function(year) {
     console.log('\n=== Processing ' + year + ' ===');
-    console.log('Step 1: Scanning data...');
-    var counts = scanRawData(year, customDir);
+    console.log('Step 1: Scanning RawData...');
+    var counts = scanRawData(year);
     
     // Print summary
     var totalRecords = 0;

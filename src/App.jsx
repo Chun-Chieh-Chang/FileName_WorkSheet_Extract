@@ -53,6 +53,7 @@ function App() {
   const [etlProgress, setEtlProgress] = useState(null);
   const [isProcessingETL, setIsProcessingETL] = useState(false);
   const [etlYear, setEtlYear] = useState(2025);
+  const [isETLCancelled, setIsETLCancelled] = useState(false);
 
   const folderInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -202,20 +203,30 @@ function App() {
   const handleRunBrowserETL = async (year) => {
     if (!uploadedFiles || uploadedFiles.length === 0) return;
     setIsProcessingETL(true);
+    setIsETLCancelled(false);
     setEtlProgress({ current: 0, total: uploadedFiles.length, filename: "初始化中..." });
     
     try {
       const counts = await runETLInBrowser(uploadedFiles, year, (current, total, filename) => {
+        if (isETLCancelled) {
+          setIsProcessingETL(false);
+          throw new Error('ETL cancelled by user');
+        }
         setEtlProgress({ current, total, filename });
       });
       
       exportSummaryExcelInBrowser(counts, year);
       alert(`🎉 ${year} 年度品檢報表統計.xlsx 匯出成功！已下載至您的電腦。`);
     } catch (e) {
-      console.error(e);
-      alert("ETL 運算失敗，請確保選取的是正確的年度品檢原始資料夾。");
+      if (e.message === 'ETL cancelled by user') {
+        console.log('ETL cancelled');
+      } else {
+        console.error(e);
+        alert("ETL 運算失敗，請確保選取的是正確的年度品檢原始資料夾。");
+      }
     } finally {
       setIsProcessingETL(false);
+      setIsETLCancelled(false);
     }
   };
 
@@ -226,11 +237,16 @@ function App() {
       return;
     }
     setIsProcessingETL(true);
+    setIsETLCancelled(false);
     setEtlProgress({ current: 0, total: uploadedFiles.length, filename: "初始化中..." });
     
     (async () => {
       try {
         const counts = await runETLInBrowser(uploadedFiles, year, (current, total, filename) => {
+          if (isETLCancelled) {
+            setIsProcessingETL(false);
+            throw new Error('ETL cancelled by user');
+          }
           setEtlProgress({ current, total, filename });
         });
         
@@ -239,10 +255,13 @@ function App() {
         exportIndividualReports(counts, year, outputPath);
         alert(`🎉 ${year} 年度獨立報表全部匯出成功！\n已儲存至：${outputPath}`);
       } catch (e) {
-        console.error(e);
-        alert("匯出失敗，請確認選取的是正確的年度品檢原始資料夾。");
+        if (e.message !== 'ETL cancelled by user') {
+          console.error(e);
+          alert("匯出失敗，請確認選取的是正確的年度品檢原始資料夾。");
+        }
       } finally {
         setIsProcessingETL(false);
+        setIsETLCancelled(false);
       }
     })();
   };
@@ -1082,7 +1101,7 @@ function App() {
                 </button>
               )}
               <span style={{ fontSize: '13px', color: 'var(--mck-slate)' }}>
-                或在本地執行 <code>node etl_pipeline.cjs all</code> 產出後，拖入檔案進行互動解讀。
+                直接在下方選取或拖曳包含 QC 報表的資料夾即可開始分析。
               </span>
             </div>
           </div>
@@ -1451,6 +1470,13 @@ function App() {
                     <div style={{ width: '100%', height: '8px', background: '#E2E8F0', borderRadius: '4px', marginTop: '8px', overflow: 'hidden' }}>
                       <div style={{ width: `${(etlProgress?.current / etlProgress?.total) * 100}%`, height: '100%', background: 'var(--mck-navy)', transition: 'width 0.1s ease' }}></div>
                     </div>
+                    <button 
+                      className="btn btn-danger" 
+                      onClick={() => setIsETLCancelled(true)}
+                      style={{ marginTop: '12px' }}
+                    >
+                      ❌ 取消處理
+                    </button>
                   </div>
                 ) : (
                   <div>

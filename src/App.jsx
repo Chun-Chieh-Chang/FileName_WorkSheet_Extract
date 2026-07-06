@@ -78,6 +78,21 @@ function App() {
   }, [scannedRows]);
 
   const folderInputRef = useRef(null);
+  const leftPanelRef = useRef(null);
+  const [leftPanelHeight, setLeftPanelHeight] = useState(null);
+
+  useEffect(() => {
+    if (!leftPanelRef.current) return;
+    
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setLeftPanelHeight(entry.target.getBoundingClientRect().height);
+      }
+    });
+    
+    resizeObserver.observe(leftPanelRef.current);
+    return () => resizeObserver.disconnect();
+  }, [scannedRows, uploadedFiles]);
   const fileInputRef = useRef(null);
 
   // Load mappings on mount
@@ -1555,7 +1570,7 @@ function App() {
       {activeTab === 'extractor' && (
         <div className="main-grid">
           {/* Left Panel: Files Scanning controls */}
-          <aside className="mck-main-content">
+          <aside ref={leftPanelRef} className="mck-main-content">
             {/* Folder scanner card */}
             <section className="panel-card">
               <h2 className="card-title">📁 品管檔案夾掃描</h2>
@@ -1809,7 +1824,16 @@ function App() {
           </aside>
 
           {/* Right Panel: Result data table */}
-          <section className="panel-card" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          <section 
+            className="panel-card" 
+            style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              flex: 1, 
+              maxHeight: leftPanelHeight ? `${leftPanelHeight}px` : 'none',
+              overflow: 'hidden' 
+            }}
+          >
             <div className="table-controls">
               <h2 className="card-title" style={{ margin: 0 }}>📊 工作表表單編碼提取結果</h2>
               

@@ -415,11 +415,11 @@ body {
   min-height: 40px;
 }
 
-/* Table styling */
 .table-wrapper {
-  overflow-x: auto;
+  overflow: auto;
   border: 1px solid var(--color-border);
   border-radius: 8px;
+  flex: 1;
 }
 
 .data-table {
@@ -1015,4 +1015,7 @@ body {
   max-width: 280px;
   min-width: 150px;
 }
+
+
+
 

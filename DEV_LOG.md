@@ -772,5 +772,37 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
 - [x] 修改 `src/App.jsx` (重構 getUniqueColumnValues 實現動態連動過濾)
 - [x] 驗證並測試
 
+---
+
+## 2026-07-06 左右容器底部對齊與表格垂直滾動優化 (Height Alignment & Scroll Wrapper)
+
+### 需求說明
+讓右側「工作表表單編碼提取結果」的表格容器底部在視覺上與左側最下方卡片的底部完美對齊。當提取結果非常長時，在右側容器內部產生滾動條，而不是無限拉長整個網頁。
+
+### 根因分析 (RCA)
+- **CSS 絕對定位導致的 Grid 擠壓 Bug**：
+  - 若使用純 CSS 絕對定位包裹右側面板內容，由於其內所有子內容脫離了文件流，Grid 會認為該單元格寬度為 0。當外層為 `minmax(0, 1fr)` 欄寬時，瀏覽器會將右側欄位徹底壓縮至約 30px 寬，導致標題文字垂直排列、表格被擠壓。
+  - **解決方案：React ResizeObserver + maxHeight 動態對齊**：
+    - 不使用任何會脫離文件流的 CSS 絕對定位，維持右側面板正常的區塊佈局以正確參與 Grid 寬度自適應。
+    - 在 React 中使用 `ResizeObserver` 監聽左側 `<aside>` 容器的真實 border-box 高度，存入狀態 `leftPanelHeight`。
+    - 將此高度作為 inline style 的 `maxHeight` 動態套用在右側結果卡片上，並設定其 `overflow: hidden; display: flex; flex-direction: column`。
+    - 內層的 `.table-wrapper` 設為 `flex: 1; overflow: auto;`。這能完美確保：左右側底部精確對齊，且超長數據在表格內滾動，且 Grid 寬度 100% 正常。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. **高度狀態與監聽器**：
+     - 在 [src/App.jsx](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/src/App.jsx) 中新增 `leftPanelRef` 及 `leftPanelHeight` 狀態。
+     - 建立 `useEffect` 監聽器，使用 `ResizeObserver` 在左側容器發生大小改變（如重新上傳檔案、展開一鍵生成器等）時，自動獲取其真實高度。
+     - 將 `ref={leftPanelRef}` 綁定至左側 `<aside className="mck-main-content">`。
+  2. **動態高度綁定與滾動**：
+     - 將 `maxHeight: leftPanelHeight ? \`\${leftPanelHeight}px\` : 'none'\` inline-style 綁定至右側表格容器，並設置 `overflow: 'hidden'`。
+     - 在 [src/index.css](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/src/index.css) 中，將 `.table-wrapper` 設為 `overflow: auto; flex: 1;`，使表格能在剩餘高度中正常垂直與水平滾動。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 修改 `src/App.jsx` (引進 ResizeObserver 狀態與 Ref、右側 maxHeight 動態對齊)
+- [x] 修改 `src/index.css` (table-wrapper 設定 flex 增長與 overflow: auto 滾動)
+- [x] 驗證並測試
+
 
 

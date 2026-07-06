@@ -777,6 +777,48 @@ function App() {
     alert(`已成功匯出 ${mappings.length} 筆欄位映射數據`);
   };
 
+  /**
+   * 匯出提取結果為 CSV 檔案
+   */
+  const exportToCSV = (data, name = "提取結果") => {
+    if (!data || data.length === 0) return;
+    
+    const headers = ["檔案名稱", "檔案路徑", "工作表名稱", "表單編碼", "表單對照名稱", "狀態"];
+    const keys = ["fileName", "filePath", "sheetName", "foundCode", "foundName", "status"];
+    
+    const csvRows = [];
+    csvRows.push(headers.join(","));
+    
+    for (const row of data) {
+      const values = keys.map(key => {
+        let val = row[key] || "";
+        if (key === 'status') {
+          val = getStatusLabel(val);
+        }
+        const escaped = String(val).replace(/"/g, '""');
+        if (escaped.includes(",") || escaped.includes("\n") || escaped.includes('"')) {
+          return `"${escaped}"`;
+        }
+        return escaped;
+      });
+      csvRows.push(values.join(","));
+    }
+    
+    const csvContent = "\uFEFF" + csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `${name}_提取結果.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   // ==========================================
   // MCKINSEY SUMMARY EXCEL PARSER HANDLERS
   // ==========================================
@@ -1617,6 +1659,13 @@ function App() {
                       onClick={() => exportToExcel(scannedRows, folderName)}
                     >
                       💾 匯出 Excel
+                    </button>
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ flex: 1, minHeight: '36px', background: '#3b82f6', borderColor: '#3b82f6' }}
+                      onClick={() => exportToCSV(filteredRows, folderName || "品管報表")}
+                    >
+                      📄 匯出 CSV
                     </button>
                     <button 
                       className="btn btn-primary" 

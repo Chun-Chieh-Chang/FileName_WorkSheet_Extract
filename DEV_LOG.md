@@ -827,7 +827,29 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
   2. **環境控制放寬**：暫時在部署工作流中移除對 `github-pages` 的 environment 限制，以排除權限審查干擾。
   3. **升級 Node 24**：升級 Node Setup 到 LTS 24。
 
+- [x] 驗證並測試
+
+---
+
+## 2026-07-06 新增 CSV 匯出功能 (CSV Export for Extracted Results)
+
+### 需求說明
+新增匯出按鈕，可將「工作表表單編碼提取結果」表格中的資料匯出為 `.csv` 格式檔案。
+
+### 根因分析與設計 (RCA & Design)
+- **篩選後資料價值**：與原本匯出 Excel（導出全體 `scannedRows`）不同，使用者更傾向於導出經由篩選器層層過濾後的結果（`filteredRows`），以供進一步利用。
+- **Excel 中文亂碼防護**：
+  - Windows 版 Excel 直接讀取一般 CSV 時，若檔案為 UTF-8 編碼但缺乏 **BOM (Byte Order Mark)**，會將中文字元解析為亂碼。
+  - **解決方案**：在生成的 CSV 字串開頭加上 `\uFEFF`，強制 Excel 以 UTF-8 編碼正常顯示中文。
+  - **安全性與防護**：使用正規表達式對包含逗號 `,`、換行 `\n` 或引號 `"` 的欄位值進行雙引號 `"` 轉義，確保 CSV 檔案在各種編輯器（如 Notepad, Python, Excel）中都能正常解析。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. **建立匯出函數**：在 [src/App.jsx](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/src/App.jsx) 中實作 `exportToCSV(data, name)` 函數，定義中文標題（檔案名稱、檔案路徑、工作表名稱、表單編碼、表單對照名稱、狀態）與欄位對應。
+  2. **中文字態處理**：在寫入 CSV 時，調用既有的 `getStatusLabel` 函數，將內部狀態值（如 `'matched'`）轉換為中文標籤（如 `'✓ 成功識別'`）。
+  3. **加裝 UI 按鈕**：在「📂 選取資料夾」載入成功後的按鈕區塊，新增「📄 匯出 CSV」按鈕，點擊時呼叫 `exportToCSV(filteredRows, folderName)`。
+
 ### 進度追蹤
 - [x] 更新開發日誌 (DEV_LOG.md)
-- [x] 修改 `.github/workflows/deploy.yml` (加裝 Debug 步驟、升級 Node 24、暫時移除 environment 限制)
+- [x] 修改 `src/App.jsx` (實作 exportToCSV 函數，加裝「📄 匯出 CSV」按鈕)
 - [x] 驗證並測試

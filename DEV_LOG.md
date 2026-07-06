@@ -746,5 +746,31 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
 - [x] 修改 `src/index.css` (移除 Popover 的 dark mode 媒體查詢)
 - [x] 驗證並測試
 
+---
+
+## 2026-07-06 多欄位連動過濾優化 (Excel-style Multi-column Linked Filter)
+
+### 需求說明
+優化先前實作的欄位過濾器，支援與 Excel 一致的「多欄位連動篩選」功能。當在多個欄位同時進行篩選時，各欄位 Popover 內的備選清單應依據其他欄位已套用的條件動態收窄，以防因選項衝突導致過濾出空表格（全空），提升多維交叉分析的實用性。
+
+### 根因分析 (RCA)
+- **非連動候選值 (No Linking)**：原先的 `getUniqueColumnValues` 始終從原始的 `scannedRows` (全局數據) 提取唯一值。這會導致當第一個欄位（如「狀態」）過濾為 matched 後，第二個欄位（如「表單編碼」）的篩選面板中依然會出現與 matched 衝突的無編碼選項（如 `QC99999-R99`）。若使用者在第二個欄位勾選該衝突選項，表格將會因條件 AND 衝突而直接變空。
+- **防止選項死結的 Excel 設計**：
+  - 若將候選清單直接依據當前 `filteredRows` 收窄，會導致使用者一旦在欄位 $i$ 篩選了某個值，該欄位本身的清單就只剩下該值，使得無法再把別的值「勾回來」，形成操作死結。
+  - Excel 的正統邏輯是：在計算欄位 $i$ 的候選唯一值清單時，過濾條件應**排除欄位 $i$ 本身已套用的條件**，但**套用其他所有欄位已套用的條件**。這樣既能動態收窄（消除與其他欄位衝突的無效值），又能讓使用者自由調整目前欄位的多選項目（不產生死結）。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  - 重構 [src/App.jsx:getUniqueColumnValues](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/src/App.jsx#L1125-L1155) 的篩選候選值提取算法：
+    1. 在計算某個 `fieldKey` 的候選值時，先對 `scannedRows` 進行一次臨時過濾。
+    2. 該臨時過濾會檢查並套用全域 `searchQuery` 與 `statusFilter` 條件。
+    3. 遍歷所有的 `columnFilters`：若鍵等於當前 `fieldKey`，則**跳過**；否則套用該鍵的勾選限制。
+    4. 提取過濾後的 values 並去重、排序，作為該 Popover 的展示選項。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 修改 `src/App.jsx` (重構 getUniqueColumnValues 實現動態連動過濾)
+- [x] 驗證並測試
+
 
 

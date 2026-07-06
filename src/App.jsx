@@ -1122,8 +1122,35 @@ function App() {
     return true;
   });
 
-  const getUniqueColumnValues = (key) => {
-    const vals = scannedRows.map(row => row[key]);
+  const getUniqueColumnValues = (fieldKey) => {
+    // 依據其他所有欄位的篩選條件，動態收窄當前欄位候選值（連動過濾）
+    const tempFiltered = scannedRows.filter(row => {
+      const matchesSearch = 
+        row.fileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (row.filePath || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        row.sheetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        row.foundCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        row.foundName.toLowerCase().includes(searchQuery.toLowerCase());
+        
+      const matchesStatusSelect = statusFilter === "all" ? true : row.status === statusFilter;
+      
+      if (!matchesSearch || !matchesStatusSelect) return false;
+
+      // 檢查除了當前 fieldKey 以外的其他欄位過濾
+      for (const key in columnFilters) {
+        if (key === fieldKey) continue; // 忽略當前欄位本身的過濾
+        const selected = columnFilters[key];
+        if (selected && selected.length > 0) {
+          if (!selected.includes(row[key])) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    });
+
+    const vals = tempFiltered.map(row => row[fieldKey]);
     const unique = Array.from(new Set(vals.map(v => v === undefined || v === null ? "" : v)));
     return unique.sort((a, b) => String(a).localeCompare(String(b), 'zh-Hant'));
   };

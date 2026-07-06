@@ -849,7 +849,24 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
   2. **中文字態處理**：在寫入 CSV 時，調用既有的 `getStatusLabel` 函數，將內部狀態值（如 `'matched'`）轉換為中文標籤（如 `'✓ 成功識別'`）。
   3. **加裝 UI 按鈕**：在「📂 選取資料夾」載入成功後的按鈕區塊，新增「📄 匯出 CSV」按鈕，點擊時呼叫 `exportToCSV(filteredRows, folderName)`。
 
+- [x] 驗證並測試
+
+---
+
+## 2026-07-06 移除匯出欄位映射按鈕 (Remove Export Field Mapping Button)
+
+### 需求說明
+從資料夾掃描卡片下方之按鈕控制列中，徹底移除「📋 匯出欄位映射」按鈕，防除因排版寬度限縮造成的文字折行，使 UI 更加簡潔清爽。
+
+### 根因分析 (RCA)
+- **空間過窄與字詞折行**：在左側側邊欄固定寬度（480px，扣除 padding 後約 432px）的容器下，若並列三個帶有圖示的長按鈕（匯出 Excel、匯出 CSV、匯出欄位映射），按鈕的寬度會被壓縮至極限。這導致「匯出欄位映射」中的「射」字被迫折行到第二行（呈現 `匯出欄位映\n射`），損害了 Art Director 的極致美學標準。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  - 修改 [src/App.jsx](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/src/App.jsx)，從 `folderName` 載入成功後的按鈕 flex-container 中，徹底移除 `<button onClick={() => exportFieldMapping()}>` 按鈕元素。
+  - 移除後，操作列僅保留兩個同等權重的橫向按鈕（「💾 匯出 Excel」與「📄 匯出 CSV」）以及一個「🗑」清除按鈕，平分空間後文字排版極其舒適、寬鬆，不再有任何折行缺陷。
+
 ### 進度追蹤
 - [x] 更新開發日誌 (DEV_LOG.md)
-- [x] 修改 `src/App.jsx` (實作 exportToCSV 函數，加裝「📄 匯出 CSV」按鈕)
+- [x] 修改 `src/App.jsx` (從 UI 移除「📋 匯出欄位映射」按鈕)
 - [x] 驗證並測試

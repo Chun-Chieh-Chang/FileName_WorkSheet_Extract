@@ -1667,14 +1667,7 @@ function App() {
                     >
                       📄 匯出 CSV
                     </button>
-                    <button 
-                      className="btn btn-primary" 
-                      style={{ flex: 1, minHeight: '36px' }}
-                      onClick={() => exportFieldMapping()}
-                      disabled={!folderName}
-                    >
-                      📋 匯出欄位映射
-                    </button>
+
                     <button 
                       className="btn btn-danger btn-icon" 
                       onClick={() => setScannedRows([])}

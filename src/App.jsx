@@ -1656,13 +1656,6 @@ function App() {
                     <button 
                       className="btn btn-primary" 
                       style={{ flex: 1, minHeight: '36px' }}
-                      onClick={() => exportToExcel(scannedRows, folderName)}
-                    >
-                      💾 匯出 Excel
-                    </button>
-                    <button 
-                      className="btn btn-primary" 
-                      style={{ flex: 1, minHeight: '36px', background: '#3b82f6', borderColor: '#3b82f6' }}
                       onClick={() => exportToCSV(filteredRows, folderName || "品管報表")}
                     >
                       📄 匯出 CSV

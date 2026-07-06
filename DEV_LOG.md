@@ -725,5 +725,26 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
 - [x] 修改 `index.html` (字體預先載入)
 - [x] 驗證並測試
 
+---
+
+## 2026-07-06 篩選欄 Popover 對比度與主題重構
+
+### 需求說明
+修復在特定系統主題（如 Dark Mode）下，篩選 Popover 面板對比度極低、文字難以辨識的視覺 Bug。
+
+### 根因分析 (RCA)
+- **局部暗色主題偏離**：本專案網頁主體為 Light Mode（淺色海軍藍/白底），並無全功能 Dark Mode 自適應。然而，CSS 當中對 `.filter-popover` 設置了 `@media (prefers-color-scheme: dark)` 媒體查詢，當使用者的作業系統設為 Dark Mode 時，會將彈窗背景改成深 Slate 灰（`rgba(30, 41, 59, 0.95)`）。
+- **文字對比度失效**：彈窗背景變黑，但其內部文字並無針對 dark query 的顯式變色，直接繼承了全局 body 的 `var(--text-primary)`（深黑色，如 `#0F172A`），導致深色背景撞車深黑色字，對比度歸零，文字完全無法辨識。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  - 依循 YAGNI 原則與設計大一統規範，將 `src/index.css` 當中所有對 `.filter-popover` 及其子元素的 `@media (prefers-color-scheme: dark)` 媒體查詢區塊徹底移除。
+  - 讓篩選 Popover 統一不論系統 OS 主題為何，皆使用高透明度、精緻白底黑字的 McKinsey 風格毛玻璃，以維持與全局白色儀表板 100% 協調的視覺品質與極致高對比度。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 修改 `src/index.css` (移除 Popover 的 dark mode 媒體查詢)
+- [x] 驗證並測試
+
 
 

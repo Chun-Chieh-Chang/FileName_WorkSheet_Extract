@@ -19,9 +19,6 @@ concurrency:
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,7 +27,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -38,6 +35,15 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Show build output
+        run: |
+          ls -la ./dist || true
+          find ./dist -maxdepth 5 -type f -print || true
+          if [ ! -f ./dist/index.html ]; then
+            echo "ERROR: ./dist/index.html not found"
+            exit 1
+          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

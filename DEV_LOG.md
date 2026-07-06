@@ -806,3 +806,28 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
 
 
 
+
+---
+
+## 2026-07-06 GitHub Actions 部署工作流偵錯 (Deploy Workflow Debug & Node 24 Upgrade)
+
+### 需求說明
+修復 GitHub Pages 部署時發生的 `Deployment failed, try again later.` 遠端部署異常。
+
+### 根因分析 (RCA)
+- **缺乏打包產物可見性**：Actions 的 Build 與 Upload 步驟之間缺乏對產出目錄（`./dist`）的結構檢驗。如果發生檔案遺失，工作流無法第一時間攔截與印出 logs。
+- **潛在的 Environment 審查阻礙**：`github-pages` 部署環境宣告如果配備了 Environment protection rules（例如 required reviewers），會造成 Actions 拒絕或超時失敗。
+- **Node 版本警告**：Node 20 已經被 GitHub 標記為舊版本，需要升級到穩定的 LTS (Node 24)。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. **導入 Build 產物斷言**：在 [.github/workflows/deploy.yml](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/.github/workflows/deploy.yml) 的 Build 後，加入 `Show build output` 步驟：
+     - 使用 `ls` 與 `find` 列印產出目錄結構。
+     - 使用斷言判斷若 `dist/index.html` 不存在，則直接以 Exit Code 1 中斷，防止上傳空 Artifact。
+  2. **環境控制放寬**：暫時在部署工作流中移除對 `github-pages` 的 environment 限制，以排除權限審查干擾。
+  3. **升級 Node 24**：升級 Node Setup 到 LTS 24。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 修改 `.github/workflows/deploy.yml` (加裝 Debug 步驟、升級 Node 24、暫時移除 environment 限制)
+- [x] 驗證並測試

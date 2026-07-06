@@ -54,6 +54,28 @@ function App() {
   const [isProcessingETL, setIsProcessingETL] = useState(false);
   const [etlYear, setEtlYear] = useState(2025);
   const [isETLCancelled, setIsETLCancelled] = useState(false);
+  const [columnFilters, setColumnFilters] = useState({
+    fileName: [],
+    filePath: [],
+    sheetName: [],
+    foundCode: [],
+    foundName: [],
+    status: []
+  });
+  const [activeFilterPopover, setActiveFilterPopover] = useState(null);
+
+  // 當 scannedRows 改變時重設過濾器
+  useEffect(() => {
+    setColumnFilters({
+      fileName: [],
+      filePath: [],
+      sheetName: [],
+      foundCode: [],
+      foundName: [],
+      status: []
+    });
+    setActiveFilterPopover(null);
+  }, [scannedRows]);
 
   const folderInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -61,6 +83,61 @@ function App() {
   // Load mappings on mount
   useEffect(() => {
     setMappings(getMappings());
+    
+    // Inject mock data if ?mock=true is present in URL query
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mock') === 'true') {
+      setScannedRows([
+        {
+          fileName: "裝配C-2026A.xlsx",
+          filePath: "RawData/2026/零組件入庫-2026/裝配C-2026/裝配C-2026A.xlsx",
+          sheetName: "260102",
+          foundCode: "QC10006-R02",
+          foundName: "半成品品檢表",
+          status: "matched"
+        },
+        {
+          fileName: "Vivus-2026A.xlsx",
+          filePath: "RawData/2026/裝配檢驗-2026/Vivus-2026/Vivus-2026A.xlsx",
+          sheetName: "260103",
+          foundCode: "QC10006-R02",
+          foundName: "半成品品檢表",
+          status: "matched"
+        },
+        {
+          fileName: "射出D-2026B.xlsx",
+          filePath: "RawData/2026/零組件入庫-2026/射出D-2026/射出D-2026B.xlsx",
+          sheetName: "260215",
+          foundCode: "QC10007-R03",
+          foundName: "零組件入庫品檢表",
+          status: "matched"
+        },
+        {
+          fileName: "QIP-2025-03.xlsx",
+          filePath: "RawData/2025/QIP尺寸檢驗-2025/QIP-2025(1~10)/QIP-2025-03.xlsx",
+          sheetName: "250311",
+          foundCode: "QC10004-R02",
+          foundName: "QIP",
+          status: "matched"
+        },
+        {
+          fileName: "出貨檢驗-2025.xlsx",
+          filePath: "RawData/2025/出貨檢驗-2025.xlsx",
+          sheetName: "250401",
+          foundCode: "QC10008-R02",
+          foundName: "出貨檢驗報告",
+          status: "matched"
+        },
+        {
+          fileName: "樣板測試檔.xlsx",
+          filePath: "RawData/Test/樣板測試檔.xlsx",
+          sheetName: "Sheet1",
+          foundCode: "QC99999-R99",
+          foundName: "無對照編碼",
+          status: "unmatched"
+        }
+      ]);
+    }
   }, []);
 
   // Update mappings helper
@@ -173,12 +250,18 @@ function App() {
     const results = [];
     for (let file of excelFiles) {
       try {
+        const filePath = file.webkitRelativePath || file.name;
         const fileRes = await parseExcelFile(file, mappings);
         if (fileRes.success) {
-          results.push(...fileRes.sheets);
+          const sheetsWithPath = fileRes.sheets.map(sheet => ({
+            ...sheet,
+            filePath: filePath
+          }));
+          results.push(...sheetsWithPath);
         } else {
           results.push({
             fileName: file.name,
+            filePath: filePath,
             sheetName: "N/A",
             foundCode: "錯誤",
             foundName: fileRes.error || "解析失敗",
@@ -188,6 +271,7 @@ function App() {
       } catch (e) {
         results.push({
           fileName: file.name,
+          filePath: file.webkitRelativePath || file.name,
           sheetName: "N/A",
           foundCode: "錯誤",
           foundName: "開啟失敗",
@@ -1016,13 +1100,75 @@ function App() {
   const filteredRows = scannedRows.filter(row => {
     const matchesSearch = 
       row.fileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (row.filePath || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       row.sheetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       row.foundCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
       row.foundName.toLowerCase().includes(searchQuery.toLowerCase());
       
-    if (statusFilter === "all") return matchesSearch;
-    return matchesSearch && row.status === statusFilter;
+    const matchesStatusSelect = statusFilter === "all" ? true : row.status === statusFilter;
+    
+    if (!matchesSearch || !matchesStatusSelect) return false;
+
+    // Excel Column Filters
+    for (const key in columnFilters) {
+      const selected = columnFilters[key];
+      if (selected && selected.length > 0) {
+        if (!selected.includes(row[key])) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   });
+
+  const getUniqueColumnValues = (key) => {
+    const vals = scannedRows.map(row => row[key]);
+    const unique = Array.from(new Set(vals.map(v => v === undefined || v === null ? "" : v)));
+    return unique.sort((a, b) => String(a).localeCompare(String(b), 'zh-Hant'));
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'matched': return '✓ 成功識別';
+      case 'unmatched': return '⚠ 缺對照';
+      case 'none': return '無編碼';
+      case 'error': return '✗ 讀取錯誤';
+      default: return status;
+    }
+  };
+
+  const renderFilterableHeader = (label, fieldKey) => {
+    const isFiltered = columnFilters[fieldKey] && columnFilters[fieldKey].length > 0;
+    return (
+      <th style={{ position: 'relative', paddingRight: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+          <span style={{ whiteSpace: 'nowrap' }}>{label}</span>
+          <button 
+            type="button"
+            className={`filter-trigger-btn ${isFiltered ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveFilterPopover(activeFilterPopover === fieldKey ? null : fieldKey);
+            }}
+            title={`篩選${label}`}
+          >
+            ▼
+          </button>
+        </div>
+        {activeFilterPopover === fieldKey && (
+          <ColumnFilterPopover 
+            fieldKey={fieldKey}
+            allValues={getUniqueColumnValues(fieldKey)}
+            columnFilters={columnFilters}
+            setColumnFilters={setColumnFilters}
+            onClose={() => setActiveFilterPopover(null)}
+            getStatusLabel={getStatusLabel}
+          />
+        )}
+      </th>
+    );
+  };
 
   return (
     <div className="app-container">
@@ -1660,6 +1806,36 @@ function App() {
                   <option value="none">無編碼</option>
                   <option value="error">讀取錯誤</option>
                 </select>
+                
+                {Object.values(columnFilters).some(arr => arr.length > 0) && (
+                  <button 
+                    type="button"
+                    className="btn btn-secondary" 
+                    style={{ 
+                      fontSize: '12px', 
+                      minHeight: '32px', 
+                      padding: '4px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      animation: 'popoverFadeIn 0.2s ease-out'
+                    }}
+                    onClick={() => {
+                      setColumnFilters({
+                        fileName: [],
+                        filePath: [],
+                        sheetName: [],
+                        foundCode: [],
+                        foundName: [],
+                        status: []
+                      });
+                      setActiveFilterPopover(null);
+                    }}
+                    title="重設所有欄位篩選條件"
+                  >
+                    🧹 重設篩選
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1671,15 +1847,19 @@ function App() {
               </div>
             ) : filteredRows.length > 0 ? (
               <div className="table-wrapper">
+                {activeFilterPopover && (
+                  <div className="filter-backdrop" onClick={() => setActiveFilterPopover(null)} />
+                )}
                 <table className="data-table">
                   <thead>
                     <tr>
                       <th>序號</th>
-                      <th>檔案名稱</th>
-                      <th>工作表名稱</th>
-                      <th>表單編碼</th>
-                      <th>表單對照名稱</th>
-                      <th>狀態</th>
+                      {renderFilterableHeader('檔案名稱', 'fileName')}
+                      {renderFilterableHeader('檔案路徑', 'filePath')}
+                      {renderFilterableHeader('工作表名稱', 'sheetName')}
+                      {renderFilterableHeader('表單編碼', 'foundCode')}
+                      {renderFilterableHeader('表單對照名稱', 'foundName')}
+                      {renderFilterableHeader('狀態', 'status')}
                     </tr>
                   </thead>
                   <tbody>
@@ -1687,6 +1867,7 @@ function App() {
                       <tr key={idx}>
                         <td style={{ color: 'var(--text-secondary)' }}>{idx + 1}</td>
                         <td style={{ fontWeight: 500 }}>{row.fileName}</td>
+                        <td className="filepath-cell">{row.filePath}</td>
                         <td>{row.sheetName}</td>
                         <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{row.foundCode}</td>
                         <td>{row.foundName}</td>
@@ -1736,3 +1917,117 @@ function App() {
 }
 
 export default App;
+
+const ColumnFilterPopover = ({ 
+  fieldKey, 
+  allValues, 
+  columnFilters, 
+  setColumnFilters, 
+  onClose, 
+  getStatusLabel 
+}) => {
+  const [searchVal, setSearchVal] = useState("");
+  const currentFilter = columnFilters[fieldKey] || [];
+  
+  const [tempSelected, setTempSelected] = useState(
+    currentFilter.length === 0 ? [...allValues] : [...currentFilter]
+  );
+
+  const filteredValues = allValues.filter(val => {
+    const displayLabel = fieldKey === 'status' ? getStatusLabel(val) : String(val);
+    return displayLabel.toLowerCase().includes(searchVal.toLowerCase());
+  });
+
+  const handleToggleValue = (val) => {
+    if (tempSelected.includes(val)) {
+      setTempSelected(tempSelected.filter(v => v !== val));
+    } else {
+      setTempSelected([...tempSelected, val]);
+    }
+  };
+
+  const handleToggleAll = () => {
+    const allVisibleSelected = filteredValues.every(val => tempSelected.includes(val));
+    if (allVisibleSelected) {
+      setTempSelected(tempSelected.filter(val => !filteredValues.includes(val)));
+    } else {
+      const newSelected = new Set([...tempSelected, ...filteredValues]);
+      setTempSelected(Array.from(newSelected));
+    }
+  };
+
+  const handleApply = () => {
+    if (tempSelected.length === allValues.length || tempSelected.length === 0) {
+      setColumnFilters(prev => ({ ...prev, [fieldKey]: [] }));
+    } else {
+      setColumnFilters(prev => ({ ...prev, [fieldKey]: tempSelected }));
+    }
+    onClose();
+  };
+
+  const handleClear = () => {
+    setColumnFilters(prev => ({ ...prev, [fieldKey]: [] }));
+    onClose();
+  };
+
+  return (
+    <div className="filter-popover">
+      <div className="filter-popover-search">
+        <input 
+          type="text" 
+          placeholder="搜尋篩選值..." 
+          value={searchVal}
+          onChange={(e) => setSearchVal(e.target.value)}
+          className="filter-popover-input"
+          autoFocus
+        />
+      </div>
+      
+      <div className="filter-popover-list">
+        <label className="filter-popover-item select-all">
+          <input 
+            type="checkbox" 
+            checked={filteredValues.length > 0 && filteredValues.every(val => tempSelected.includes(val))}
+            ref={el => {
+              if (el) {
+                const someSelected = filteredValues.some(val => tempSelected.includes(val));
+                const allSelected = filteredValues.every(val => tempSelected.includes(val));
+                el.indeterminate = someSelected && !allSelected;
+              }
+            }}
+            onChange={handleToggleAll}
+          />
+          <span style={{ fontWeight: 'bold' }}>(全選)</span>
+        </label>
+        
+        {filteredValues.map(val => {
+          const displayLabel = fieldKey === 'status' ? getStatusLabel(val) : String(val);
+          return (
+            <label key={val} className="filter-popover-item">
+              <input 
+                type="checkbox" 
+                checked={tempSelected.includes(val)}
+                onChange={() => handleToggleValue(val)}
+              />
+              <span title={displayLabel}>{displayLabel}</span>
+            </label>
+          );
+        })}
+      </div>
+      
+      <div className="filter-popover-actions">
+        <button className="btn btn-secondary filter-popover-btn" onClick={handleClear}>
+          清除篩選
+        </button>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button className="btn btn-secondary filter-popover-btn" onClick={onClose}>
+            取消
+          </button>
+          <button className="btn btn-primary filter-popover-btn" onClick={handleApply}>
+            套用
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

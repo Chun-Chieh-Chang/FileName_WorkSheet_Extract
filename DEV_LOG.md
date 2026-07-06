@@ -682,3 +682,48 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
 - [x] 修改 `src/utils/db.js`
 - [x] 驗證並測試
 
+---
+
+## 2026-07-06 工作表編碼提取表格加入檔案路徑與 Excel 篩選器功能
+
+### 需求說明
+1. 在 UI 提取結果表格「工作表表單編碼提取結果」中插入「檔案路徑」欄位。
+2. 讓所有欄位（檔案名稱、檔案路徑、工作表名稱、表單編碼、表單對照名稱、狀態）具備如同 Excel 篩選器（下拉彈窗、全選、個別選取、搜尋篩選值）一樣的功能。
+3. 設計採用 McKinsey Premium 風格及高雅的毛玻璃（Glassmorphism）懸浮面板，並完美適配 Light/Dark Mode。
+
+### 遇到的問題與根因分析 (RCA)
+- **需求痛點**：原本提取表格僅展示檔名與工作表，當同名檔案存在於不同子目錄下時，無法區分其實際物理路徑。另外，原本的過濾手段僅有全局 search bar 與單一 status select，當解析出數千筆工作表時，極難進行交叉比對與精確篩選。
+- **佈局失衡 (偏右) RCA**：
+  - 新增之 `filePath`（檔案路徑）為長字串，由於表格單元格設置了 `white-space: nowrap` 且沒有設定最大寬度，導致整列被極大地撐開。
+  - 由於外層使用的是 CSS Grid 佈局（`.main-grid`），其欄寬比例原定為 `480px 1fr`。在 CSS Grid 中，`1fr` 預設的隱式最小寬度為其子內容的最小寬度（即 `minmax(auto, 1fr)`）。這導致當右側表格被長路徑撐開時，整個 Grid 欄位直接溢出網頁視窗，導致整體視覺重心「偏右」且出現網頁級滾動條。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. **路徑提取**：修改 `processFilesList` 函數，在讀取上傳檔案時優先抓取 `file.webkitRelativePath || file.name`，並將其傳入狀態作為 `filePath` 屬性。
+  2. **欄位狀態管理與過濾**：
+     - 在 `App.jsx` 中新增 `columnFilters` 狀態物件，保存所有欄位的選取陣列。
+     - 重構 `filteredRows` 的過濾公式，使多個欄位篩選條件以 AND 關係連動。
+     - 當重新上傳新檔案時，自動重置過濾狀態（重設為全選/全空），防止過期篩選器干擾。
+  3. **一鍵重設與篩選元件**：
+     - 封裝高雅的 `ColumnFilterPopover` 輔助元件，內含搜尋框、(全選) Checkbox 及動態列表。
+     - 提供「套用」與「清除篩選」按鈕。
+     - 在表格上方控制區新增一個動態顯示的 **`🧹 重設篩選`** 按鈕，當任何一列存在篩選條件時，使用者可一鍵清除所有篩選，大幅提升復原操作便捷性。
+  4. **佈局平衡與防溢出重構**：
+     - 將 `.main-grid` 的欄寬定義修改為 `480px minmax(0, 1fr)`。這能將隱式最小寬度限制為 0，防止右側內容撐開 Grid，強制寬度在 `.table-wrapper` 內部產生橫向滾動條。
+     - 為 `filePath` 儲存格新增 `.filepath-cell` 類別，限制最大寬度（`max-width: 280px`），允許折行（`white-space: normal !important`）及字元間折行（`word-break: break-all`），防止檔案路徑將表格無限撐長，使整體佈局左右視覺完美對稱與置中。
+  5. **字型美學與中文 Fallback 統一**：
+     - **RCA**：由於 `index.html` 內缺乏 `<link rel="preconnect">`，網頁載入時 Google 提供的 `Noto Sans TC` 大檔案 Web Font 請求反應極慢或失效。由於 CSS `:root` 中的 `--font-family` 缺乏針對 Windows / macOS 本地中文無襯線字體（黑體/微軟正黑體/蘋方體）的明確宣告，瀏覽器在 Web Font 未能及時渲染的情況下，直接退化回系統預設的「新細明體/宋體」等襯線字體，造成嚴重的視覺割裂感與低端感。
+     - **CAPA 矯正**：
+       - 在 `index.html` 的 `<head>` 中新增 preconnect 宣告，提早對 fonts.gstatic.com 進行 DNS 及 TLS 解析。
+       - 修改 `:root` 的 `--font-family` 變數，顯式寫入 `'PingFang TC'`、`'Microsoft JhengHei'` 作為中文的無襯線黑體備選方案。
+       - 修改 `.filepath-cell` 的字型棧為 `Consolas, Monaco, 'Outfit', 'Noto Sans TC', 'Microsoft JhengHei', monospace;`，使路徑在等寬渲染的同時，其中的中文（如 `零組件入庫`）也能保持圓潤的黑體字形風格，完成全系統字型的美學大一統。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 修改 `src/App.jsx` (路徑提取、過濾邏輯、一鍵重設按鈕)
+- [x] 修改 `src/index.css` (Popover、佈局平衡、路徑折行、字型變數Fallback)
+- [x] 修改 `index.html` (字體預先載入)
+- [x] 驗證並測試
+
+
+

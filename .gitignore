@@ -81,3 +81,9 @@ hooks/
 # Session state
 .omo/
 sync.ffs_db
+
+# Local setup scripts
+clone_repo.py
+download_repo.py
+start_server.py
+

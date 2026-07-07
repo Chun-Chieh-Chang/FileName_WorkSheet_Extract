@@ -33,7 +33,7 @@ const FORM_TITLE_MAP = {
   '出貨品檢報告': 'QC10008-R02'
 };
 
-function detectQCFromFolder(dirname) {
+export function detectQCFromFolder(dirname) {
   const m = dirname.match(/QC\d{5}-R\d{2}/i);
   if (m) return m[0].toUpperCase();
   const keys = Object.keys(FOLDER_QC_MAP);
@@ -43,7 +43,7 @@ function detectQCFromFolder(dirname) {
   return null;
 }
 
-function parseDateFromString(str) {
+export function parseDateFromString(str) {
   if (!str) return null;
   str = String(str).trim();
   let m = str.match(/\b(20\d{2})[-/](\d{1,2})[-/]\d{1,2}\b/);
@@ -60,7 +60,7 @@ function parseDateFromString(str) {
   return null;
 }
 
-function parseDateFromValue(val, formatted) {
+export function parseDateFromValue(val, formatted) {
   if (val instanceof Date) {
     return { year: val.getFullYear(), month: val.getMonth() + 1 };
   }
@@ -73,7 +73,7 @@ function parseDateFromValue(val, formatted) {
   return parseDateFromString(formatted || val);
 }
 
-function findDateInSheet(ws, qc) {
+export function findDateInSheet(ws, qc) {
   if (!ws) return null;
 
   const getCellValAndFormatted = (addr) => {
@@ -117,7 +117,7 @@ function findDateInSheet(ws, qc) {
   return dateInfo;
 }
 
-function findDateInSheetFallback(json) {
+export function findDateInSheetFallback(json) {
   const limit = Math.min(20, json.length);
   for (let r = 0; r < limit; r++) {
     const row = json[r];
@@ -137,7 +137,7 @@ function findDateInSheetFallback(json) {
   return null;
 }
 
-function determineQCFromSheet(json, initialQC, relPath) {
+export function determineQCFromSheet(json, initialQC, relPath) {
   if (initialQC === 'QC10006-R01') return 'QC10006-R01';
   if (initialQC === 'QC10004-R02') return 'QC10004-R02';
 
@@ -219,7 +219,7 @@ function determineQCFromSheet(json, initialQC, relPath) {
   return initialQC;
 }
 
-function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
+export function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
   if (qc === 'QC10002-R02') {
     const parts = relPath.split('/');
     const p0 = parts[0].replace(/[-_]\d{4}$/, '').replace(/\s+/g, '');
@@ -272,7 +272,7 @@ function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
   return null;
 }
 
-function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC) {
+export function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC) {
   const dateInfo = findDateInSheet(ws, actualQC);
   if (dateInfo) {
     if (dateInfo.year === year + 1 && dateInfo.month === 1) return 12;

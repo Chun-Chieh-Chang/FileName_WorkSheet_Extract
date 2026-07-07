@@ -60,7 +60,9 @@ function App() {
     sheetName: [],
     foundCode: [],
     foundName: [],
-    status: []
+    status: [],
+    etlStatus: [],
+    etlTimestamp: []
   });
   const [activeFilterPopover, setActiveFilterPopover] = useState(null);
 
@@ -72,7 +74,9 @@ function App() {
       sheetName: [],
       foundCode: [],
       foundName: [],
-      status: []
+      status: [],
+      etlStatus: [],
+      etlTimestamp: []
     });
     setActiveFilterPopover(null);
   }, [scannedRows]);
@@ -109,7 +113,9 @@ function App() {
           sheetName: "260102",
           foundCode: "QC10006-R02",
           foundName: "半成品品檢表",
-          status: "matched"
+          status: "matched",
+          etlStatus: "已納入",
+          etlTimestamp: "2026-07-06 14:00:00"
         },
         {
           fileName: "Vivus-2026A.xlsx",
@@ -117,7 +123,9 @@ function App() {
           sheetName: "260103",
           foundCode: "QC10006-R02",
           foundName: "半成品品檢表",
-          status: "matched"
+          status: "matched",
+          etlStatus: "已納入",
+          etlTimestamp: "2026-07-06 14:05:00"
         },
         {
           fileName: "射出D-2026B.xlsx",
@@ -125,7 +133,9 @@ function App() {
           sheetName: "260215",
           foundCode: "QC10007-R03",
           foundName: "零組件入庫品檢表",
-          status: "matched"
+          status: "matched",
+          etlStatus: "已納入",
+          etlTimestamp: "2026-07-06 14:10:00"
         },
         {
           fileName: "QIP-2025-03.xlsx",
@@ -133,7 +143,9 @@ function App() {
           sheetName: "250311",
           foundCode: "QC10004-R02",
           foundName: "QIP",
-          status: "matched"
+          status: "matched",
+          etlStatus: "已納入",
+          etlTimestamp: "2026-07-06 14:15:00"
         },
         {
           fileName: "出貨檢驗-2025.xlsx",
@@ -141,7 +153,9 @@ function App() {
           sheetName: "250401",
           foundCode: "QC10008-R02",
           foundName: "出貨檢驗報告",
-          status: "matched"
+          status: "matched",
+          etlStatus: "已納入",
+          etlTimestamp: "2026-07-06 14:20:00"
         },
         {
           fileName: "樣板測試檔.xlsx",
@@ -149,7 +163,9 @@ function App() {
           sheetName: "Sheet1",
           foundCode: "QC99999-R99",
           foundName: "無對照編碼",
-          status: "unmatched"
+          status: "unmatched",
+          etlStatus: "狀態異常",
+          etlTimestamp: "2026-07-06 14:25:00"
         }
       ]);
     }
@@ -266,7 +282,7 @@ function App() {
     for (let file of excelFiles) {
       try {
         const filePath = file.webkitRelativePath || file.name;
-        const fileRes = await parseExcelFile(file, mappings);
+        const fileRes = await parseExcelFile(file, mappings, detected || etlYear);
         if (fileRes.success) {
           const sheetsWithPath = fileRes.sheets.map(sheet => ({
             ...sheet,
@@ -280,7 +296,9 @@ function App() {
             sheetName: "N/A",
             foundCode: "錯誤",
             foundName: fileRes.error || "解析失敗",
-            status: "error"
+            status: "error",
+            etlStatus: "狀態異常",
+            etlTimestamp: new Date().toLocaleString('zh-TW', { hour12: false })
           });
         }
       } catch (e) {
@@ -290,7 +308,9 @@ function App() {
           sheetName: "N/A",
           foundCode: "錯誤",
           foundName: "開啟失敗",
-          status: "error"
+          status: "error",
+          etlStatus: "狀態異常",
+          etlTimestamp: new Date().toLocaleString('zh-TW', { hour12: false })
         });
       }
     }
@@ -783,8 +803,8 @@ function App() {
   const exportToCSV = (data, name = "提取結果") => {
     if (!data || data.length === 0) return;
     
-    const headers = ["檔案名稱", "檔案路徑", "工作表名稱", "表單編碼", "表單對照名稱", "狀態"];
-    const keys = ["fileName", "filePath", "sheetName", "foundCode", "foundName", "status"];
+    const headers = ["檔案名稱", "檔案路徑", "工作表名稱", "表單編碼", "表單對照名稱", "狀態", "是否納入ETL計算", "更新時間"];
+    const keys = ["fileName", "filePath", "sheetName", "foundCode", "foundName", "status", "etlStatus", "etlTimestamp"];
     
     const csvRows = [];
     csvRows.push(headers.join(","));
@@ -1160,7 +1180,8 @@ function App() {
       (row.filePath || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       row.sheetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       row.foundCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      row.foundName.toLowerCase().includes(searchQuery.toLowerCase());
+      row.foundName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (row.etlStatus || '').toLowerCase().includes(searchQuery.toLowerCase());
       
     const matchesStatusSelect = statusFilter === "all" ? true : row.status === statusFilter;
     
@@ -1187,7 +1208,8 @@ function App() {
         (row.filePath || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         row.sheetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         row.foundCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        row.foundName.toLowerCase().includes(searchQuery.toLowerCase());
+        row.foundName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (row.etlStatus || '').toLowerCase().includes(searchQuery.toLowerCase());
         
       const matchesStatusSelect = statusFilter === "all" ? true : row.status === statusFilter;
       
@@ -1925,6 +1947,41 @@ function App() {
               </div>
             </div>
 
+            {scannedRows.some(row => row.etlStatus === '狀態異常') && (
+              <div style={{ 
+                padding: '12px 16px', 
+                borderRadius: '8px', 
+                marginBottom: '16px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                gap: '12px',
+                width: '100%',
+                border: '1px solid #FEB2B2',
+                backgroundColor: '#FFF5F5',
+                color: 'var(--color-error)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px' }}>⚠️</span>
+                  <span style={{ fontWeight: 600, fontSize: '13px' }}>
+                    告警：偵測到有工作表在 ETL 校驗中被判定為「狀態異常」（例如：QC 表單資料不完整、缺月份資料夾或讀取錯誤），請點擊右方按鈕排查。
+                  </span>
+                </div>
+                <button 
+                  className="btn btn-danger" 
+                  style={{ minHeight: '28px', height: '28px', padding: '0 10px', fontSize: '11px', whiteSpace: 'nowrap' }}
+                  onClick={() => {
+                    setColumnFilters(prev => ({
+                      ...prev,
+                      etlStatus: ['狀態異常']
+                    }));
+                  }}
+                >
+                  🔍 立即篩選異常
+                </button>
+              </div>
+            )}
+
             {isScanning ? (
               <div className="empty-state" style={{ padding: '128px 0' }}>
                 <div className="upload-icon" style={{ animation: 'spin 2s linear infinite' }}>🔄</div>
@@ -1946,6 +2003,8 @@ function App() {
                       {renderFilterableHeader('表單編碼', 'foundCode')}
                       {renderFilterableHeader('表單對照名稱', 'foundName')}
                       {renderFilterableHeader('狀態', 'status')}
+                      {renderFilterableHeader('是否納入ETL計算', 'etlStatus')}
+                      {renderFilterableHeader('更新時間', 'etlTimestamp')}
                     </tr>
                   </thead>
                   <tbody>
@@ -1971,6 +2030,18 @@ function App() {
                             <span className="status-badge status-error">✗ 讀取錯誤</span>
                           )}
                         </td>
+                        <td>
+                          {row.etlStatus === '已納入' && (
+                            <span className="status-badge status-matched">已納入</span>
+                          )}
+                          {row.etlStatus === '未納入' && (
+                            <span className="status-badge status-none">未納入</span>
+                          )}
+                          {row.etlStatus === '狀態異常' && (
+                            <span className="status-badge status-error">狀態異常</span>
+                          )}
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{row.etlTimestamp || 'N/A'}</td>
                       </tr>
                     ))}
                   </tbody>

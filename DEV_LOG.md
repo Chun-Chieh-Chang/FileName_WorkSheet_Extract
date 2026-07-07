@@ -870,3 +870,36 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
 - [x] 更新開發日誌 (DEV_LOG.md)
 - [x] 修改 `src/App.jsx` (從 UI 移除「📋 匯出欄位映射」按鈕)
 - [x] 驗證並測試
+
+---
+
+## 2026-07-07 ETL 納入狀態追蹤功能 (ETL Status Tracking for Worksheets)
+
+### 需求說明
+在「工作表表單編碼提取結果」表格中新增「是否納入ETL計算」與「更新時間」欄位，顯示每個工作表在 ETL 流程完成後是否已被納入統計計算。
+- 取值：`已納入` (綠色)、`未納入` (灰色)、`狀態異常` (紅色)。
+- 若 scannedRows 中存在任一 `狀態異常` 的工作表，在表格上方顯示醒目的紅色警告橫幅，並支援一鍵篩選異常。
+- CSV 匯出支援該狀態。
+- 寫入目前更新時間戳。
+
+### 根因分析與設計 (RCA & Design)
+- **判定邏輯整合**：為了精確判斷工作表是否納入統計，必須完全套用與 `browserETL.js` 中相同的篩選、去重和分類條件。為了避免重複開發程式碼導致維護困難，我們將 `browserETL.js` 的底層工具函數導出，並在 `excelParser.js` 的 `parseExcelFile` 中引用。
+- **不同品檢的判定條件**：
+  - **QIP 射出檢驗**：在 Patrol 資料夾下，且 sheet 名稱符合 Date Code 正規表達式、未重複，為 `已納入`；其餘為 `未納入`；若資料夾名稱不含月份格式，為 `狀態異常`。
+  - **QIP 押出檢驗**：檔名符合 Date Code 格式，且工作表不在忽略清單、不是 Setup 頁面，且為 Patrol 唯一基準名，為 `已納入`；其餘為 `未納入`；資料夾無月份格式為 `狀態異常`。
+  - **一般品檢 (General)**：能辨識 QC Code、具有正確子分類與月份者為 `已納入`；跳過之工作表或空白檔為 `未納入`；若辨識出 QC Code 但月份或子分類為空/超出範圍，為 `狀態異常`。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. **導出工具函數**：在 [src/utils/browserETL.js](file:///c:/Users/USER/Downloads/專案/FileName_WorkSheet_Extract/src/utils/browserETL.js) 導出 `detectQCFromFolder` 等底層工具。
+  2. **實作狀態判定**：在 [src/utils/excelParser.js](file:///c:/Users/USER/Downloads/專案/FileName_WorkSheet_Extract/src/utils/excelParser.js) 的 `parseExcelFile` 中實作詳細的 `etlStatus` 與 `etlTimestamp` 判定邏輯。
+  3. **表格與過濾器更新**：修改 [src/App.jsx](file:///c:/Users/USER/Downloads/專案/FileName_WorkSheet_Extract/src/App.jsx) 的過濾與搜尋邏輯，加入新欄位，並加入 McKinsey 風格紅色告警橫幅與「🔍 立即篩選異常」按鈕。
+  4. **CSV 匯出欄位同步**：在 `exportToCSV` 中加入 `etlStatus` 與 `etlTimestamp` 欄位。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 修改 `src/utils/browserETL.js` (導出底層工具函數)
+- [x] 修改 `src/utils/excelParser.js` (實現 etlStatus 與 etlTimestamp 的計算)
+- [x] 修改 `src/App.jsx` (新增表格欄位、篩選過濾、告警橫幅與一鍵篩選、CSV 匯出)
+- [x] 驗證並測試
+

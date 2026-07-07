@@ -900,6 +900,28 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
 - [x] 更新開發日誌 (DEV_LOG.md)
 - [x] 修改 `src/utils/browserETL.js` (導出底層工具函數)
 - [x] 修改 `src/utils/excelParser.js` (實現 etlStatus 與 etlTimestamp 的計算)
-- [x] 修改 `src/App.jsx` (新增表格欄位、篩選過濾、告警橫幅與一鍵篩選、CSV 匯出)
+- [x] 修改 `src/App.jsx` (新增表格欄位、篩選過濾、告警橫幅與一鍵篩選、CSV 匯出、優化檔案路徑只顯示資料夾)
 - [x] 驗證並測試
+
+---
+
+## 2026-07-07 檔案路徑顯示優化 (File Path Display Optimization)
+
+### 需求說明
+優化「工作表表單編碼提取結果」表格中的「檔案路徑 (filePath)」欄位，使其不顯示具體的檔案名稱（因為檔案名稱已在「檔案名稱」欄位中呈現），改為只顯示從根目錄到檔案所在資料夾的層級路徑，避免資訊冗餘。
+
+### 根因分析與設計 (RCA & Design)
+- **資訊去重**：原本 `filePath` 屬性儲存的是 `RawData/2026/零組件入庫-2026/裝配C-2026/裝配C-2026A.xlsx`。在結果表格中，由於第二欄已經專門顯示「檔案名稱」，第三欄「檔案路徑」如果又包含檔名，會導致版面過於擁擠。
+- **資料層級處理**：透過對路徑字串進行處理，尋找最後一個斜線 `/` 或 `\` 並擷取其前半段，即可動態取得父級資料夾路徑。若無父級資料夾則回傳空字串。這能同時應用於列表過濾、CSV 匯出與前端表格渲染中，保證資料的 MECE（不重疊、不遺漏）原則。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. **優化資料提取**：修改 [src/App.jsx:processFilesList](file:///c:/Users/USER/Downloads/專案/FileName_WorkSheet_Extract/src/App.jsx)，在將讀取結果映射回 sheetsWithPath 時，透過 `lastIndexOf('/')` 擷取不含檔名的資料夾路徑（`dirPath`），並賦予 `filePath` 屬性。
+  2. **同步 Mock 資料**：將 Mount 時載入的測試 mock 數據中的所有 `filePath` 同步調整為不含檔名的路徑，維持表格載入的一致性。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 修改 `src/App.jsx` (processFilesList 路徑處理與 Mock 數據路徑優化)
+- [x] 驗證並測試
+
 

@@ -109,7 +109,7 @@ function App() {
       setScannedRows([
         {
           fileName: "裝配C-2026A.xlsx",
-          filePath: "RawData/2026/零組件入庫-2026/裝配C-2026/裝配C-2026A.xlsx",
+          filePath: "RawData/2026/零組件入庫-2026/裝配C-2026",
           sheetName: "260102",
           foundCode: "QC10006-R02",
           foundName: "半成品品檢表",
@@ -119,7 +119,7 @@ function App() {
         },
         {
           fileName: "Vivus-2026A.xlsx",
-          filePath: "RawData/2026/裝配檢驗-2026/Vivus-2026/Vivus-2026A.xlsx",
+          filePath: "RawData/2026/裝配檢驗-2026/Vivus-2026",
           sheetName: "260103",
           foundCode: "QC10006-R02",
           foundName: "半成品品檢表",
@@ -129,7 +129,7 @@ function App() {
         },
         {
           fileName: "射出D-2026B.xlsx",
-          filePath: "RawData/2026/零組件入庫-2026/射出D-2026/射出D-2026B.xlsx",
+          filePath: "RawData/2026/零組件入庫-2026/射出D-2026",
           sheetName: "260215",
           foundCode: "QC10007-R03",
           foundName: "零組件入庫品檢表",
@@ -139,7 +139,7 @@ function App() {
         },
         {
           fileName: "QIP-2025-03.xlsx",
-          filePath: "RawData/2025/QIP尺寸檢驗-2025/QIP-2025(1~10)/QIP-2025-03.xlsx",
+          filePath: "RawData/2025/QIP尺寸檢驗-2025/QIP-2025(1~10)",
           sheetName: "250311",
           foundCode: "QC10004-R02",
           foundName: "QIP",
@@ -149,7 +149,7 @@ function App() {
         },
         {
           fileName: "出貨檢驗-2025.xlsx",
-          filePath: "RawData/2025/出貨檢驗-2025.xlsx",
+          filePath: "RawData/2025",
           sheetName: "250401",
           foundCode: "QC10008-R02",
           foundName: "出貨檢驗報告",
@@ -159,7 +159,7 @@ function App() {
         },
         {
           fileName: "樣板測試檔.xlsx",
-          filePath: "RawData/Test/樣板測試檔.xlsx",
+          filePath: "RawData/Test",
           sheetName: "Sheet1",
           foundCode: "QC99999-R99",
           foundName: "無對照編碼",
@@ -282,17 +282,22 @@ function App() {
     for (let file of excelFiles) {
       try {
         const filePath = file.webkitRelativePath || file.name;
+        // Extract only the directory path (from root to parent folder)
+        const fullPath = filePath.replace(/\\/g, '/');
+        const lastSlash = fullPath.lastIndexOf('/');
+        const dirPath = lastSlash !== -1 ? fullPath.substring(0, lastSlash) : "";
+
         const fileRes = await parseExcelFile(file, mappings, detected || etlYear);
         if (fileRes.success) {
           const sheetsWithPath = fileRes.sheets.map(sheet => ({
             ...sheet,
-            filePath: filePath
+            filePath: dirPath
           }));
           results.push(...sheetsWithPath);
         } else {
           results.push({
             fileName: file.name,
-            filePath: filePath,
+            filePath: dirPath,
             sheetName: "N/A",
             foundCode: "錯誤",
             foundName: fileRes.error || "解析失敗",
@@ -302,9 +307,12 @@ function App() {
           });
         }
       } catch (e) {
+        const fullPath = (file.webkitRelativePath || file.name).replace(/\\/g, '/');
+        const lastSlash = fullPath.lastIndexOf('/');
+        const dirPath = lastSlash !== -1 ? fullPath.substring(0, lastSlash) : "";
         results.push({
           fileName: file.name,
-          filePath: file.webkitRelativePath || file.name,
+          filePath: dirPath,
           sheetName: "N/A",
           foundCode: "錯誤",
           foundName: "開啟失敗",

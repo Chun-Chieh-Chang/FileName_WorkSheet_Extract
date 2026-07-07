@@ -1013,5 +1013,32 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
 - [x] 代碼打包確效驗證
 - [x] 新增「原因說明」至前端「工作表表單編碼提取結果」表格 UI 欄位與 CSV 匯出功能
 
+---
+
+## 2026-07-07 檔名包含「空白」且含其他文字之有效檔案判斷優化 (Blank File Name Checking Optimization)
+
+### 需求說明
+如果檔案名稱中包含「空白」二字，但同時包含其他任何字元（例如 `裝配巡檢記錄表-空白.xlsx`、`空白包裝袋.xlsx`），則不應被系統一刀切地判定為空白範本，而應視為有效數據檔案進行處理。
+
+### 根因分析與設計 (RCA & Design)
+- **原過濾邏輯過於單一**：原邏輯中使用 `fileName.indexOf('空白') >= 0` 作為空白檔案的判定依據。這使得只要檔名中出現「空白」二字的任何有效品檢檔案都會被直接排除（例如 `空白包裝袋.xlsx` 被排除）。
+- **優化設計 (相鄰文字規則)**：
+  - 偵測檔名中 `"空白"` 二字的所有索引。
+  - 對於每個 `"空白"`，檢查其前一個字元與後一個字元是否為英文字母或中文字元（正則：`/[a-zA-Z\u4e00-\u9fa5]/`）。
+  - 若偵測到其中任一 `"空白"` 的前後緊鄰著字母或中文字元（例如 `空白包裝袋.xlsx` 中 `白` 緊鄰 `包`），則表示此 `"空白"` 是其他詞彙的一部分，視為有效檔案。
+  - 若檔名中所有 `"空白"` 的前後緊鄰字元都不是字母或中文（即僅有符號如 `-`、`_`、數字、括號或副檔名點號，如 `裝配巡檢記錄表-空白.xlsx`、`空白.xlsx`），則視為無效的空白樣板檔案。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. **優化 `excelParser.js`**：更新 [src/utils/excelParser.js](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/src/utils/excelParser.js#L189) 的 `isBlankFile` 判斷邏輯與原因說明。
+  2. **優化 `browserETL.js`**：更新 [src/utils/browserETL.js](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/src/utils/browserETL.js#L446) 的 `isBlankFile` 過濾邏輯。
+  3. **建構驗證**：重新執行 `npm run build` 確認程式編譯正常。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 修正 `src/utils/excelParser.js` 的空白檔相鄰字元過濾邏輯
+- [x] 修正 `src/utils/browserETL.js` 的空白檔相鄰字元過濾邏輯
+- [x] 代碼打包確效驗證
+
 
 

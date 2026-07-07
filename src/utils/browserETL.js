@@ -442,8 +442,26 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
     const relPath = pathParts.slice(folderIdx + 1, pathParts.length - 1).join('/');
     const fileName = file.name;
 
-    // Skip files with "空白" in the name
-    if (fileName.indexOf('空白') >= 0) continue;
+    // Skip files with "空白" in the name (only if it is a blank template file with isolated '空白')
+    const isBlankFile = (() => {
+      let idx = fileName.indexOf('空白');
+      if (idx === -1) return false;
+      
+      const letterOrCjk = /[a-zA-Z\u4e00-\u9fa5]/;
+      
+      while (idx !== -1) {
+        const prevChar = idx > 0 ? fileName[idx - 1] : '';
+        const nextChar = idx + 2 < fileName.length ? fileName[idx + 2] : '';
+        
+        const isAdjacent = letterOrCjk.test(prevChar) || letterOrCjk.test(nextChar);
+        if (isAdjacent) {
+          return false;
+        }
+        idx = fileName.indexOf('空白', idx + 1);
+      }
+      return true;
+    })();
+    if (isBlankFile) continue;
 
     try {
       const data = await file.arrayBuffer();

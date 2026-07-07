@@ -186,14 +186,31 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
               const fileName = file.name;
               
               const isSkipSheet = (normalizedSheetName === 'DATE' || normalizedSheetName === '空白' || normalizedSheetName === '範例' || normalizedSheetName === '客戶別' || normalizedSheetName.indexOf('Sheet') >= 0 || /^QC[-_]?\d+/i.test(normalizedSheetName.trim()) || normalizedSheetName.trim().indexOf('出貨') === 0);
-              const isBlankFile = fileName.indexOf('空白') >= 0;
+              const isBlankFile = (() => {
+                let idx = fileName.indexOf('空白');
+                if (idx === -1) return false;
+                
+                const letterOrCjk = /[a-zA-Z\u4e00-\u9fa5]/;
+                
+                while (idx !== -1) {
+                  const prevChar = idx > 0 ? fileName[idx - 1] : '';
+                  const nextChar = idx + 2 < fileName.length ? fileName[idx + 2] : '';
+                  
+                  const isAdjacent = letterOrCjk.test(prevChar) || letterOrCjk.test(nextChar);
+                  if (isAdjacent) {
+                    return false;
+                  }
+                  idx = fileName.indexOf('空白', idx + 1);
+                }
+                return true;
+              })();
               
               if (isSkipSheet) {
                 etlStatus = "未納入";
                 etlReason = "一般品檢：系統過濾特定工作表 (如 DATE, 空白, 範例, 客戶別, 包含 Sheet, 或以出貨開頭等)";
               } else if (isBlankFile) {
                 etlStatus = "未納入";
-                etlReason = "一般品檢：檔案名稱包含「空白」 (空白樣板檔案)";
+                etlReason = "一般品檢：檔案名稱包含獨立/未相鄰文字之「空白」 (判定為空白樣板檔案)";
               } else {
                 etlStatus = "已納入";
                 const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });

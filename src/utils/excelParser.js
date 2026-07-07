@@ -64,9 +64,13 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
           
           // Calculate ETL Inclusion status
           let etlStatus = "未納入";
+          let etlReason = "";
           const etlTimestamp = new Date().toLocaleString('zh-TW', { hour12: false });
           
-          if (isInjection) {
+          if (!foundCode) {
+            etlStatus = "未納入";
+            etlReason = "無編碼 (工作表中找不到任何 QC 表單編碼)";
+          } else if (isInjection) {
             // QIP Injection ETL validation logic
             const parts = normalizedPath.split('/');
             if (parts.length >= 2) {
@@ -74,10 +78,12 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
               const mMatch = parentDir.match(/-(\d{2})$/);
               if (!mMatch) {
                 etlStatus = "狀態異常";
+                etlReason = "QIP射出：資料夾名稱未包含月份字尾 (無法判定月份)";
               } else {
                 const month = parseInt(mMatch[1], 10);
                 if (month < 1 || month > 12) {
                   etlStatus = "狀態異常";
+                  etlReason = `QIP射出：資料夾月份 [${mMatch[1]}] 不合法`;
                 } else {
                   const isPatrol = pathLower.includes('qip-' + year + '(1~10)') || pathLower.includes('qip-' + year + '(1-10)');
                   if (isPatrol) {
@@ -86,20 +92,25 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
                       if (!seenInjPatrolBaseNames.has(baseName)) {
                         seenInjPatrolBaseNames.add(baseName);
                         etlStatus = "已納入";
+                        etlReason = "已納入 (QIP射出巡檢數據)";
                       } else {
-                        etlStatus = "未納入"; // duplicate sheet in same file
+                        etlStatus = "未納入";
+                        etlReason = "QIP射出巡檢：相同 Date Code 的重複工作表 (同檔後綴去重)";
                       }
                     } else {
-                      etlStatus = "未納入"; // invalid sheet name (Date Code constraint)
+                      etlStatus = "未納入";
+                      etlReason = "QIP射出巡檢：工作表名稱不符合 Date Code 格式 (排除非巡檢數據頁面，如 SETUP 或工作表1)";
                     }
                   } else {
                     // Setup counts count files, so sheets are marked as included under Setup
                     etlStatus = "已納入";
+                    etlReason = "已納入 (QIP射出 Setup 設置數據)";
                   }
                 }
               }
             } else {
               etlStatus = "狀態異常";
+              etlReason = "QIP射出：無效的路徑結構";
             }
           } else if (isExtrusion) {
             // QIP Extrusion ETL validation logic
@@ -109,30 +120,37 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
               const mMatch = parentDir.match(/-(\d{2})$/);
               if (!mMatch) {
                 etlStatus = "狀態異常";
+                etlReason = "QIP押出：資料夾名稱未包含月份字尾 (無法判定月份)";
               } else {
                 const month = parseInt(mMatch[1], 10);
                 if (month < 1 || month > 12) {
                   etlStatus = "狀態異常";
+                  etlReason = `QIP押出：資料夾月份 [${mMatch[1]}] 不合法`;
                 } else {
                   const isDateCodeFile = /\d{6}[a-zA-Z]?/i.test(file.name);
                   if (!isDateCodeFile) {
-                    etlStatus = "未納入"; // file skipped (does not match Date Code file constraint)
+                    etlStatus = "未納入";
+                    etlReason = "QIP押出：檔案名稱不符合 Date Code 格式 (排除非巡檢數據檔案)";
                   } else {
                     const isSkip = (normalizedSheetName === 'DATE' || normalizedSheetName === '空白' || normalizedSheetName === '範例' || normalizedSheetName === '客戶別' || normalizedSheetName.indexOf('Sheet1') === 0 || normalizedSheetName.indexOf('.K(') >= 0 || normalizedSheetName.indexOf('範例樣本') >= 0 || /^QC[-_]?\d+/i.test(normalizedSheetName.trim()) || /^(工作表|Sheet)\d+/i.test(normalizedSheetName.trim()) || /^(工作表|Sheet)/i.test(normalizedSheetName.trim()));
                     if (isSkip) {
                       etlStatus = "未納入";
+                      etlReason = "QIP押出巡檢：系統過濾特定工作表 (例如 DATE, 空白, 範例, Sheet 等)";
                     } else {
                       const snLower = normalizedSheetName.toLowerCase();
                       const isSetup = (snLower.indexOf('setup') >= 0 || snLower.indexOf('set up') >= 0 || snLower.indexOf('set-up') >= 0 || snLower === 'setup');
                       if (isSetup) {
-                        etlStatus = "未納入"; // Setup sheet itself is not counted as Patrol
+                        etlStatus = "未納入";
+                        etlReason = "QIP押出巡檢：Setup 設置工作表本身不計入 Patrol 計算";
                       } else {
                         const baseName = normalizedSheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
                         if (!seenExtPatrolBaseNames.has(baseName)) {
                           seenExtPatrolBaseNames.add(baseName);
                           etlStatus = "已納入";
+                          etlReason = "已納入 (QIP押出巡檢數據)";
                         } else {
-                          etlStatus = "未納入"; // duplicate sheet in same file
+                          etlStatus = "未納入";
+                          etlReason = "QIP押出巡檢：相同 Date Code 的重複工作表 (同檔後綴去重)";
                         }
                       }
                     }
@@ -141,6 +159,7 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
               }
             } else {
               etlStatus = "狀態異常";
+              etlReason = "QIP押出：無效的路徑結構";
             }
           } else {
             // General QC files ETL validation logic
@@ -160,7 +179,8 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
             }
 
             if (!initialQC) {
-              etlStatus = "未納入"; // Not in recognized QC folder
+              etlStatus = "未納入";
+              etlReason = "一般品檢：未處於可識別的 QC 表單資料夾下";
             } else {
               const relPath = pathParts.slice(folderIdx + 1, pathParts.length - 1).join('/');
               const fileName = file.name;
@@ -168,9 +188,14 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
               const isSkipSheet = (normalizedSheetName === 'DATE' || normalizedSheetName === '空白' || normalizedSheetName === '範例' || normalizedSheetName === '客戶別' || normalizedSheetName.indexOf('Sheet') >= 0 || /^QC[-_]?\d+/i.test(normalizedSheetName.trim()) || normalizedSheetName.trim().indexOf('出貨') === 0);
               const isBlankFile = fileName.indexOf('空白') >= 0;
               
-              if (isSkipSheet || isBlankFile) {
+              if (isSkipSheet) {
                 etlStatus = "未納入";
+                etlReason = "一般品檢：系統過濾特定工作表 (如 DATE, 空白, 範例, 客戶別, 包含 Sheet, 或以出貨開頭等)";
+              } else if (isBlankFile) {
+                etlStatus = "未納入";
+                etlReason = "一般品檢：檔案名稱包含「空白」 (空白樣板檔案)";
               } else {
+                etlStatus = "已納入";
                 const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
                 let actualQC = determineQCFromSheet(json, initialQC, relPath);
                 let subCat = null;
@@ -222,7 +247,8 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
                     const _lotIsBlank = (_lotVal === '' || _lotVal === null || _lotVal === undefined ||
                                       _lotVal === 0 || String(_lotVal).trim() === '' || String(_lotVal).trim() === '0');
                     if (_lotIsBlank) {
-                      etlStatus = "未納入"; // blank sheet skipped
+                      etlStatus = "未納入";
+                      etlReason = "一般品檢：零組件入庫品檢表空 Lot 批次 (判定為空白樣板頁)";
                     }
                   }
                 }
@@ -234,7 +260,8 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
                   if (actualQC === 'QC10007-R01') {
                     const baseName = normalizedSheetName.replace(/\s*\([^)]+\)\s*$/, '').trim();
                     if (seenQC7R1BaseNames.has(baseName)) {
-                      etlStatus = "未納入"; // duplicate sheet
+                      etlStatus = "未納入";
+                      etlReason = "一般品檢：完成品品檢重複的工作表名稱 (同檔後綴去重)";
                     } else {
                       seenQC7R1BaseNames.add(baseName);
                     }
@@ -243,8 +270,10 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
                   if (etlStatus !== "未納入") {
                     if (!actualQC || !subCat || !month || month < 1 || month > 12) {
                       etlStatus = "狀態異常";
+                      etlReason = `一般品檢：欄位缺失 (QC編碼: ${actualQC || '無'}, 子分類: ${subCat || '無'}, 月份: ${month || '無'})`;
                     } else {
                       etlStatus = "已納入";
+                      etlReason = `已納入 (一般品檢數據 · ${actualQC} · ${subCat} · ${month}月)`;
                     }
                   }
                 }
@@ -259,6 +288,7 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
             foundName: foundCode ? foundName : "無",
             status: foundCode ? (mappings[foundCode] ? "matched" : "unmatched") : "none",
             etlStatus: etlStatus,
+            etlReason: etlReason,
             etlTimestamp: etlTimestamp
           });
         });

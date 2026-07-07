@@ -954,5 +954,64 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
 - [x] 在 `src/utils/excelParser.js` 中導入並全面應用 `normalizeScientificNotation`
 - [x] 驗證並測試
 
+---
+
+## 2026-07-07 整合 Ponytail (Integrate DietrichGebert/ponytail)
+
+### 需求說明
+將 DietrichGebert/ponytail 專案整合進本專案，以改善 AI 代理在處理代碼時的 token 使用效能與防止過度工程（over-engineering）。
+
+### 根因分析與設計 (RCA & Design)
+- **Token 效能優化**：AI 代理常有「過度建構、過度工程」的傾向。Ponytail 的決策階梯與 lazy 開發原則能引導 AI 代理在編寫代碼時優先利用 YAGNI、本機庫、既有依賴和一行解決方案，減少 80% 以上的程式碼生成，藉此提高 token 使用效率與系統穩定度。
+- **整合方式**：
+  1. 將 Ponytail 的核心 rules (來自 `AGENTS.md`) 整合到專案的 [`.agents/AGENTS.md`](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/.agents/AGENTS.md) 中。
+  2. 將 Ponytail 提供的所有客製化 skills (`ponytail`, `ponytail-audit`, `ponytail-debt`, `ponytail-gain`, `ponytail-help`, `ponytail-review`) 從臨時 Repository 複製到專案的 [`.agents/skills/`](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/.agents/skills/) 中。
+  3. 依據 MECE 原則清理複製過程中產生的 `scratch/ponytail` 臨時檔案，避免膨脹。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. 修改 `.agents/AGENTS.md`：在尾部加入 Ponytail rules。
+  2. 複製 `scratch/ponytail/skills/` 內所有 skills 資料夾至 `.agents/skills/` 目錄。
+  3. 刪除 `scratch/ponytail` 的暫存 Repository 複製。
+  4. 驗證所有 skills 都已在 `.agents/skills/` 下並包含對應的 `SKILL.md`。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 將 Ponytail 的 rules 寫入 `.agents/AGENTS.md`
+- [x] 將所有 Ponytail skills 複製到 `.agents/skills/` 
+- [x] 清理 scratch/ponytail 暫存檔案
+- [x] 確效驗證
+
+---
+
+## 2026-07-07 修正 Excel 提取結果的 ETL 狀態判定 Bug 與原因回寫 (ETL Status Bug Fix & Explanation Backfill)
+
+### 需求說明
+1. 列出 2025 品檢報表提取結果中被成功識別但顯示為「未納入」的原因。
+2. 將個別的具體排除/納入原因寫入使用者 Downloads 目錄下的 `2025 報表_提取結果.xlsx` 對應儲存格中。
+3. 修正系統程式碼中有關「是否納入ETL計算」的狀態判定 Bug。
+
+### 根因分析與設計 (RCA & Design)
+- **判定鎖死 Bug**：在 [excelParser.js](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/src/utils/excelParser.js) 中，一般品檢處理分支在最一開始就把 `etlStatus` 初始化為 `"未納入"`，但後續的判定區塊被 `if (etlStatus !== "未納入")` 條件包裹。此條件恆為假，導致正常識別的表單狀態全部被鎖死在 `"未納入"`，繞過了所有月份及子分類提取。
+- **原因判定與回寫**：
+  - 寫入腳本 `scratch/update_excel.js`，依據 QIP 射出、押出與一般品檢數據校驗規則，對 26,524 筆數據進行精準匹配。
+  - 對於一般品檢，若需要檢查空白樣板 (QC10007-R03)，則動態載入 workspace 中的 [RawData/2025/](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/RawData/2025) 原始 Excel 文件，讀取對應儲存格判斷批號是否為空。
+  - 計算出正確狀態後，在 Excel 中新增 `原因說明` 欄位並更新 `是否納入ETL計算` 欄位，完成回寫。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. **修正 Bug**：在 [excelParser.js](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/src/utils/excelParser.js#L173) 的一般品檢 else 分支起始處，將 `etlStatus` 初始化為 `"已納入"`，使後續判定邏輯可以正常執行。
+  2. **數據回寫**：執行回寫腳本，成功更新 `C:\Users\3kids\Downloads\2025 報表_提取結果.xlsx` 共 26,524 筆資料，並建立 `原因說明` 欄位。
+  3. **代碼確效**：執行 `npm run build` 確認無編譯錯誤。
+  4. **MECE 清理**：清除 `scratch/` 下的暫存分析腳本。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 修正 `src/utils/excelParser.js` 狀態判定 Bug
+- [x] 撰寫並執行 Excel 回寫腳本 `scratch/update_excel.js`
+- [x] 清理 scratch 暫存檔案
+- [x] 代碼打包確效驗證
+- [x] 新增「原因說明」至前端「工作表表單編碼提取結果」表格 UI 欄位與 CSV 匯出功能
+
 
 

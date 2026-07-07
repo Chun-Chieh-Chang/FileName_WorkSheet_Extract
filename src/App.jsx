@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getMappings, saveMappings, resetMappings } from './utils/db';
-import { parseExcelFile, exportToExcel, parseSummaryExcel } from './utils/excelParser';
+import { parseExcelFile, parseSummaryExcel } from './utils/excelParser';
 import { runETLInBrowser, exportSummaryExcelInBrowser } from './utils/browserETL';
 import * as XLSX from 'xlsx';
 
@@ -62,6 +62,7 @@ function App() {
     foundName: [],
     status: [],
     etlStatus: [],
+    etlReason: [],
     etlTimestamp: []
   });
   const [activeFilterPopover, setActiveFilterPopover] = useState(null);
@@ -76,6 +77,7 @@ function App() {
       foundName: [],
       status: [],
       etlStatus: [],
+      etlReason: [],
       etlTimestamp: []
     });
     setActiveFilterPopover(null);
@@ -303,6 +305,7 @@ function App() {
             foundName: fileRes.error || "解析失敗",
             status: "error",
             etlStatus: "狀態異常",
+            etlReason: `讀取錯誤 (${fileRes.error || "檔案結構損毀"})`,
             etlTimestamp: new Date().toLocaleString('zh-TW', { hour12: false })
           });
         }
@@ -318,6 +321,7 @@ function App() {
           foundName: "開啟失敗",
           status: "error",
           etlStatus: "狀態異常",
+          etlReason: `開啟失敗 (${e.message || "未知錯誤"})`,
           etlTimestamp: new Date().toLocaleString('zh-TW', { hour12: false })
         });
       }
@@ -811,8 +815,8 @@ function App() {
   const exportToCSV = (data, name = "提取結果") => {
     if (!data || data.length === 0) return;
     
-    const headers = ["檔案名稱", "檔案路徑", "工作表名稱", "表單編碼", "表單對照名稱", "狀態", "是否納入ETL計算", "更新時間"];
-    const keys = ["fileName", "filePath", "sheetName", "foundCode", "foundName", "status", "etlStatus", "etlTimestamp"];
+    const headers = ["檔案名稱", "檔案路徑", "工作表名稱", "表單編碼", "表單對照名稱", "狀態", "是否納入ETL計算", "原因說明", "更新時間"];
+    const keys = ["fileName", "filePath", "sheetName", "foundCode", "foundName", "status", "etlStatus", "etlReason", "etlTimestamp"];
     
     const csvRows = [];
     csvRows.push(headers.join(","));
@@ -1189,7 +1193,8 @@ function App() {
       row.sheetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       row.foundCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
       row.foundName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (row.etlStatus || '').toLowerCase().includes(searchQuery.toLowerCase());
+      (row.etlStatus || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (row.etlReason || '').toLowerCase().includes(searchQuery.toLowerCase());
       
     const matchesStatusSelect = statusFilter === "all" ? true : row.status === statusFilter;
     
@@ -1217,7 +1222,8 @@ function App() {
         row.sheetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         row.foundCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
         row.foundName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (row.etlStatus || '').toLowerCase().includes(searchQuery.toLowerCase());
+        (row.etlStatus || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (row.etlReason || '').toLowerCase().includes(searchQuery.toLowerCase());
         
       const matchesStatusSelect = statusFilter === "all" ? true : row.status === statusFilter;
       
@@ -2012,6 +2018,7 @@ function App() {
                       {renderFilterableHeader('表單對照名稱', 'foundName')}
                       {renderFilterableHeader('狀態', 'status')}
                       {renderFilterableHeader('是否納入ETL計算', 'etlStatus')}
+                      {renderFilterableHeader('原因說明', 'etlReason')}
                       {renderFilterableHeader('更新時間', 'etlTimestamp')}
                     </tr>
                   </thead>
@@ -2049,6 +2056,7 @@ function App() {
                             <span className="status-badge status-error">狀態異常</span>
                           )}
                         </td>
+                        <td style={{ fontSize: '13px', color: row.etlStatus === '狀態異常' ? 'var(--alert-error, #EF4444)' : 'var(--text-secondary)' }}>{row.etlReason || '-'}</td>
                         <td style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{row.etlTimestamp || 'N/A'}</td>
                       </tr>
                     ))}

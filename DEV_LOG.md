@@ -924,4 +924,35 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
 - [x] 修改 `src/App.jsx` (processFilesList 路徑處理與 Mock 數據路徑優化)
 - [x] 驗證並測試
 
+---
+
+## 2026-07-07 QIP 科學記號工作表去重與解析優化 (Scientific Notation Sheet Name Fix)
+
+### 需求說明
+當 QIP 品檢 Excel 檔案中的工作表名稱含有科學記號後綴（如 `260101E-2`、`260101E-3`），Excel 或 JavaScript 解析引擎可能將其誤讀為科學記號浮點數（`260101E-2 → 2601.01`）。這導致兩個問題：
+1. 工作表名稱顯示為 `2601.01` 而非 `260101E-2`，使用者難以辨識。
+2. `2601.01` 無法通過 Date Code 正則驗證 `/^\d{6}[a-zA-Z]?$/`，導致巡檢計數遺失，或無法正確提取月份。
+3. 三張工作表（`260101E`、`260101E-2`、`260101E-3`）應去重後只計算一次，但若誤讀為數值則去重邏輯失效。
+
+### 根因分析 (RCA)
+- **根因一（工作表名稱誤判）**：SheetJS 讀入 Excel 檔案時，若工作表名稱在 XML 中已被外部工具或 Excel 本身存為數值型 `2601.01`（因 `260101E-2` 符合科學記號格式），`wb.SheetNames` 中將出現 `"2601.01"` 字串而非 `"260101E-2"`，無法通過 Date Code 正則。
+- **根因二（日期提取失敗）**：若儲存格 Q4（QC10004-R02 日期欄位）內含 `260101E-2`，Excel 將其讀為數值 `2601.01`。`parseDateFromValue` 的 `typeof val === 'number'` 分支不符合序列日期範圍（40000~50000），`parseDateFromString("2601.01")` 也無法匹配 6 位 Date Code 格式，月份提取返回 `null`，工作表被標記為 `狀態異常` 或 `未納入`。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. **新增 `normalizeScientificNotation` 函數**：在 [src/utils/browserETL.js](file:///c:/Users/USER/Downloads/專案/FileName_WorkSheet_Extract/src/utils/browserETL.js) 中新增並導出此函數。邏輯如下：
+     - 若輸入字串符合 `^\d{4}\.\d+$`（如 `2601.01`），計算小數位數 $exp$，乘以 $10^{exp}$ 四捨五入重建 6 位基底，拼回 `${base}E-${exp}`（還原為 `260101E-2`）。
+     - 若輸入符合標準科學記號字串格式（如 `2.60101e+5`），直接還原為 6 位整數字串。
+  2. **於 `parseDateFromString` 中應用**：函數入口處先呼叫 `normalizeScientificNotation`，確保日期字串 `2601.01` 還原後能正確匹配 Date Code。
+  3. **於 QIP 巡檢工作表處理中應用**：在 [browserETL.js:runETLInBrowser](file:///c:/Users/USER/Downloads/專案/FileName_WorkSheet_Extract/src/utils/browserETL.js) 的射出與押出迴圈中，對 `sheetName` 先還原再進行後綴去重與 Date Code 驗證。
+  4. **於 `parseExcelFile` 中全面應用**：修改 [src/utils/excelParser.js](file:///c:/Users/USER/Downloads/專案/FileName_WorkSheet_Extract/src/utils/excelParser.js)，在迴圈起始處先計算 `normalizedSheetName`，取代所有 ETL 判定、過濾與輸出中的 `sheetName`，確保 UI 表格與 CSV 均顯示還原後的正確名稱。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 在 `src/utils/browserETL.js` 中新增並導出 `normalizeScientificNotation`
+- [x] 在 `src/utils/browserETL.js` 的 `parseDateFromString` 與 `runETLInBrowser` 中應用
+- [x] 在 `src/utils/excelParser.js` 中導入並全面應用 `normalizeScientificNotation`
+- [x] 驗證並測試
+
+
 

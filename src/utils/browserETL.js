@@ -33,6 +33,36 @@ const FORM_TITLE_MAP = {
   '出貨品檢報告': 'QC10008-R02'
 };
 
+export function normalizeScientificNotation(val) {
+  if (val === undefined || val === null) return "";
+  const str = String(val).trim();
+  
+  // 1. 處理被誤讀為浮點數的科學記號，例如 260101E-2 變成 2601.01，260101E-3 變成 2601.001
+  const decimalMatch = str.match(/^(\d{4})\.(\d+)$/);
+  if (decimalMatch) {
+    const decimalPart = decimalMatch[2];
+    const exp = decimalPart.length;
+    const numValue = parseFloat(str);
+    const multiplier = Math.pow(10, exp);
+    const reconstructedBase = Math.round(numValue * multiplier);
+    if (String(reconstructedBase).length === 6) {
+      return `${reconstructedBase}E-${exp}`;
+    }
+  }
+  
+  // 2. 處理標準科學記號字串，例如 2.60101e+5 或 2.60101E+5
+  const sciMatch = str.match(/^(\d)\.(\d+)e\+?(\d+)$/i);
+  if (sciMatch) {
+    const numValue = parseFloat(str);
+    const rounded = Math.round(numValue);
+    if (String(rounded).length === 6) {
+      return String(rounded);
+    }
+  }
+  
+  return str;
+}
+
 export function detectQCFromFolder(dirname) {
   const m = dirname.match(/QC\d{5}-R\d{2}/i);
   if (m) return m[0].toUpperCase();
@@ -45,7 +75,7 @@ export function detectQCFromFolder(dirname) {
 
 export function parseDateFromString(str) {
   if (!str) return null;
-  str = String(str).trim();
+  str = normalizeScientificNotation(String(str).trim());
   let m = str.match(/\b(20\d{2})[-/](\d{1,2})[-/]\d{1,2}\b/);
   if (m) return { year: parseInt(m[1], 10), month: parseInt(m[2], 10) };
   
@@ -551,7 +581,8 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
         const wb = XLSX.read(data, { type: 'array' });
         const uniqueBaseInFile = {};
         wb.SheetNames.forEach(sheetName => {
-          const baseName = sheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
+          const normalizedSheetName = normalizeScientificNotation(sheetName);
+          const baseName = normalizedSheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
           if (/^\d{6}[a-zA-Z]?$/.test(baseName)) {
             uniqueBaseInFile[baseName] = true;
           }
@@ -593,16 +624,17 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
       const wb = XLSX.read(data, { type: 'array' });
       const uniqueBaseInFile = {};
       wb.SheetNames.forEach(sheetName => {
-        if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別' || sheetName.indexOf('Sheet1') === 0) return;
-        if (sheetName.indexOf('.K(') >= 0 || sheetName.indexOf('範例樣本') >= 0 || /^QC[-_]?\d+/i.test(sheetName.trim())) return;
-        if (/^(工作表|Sheet)\d+/i.test(sheetName.trim())) return;
-        if (/^(工作表|Sheet)/i.test(sheetName.trim())) return; // skip any sheet named "工作表" or "Sheet"
+        const normalizedSheetName = normalizeScientificNotation(sheetName);
+        if (normalizedSheetName === 'DATE' || normalizedSheetName === '空白' || normalizedSheetName === '範例' || normalizedSheetName === '客戶別' || normalizedSheetName.indexOf('Sheet1') === 0) return;
+        if (normalizedSheetName.indexOf('.K(') >= 0 || normalizedSheetName.indexOf('範例樣本') >= 0 || /^QC[-_]?\d+/i.test(normalizedSheetName.trim())) return;
+        if (/^(工作表|Sheet)\d+/i.test(normalizedSheetName.trim())) return;
+        if (/^(工作表|Sheet)/i.test(normalizedSheetName.trim())) return; // skip any sheet named "工作表" or "Sheet"
         
-        const snLower = sheetName.toLowerCase();
+        const snLower = normalizedSheetName.toLowerCase();
         const isSetup = (snLower.indexOf('setup') >= 0 || snLower.indexOf('set up') >= 0 || snLower.indexOf('set-up') >= 0 || snLower === 'setup');
         
         if (!isSetup) {
-          const baseName = sheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
+          const baseName = normalizedSheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
           uniqueBaseInFile[baseName] = true;
         }
       });

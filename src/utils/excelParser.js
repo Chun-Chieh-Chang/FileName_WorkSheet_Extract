@@ -4,7 +4,8 @@ import {
   determineQCFromSheet, 
   getRawSubCategory, 
   extractRawMonth,
-  findDateInSheet 
+  findDateInSheet,
+  normalizeScientificNotation
 } from './browserETL';
 
 const LETTER_MONTH = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, I: 9, J: 10, K: 11, L: 12 };
@@ -38,6 +39,7 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
         const isExtrusion = pathLower.includes('押出檢驗-' + year);
         
         workbook.SheetNames.forEach((sheetName) => {
+          const normalizedSheetName = normalizeScientificNotation(sheetName);
           const ws = workbook.Sheets[sheetName];
           let foundCode = "";
           let foundName = "";
@@ -79,7 +81,7 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
                 } else {
                   const isPatrol = pathLower.includes('qip-' + year + '(1~10)') || pathLower.includes('qip-' + year + '(1-10)');
                   if (isPatrol) {
-                    const baseName = sheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
+                    const baseName = normalizedSheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
                     if (/^\d{6}[a-zA-Z]?$/.test(baseName)) {
                       if (!seenInjPatrolBaseNames.has(baseName)) {
                         seenInjPatrolBaseNames.add(baseName);
@@ -116,16 +118,16 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
                   if (!isDateCodeFile) {
                     etlStatus = "未納入"; // file skipped (does not match Date Code file constraint)
                   } else {
-                    const isSkip = (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別' || sheetName.indexOf('Sheet1') === 0 || sheetName.indexOf('.K(') >= 0 || sheetName.indexOf('範例樣本') >= 0 || /^QC[-_]?\d+/i.test(sheetName.trim()) || /^(工作表|Sheet)\d+/i.test(sheetName.trim()) || /^(工作表|Sheet)/i.test(sheetName.trim()));
+                    const isSkip = (normalizedSheetName === 'DATE' || normalizedSheetName === '空白' || normalizedSheetName === '範例' || normalizedSheetName === '客戶別' || normalizedSheetName.indexOf('Sheet1') === 0 || normalizedSheetName.indexOf('.K(') >= 0 || normalizedSheetName.indexOf('範例樣本') >= 0 || /^QC[-_]?\d+/i.test(normalizedSheetName.trim()) || /^(工作表|Sheet)\d+/i.test(normalizedSheetName.trim()) || /^(工作表|Sheet)/i.test(normalizedSheetName.trim()));
                     if (isSkip) {
                       etlStatus = "未納入";
                     } else {
-                      const snLower = sheetName.toLowerCase();
+                      const snLower = normalizedSheetName.toLowerCase();
                       const isSetup = (snLower.indexOf('setup') >= 0 || snLower.indexOf('set up') >= 0 || snLower.indexOf('set-up') >= 0 || snLower === 'setup');
                       if (isSetup) {
                         etlStatus = "未納入"; // Setup sheet itself is not counted as Patrol
                       } else {
-                        const baseName = sheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
+                        const baseName = normalizedSheetName.replace(/(?:[-_\s]\d+|\(\d+\)|（\d+）)$/, '').trim();
                         if (!seenExtPatrolBaseNames.has(baseName)) {
                           seenExtPatrolBaseNames.add(baseName);
                           etlStatus = "已納入";
@@ -163,7 +165,7 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
               const relPath = pathParts.slice(folderIdx + 1, pathParts.length - 1).join('/');
               const fileName = file.name;
               
-              const isSkipSheet = (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別' || sheetName.indexOf('Sheet') >= 0 || /^QC[-_]?\d+/i.test(sheetName.trim()) || sheetName.trim().indexOf('出貨') === 0);
+              const isSkipSheet = (normalizedSheetName === 'DATE' || normalizedSheetName === '空白' || normalizedSheetName === '範例' || normalizedSheetName === '客戶別' || normalizedSheetName.indexOf('Sheet') >= 0 || /^QC[-_]?\d+/i.test(normalizedSheetName.trim()) || normalizedSheetName.trim().indexOf('出貨') === 0);
               const isBlankFile = fileName.indexOf('空白') >= 0;
               
               if (isSkipSheet || isBlankFile) {
@@ -179,7 +181,7 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
                 if (isSemiFinishedTable) {
                   actualQC = 'QC10006-R02';
                   subCat = '裝配C';
-                  const sheetMatch = sheetName.match(/(\d{2})([A-L])/i);
+                  const sheetMatch = normalizedSheetName.match(/(\d{2})([A-L])/i);
                   if (sheetMatch) {
                     const yr = parseInt(sheetMatch[1], 10);
                     if (yr >= 15 && yr <= 99) {
@@ -191,7 +193,7 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
                     if (fnMonthMatch) month = parseInt(fnMonthMatch[1], 10);
                   }
                   if (!month) {
-                    const sheetYymmdd = sheetName.match(/(\d{2})(\d{2})(\d{2})/);
+                    const sheetYymmdd = normalizedSheetName.match(/(\d{2})(\d{2})(\d{2})/);
                     if (sheetYymmdd) {
                       const m = parseInt(sheetYymmdd[2], 10);
                       if (m >= 1 && m <= 12) month = m;
@@ -226,11 +228,11 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
                 }
 
                 if (etlStatus !== "未納入") {
-                  subCat = getRawSubCategory(actualQC, relPath, fileName, sheetName, qcFolder);
-                  month = extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC);
+                  subCat = getRawSubCategory(actualQC, relPath, fileName, normalizedSheetName, qcFolder);
+                  month = extractRawMonth(ws, fileName, normalizedSheetName, year, relPath, json, actualQC);
 
                   if (actualQC === 'QC10007-R01') {
-                    const baseName = sheetName.replace(/\s*\([^)]+\)\s*$/, '').trim();
+                    const baseName = normalizedSheetName.replace(/\s*\([^)]+\)\s*$/, '').trim();
                     if (seenQC7R1BaseNames.has(baseName)) {
                       etlStatus = "未納入"; // duplicate sheet
                     } else {
@@ -252,7 +254,7 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
 
           results.push({
             fileName: file.name,
-            sheetName: sheetName,
+            sheetName: normalizedSheetName,
             foundCode: foundCode || "無",
             foundName: foundCode ? foundName : "無",
             status: foundCode ? (mappings[foundCode] ? "matched" : "unmatched") : "none",

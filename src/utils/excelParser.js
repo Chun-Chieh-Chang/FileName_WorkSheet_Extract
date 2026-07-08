@@ -243,20 +243,31 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
                   }
                 } else if (initialQC === 'QC10007-R03') {
                   actualQC = 'QC10007-R03';
-                  if (relPath && relPath.indexOf('Tubing') < 0) {
+                  
+                  const tempSub = getRawSubCategory(actualQC, relPath, fileName, normalizedSheetName, qcFolder);
+                  const isAssemblyParts = tempSub === '裝配A' || tempSub === '裝配B' || tempSub === '裝配C';
+                  
+                  if (isAssemblyParts) {
                     const letterMatch = fileName.match(/[-_]?([A-L])\.xlsx$/i);
                     if (letterMatch) {
-                      const derivedMonth = LETTER_MONTH[letterMatch[1].toUpperCase()] || null;
-                      const fileDate = findDateInSheet(ws, actualQC);
-                      if (fileDate && fileDate.month === derivedMonth) {
-                        month = derivedMonth;
+                      month = LETTER_MONTH[letterMatch[1].toUpperCase()] || null;
+                    }
+                  } else {
+                    if (relPath && relPath.indexOf('Tubing') < 0) {
+                      const letterMatch = fileName.match(/[-_]?([A-L])\.xlsx$/i);
+                      if (letterMatch) {
+                        const derivedMonth = LETTER_MONTH[letterMatch[1].toUpperCase()] || null;
+                        const fileDate = findDateInSheet(ws, actualQC);
+                        if (fileDate && fileDate.month === derivedMonth) {
+                          month = derivedMonth;
+                        }
                       }
                     }
                   }
                   if (relPath && relPath.indexOf('射出D') >= 0 && relPath.indexOf('射出D(組件)') < 0) {
                     actualQC = 'QC10002-R02';
                   }
-
+ 
                   // Blank template check
                   if (actualQC === 'QC10007-R03' && json && json.length > 3) {
                     const _lotRow = json[3];
@@ -269,10 +280,16 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
                     }
                   }
                 }
-
+ 
                 if (etlStatus !== "未納入") {
                   subCat = getRawSubCategory(actualQC, relPath, fileName, normalizedSheetName, qcFolder);
-                  month = extractRawMonth(ws, fileName, normalizedSheetName, year, relPath, json, actualQC);
+                  
+                  const isAssemblyParts = actualQC === 'QC10007-R03' && (subCat === '裝配A' || subCat === '裝配B' || subCat === '裝配C');
+                  if (isAssemblyParts) {
+                    // Do not call extractRawMonth, keep overridden month from filename suffix
+                  } else {
+                    month = extractRawMonth(ws, fileName, normalizedSheetName, year, relPath, json, actualQC);
+                  }
 
                   if (actualQC === 'QC10007-R01') {
                     const baseName = normalizedSheetName.replace(/\s*\([^)]+\)\s*$/, '').trim();

@@ -515,18 +515,29 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
           }
         } else if (initialQC === 'QC10007-R03') {
           actualQC = 'QC10007-R03';
-          // Only apply letter suffix matching for non-Tubing subcategories
-          if (relPath && relPath.indexOf('Tubing') < 0) {
+          
+          const tempSub = getRawSubCategory(actualQC, relPath, fileName, sheetName, qcFolder);
+          const isAssemblyParts = tempSub === '裝配A' || tempSub === '裝配B' || tempSub === '裝配C';
+          
+          if (isAssemblyParts) {
             const letterMatch = fileName.match(/[-_]?([A-L])\.xlsx$/i);
             if (letterMatch) {
-              const derivedMonth = LETTER_MONTH[letterMatch[1].toUpperCase()];
-              // Verify the derived month matches actual file date content
-              // If not, fall through to extractRawMonth() for proper detection
-              const fileDate = findDateInSheet(ws, actualQC);
-              if (fileDate && fileDate.month === derivedMonth) {
-                month = derivedMonth;
+              month = LETTER_MONTH[letterMatch[1].toUpperCase()];
+            }
+          } else {
+            // Only apply letter suffix matching for non-Tubing subcategories
+            if (relPath && relPath.indexOf('Tubing') < 0) {
+              const letterMatch = fileName.match(/[-_]?([A-L])\.xlsx$/i);
+              if (letterMatch) {
+                const derivedMonth = LETTER_MONTH[letterMatch[1].toUpperCase()];
+                // Verify the derived month matches actual file date content
+                // If not, fall through to extractRawMonth() for proper detection
+                const fileDate = findDateInSheet(ws, actualQC);
+                if (fileDate && fileDate.month === derivedMonth) {
+                  month = derivedMonth;
+                }
+                // If no date in cell or mismatch, let extractRawMonth() handle it
               }
-              // If no date in cell or mismatch, let extractRawMonth() handle it
             }
           }
           if (relPath && relPath.indexOf('射出D') >= 0 && relPath.indexOf('射出D(組件)') < 0) {
@@ -550,7 +561,12 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
           subCat = getRawSubCategory(actualQC, relPath, fileName, sheetName, qcFolder);
         }
         if (month === null) {
-          month = extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC);
+          const isAssemblyParts = actualQC === 'QC10007-R03' && (subCat === '裝配A' || subCat === '裝配B' || subCat === '裝配C');
+          if (isAssemblyParts) {
+            // Do not call extractRawMonth, keep overridden month from filename suffix
+          } else {
+            month = extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC);
+          }
         }
 
         if (actualQC === 'QC10007-R01') {

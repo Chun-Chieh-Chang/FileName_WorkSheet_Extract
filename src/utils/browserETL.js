@@ -517,12 +517,27 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
           actualQC = 'QC10007-R03';
           
           const tempSub = getRawSubCategory(actualQC, relPath, fileName, sheetName, qcFolder);
-          const isAssemblyParts = tempSub === '裝配A' || tempSub === '裝配B' || tempSub === '裝配C';
+          const isAssemblyParts = tempSub === '裝配A' || tempSub === '裝配B' || tempSub === '裝配C' || tempSub === '射出D(組件)';
           
           if (isAssemblyParts) {
             const letterMatch = fileName.match(/[-_]?([A-L])\.xlsx$/i);
             if (letterMatch) {
               month = LETTER_MONTH[letterMatch[1].toUpperCase()];
+            }
+          } else if (tempSub === 'Tubing' || tempSub === '射出' || tempSub === '射出A' || tempSub === '射出C') {
+            // Tubing and 射出 subcategories month extraction directly from folder path
+            if (relPath) {
+              const folderMatch = relPath.match(/[-_](\d{1,2})$/) || relPath.match(/[-_](\d{1,2})[\\/]/);
+              if (folderMatch) {
+                const mVal = parseInt(folderMatch[1], 10);
+                if (mVal >= 1 && mVal <= 12) month = mVal;
+              } else {
+                const monthChineseMatch = relPath.match(/(\d{1,2})月/);
+                if (monthChineseMatch) {
+                  const mVal = parseInt(monthChineseMatch[1], 10);
+                  if (mVal >= 1 && mVal <= 12) month = mVal;
+                }
+              }
             }
           } else {
             // Only apply letter suffix matching for non-Tubing subcategories
@@ -545,7 +560,8 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
           }
 
           // Blank template guard for QC10007-R03 (零組件入庫品檢):
-          if (actualQC === 'QC10007-R03' && json && json.length > 3) {
+          const isExemptedInjection = tempSub === '射出' || tempSub === '射出A' || tempSub === '射出C' || tempSub === '射出D(組件)';
+          if (actualQC === 'QC10007-R03' && !isExemptedInjection && json && json.length > 3) {
             const _lotRow = json[3];
             const _lotVal = (_lotRow && _lotRow.length > 6) ? _lotRow[6] : '';
             const _lotIsBlank = (_lotVal === '' || _lotVal === null || _lotVal === undefined ||
@@ -561,9 +577,10 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
           subCat = getRawSubCategory(actualQC, relPath, fileName, sheetName, qcFolder);
         }
         if (month === null) {
-          const isAssemblyParts = actualQC === 'QC10007-R03' && (subCat === '裝配A' || subCat === '裝配B' || subCat === '裝配C');
-          if (isAssemblyParts) {
-            // Do not call extractRawMonth, keep overridden month from filename suffix
+          const isAssemblyParts = actualQC === 'QC10007-R03' && (subCat === '裝配A' || subCat === '裝配B' || subCat === '裝配C' || subCat === '射出D(組件)');
+          const isBypassedParts = actualQC === 'QC10007-R03' && (subCat === 'Tubing' || subCat === '射出' || subCat === '射出A' || subCat === '射出C');
+          if (isAssemblyParts || isBypassedParts) {
+            // Do not call extractRawMonth, keep overridden month from filename suffix or folder path
           } else {
             month = extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC);
           }

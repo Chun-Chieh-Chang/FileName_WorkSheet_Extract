@@ -52,6 +52,7 @@ function App() {
   const [newName, setNewName] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [etlProgress, setEtlProgress] = useState(null);
+  const [scanProgress, setScanProgress] = useState(null);
   const [isProcessingETL, setIsProcessingETL] = useState(false);
   const [etlYear, setEtlYear] = useState(2025);
   const [isETLCancelled, setIsETLCancelled] = useState(false);
@@ -281,24 +282,26 @@ function App() {
       return;
     }
     
+    const BATCH_SIZE = 8;
     const results = [];
-    for (let file of excelFiles) {
+    const yearForParse = detected || etlYear;
+    setScanProgress({ current: 0, total: excelFiles.length });
+    
+    const processOneFile = async (file) => {
+      const filePath = file.webkitRelativePath || file.name;
+      const fullPath = filePath.replace(/\\/g, '/');
+      const lastSlash = fullPath.lastIndexOf('/');
+      const dirPath = lastSlash !== -1 ? fullPath.substring(0, lastSlash) : "";
+      
       try {
-        const filePath = file.webkitRelativePath || file.name;
-        // Extract only the directory path (from root to parent folder)
-        const fullPath = filePath.replace(/\\/g, '/');
-        const lastSlash = fullPath.lastIndexOf('/');
-        const dirPath = lastSlash !== -1 ? fullPath.substring(0, lastSlash) : "";
-
-        const fileRes = await parseExcelFile(file, mappings, detected || etlYear);
+        const fileRes = await parseExcelFile(file, mappings, yearForParse);
         if (fileRes.success) {
-          const sheetsWithPath = fileRes.sheets.map(sheet => ({
+          return fileRes.sheets.map(sheet => ({
             ...sheet,
             filePath: dirPath
           }));
-          results.push(...sheetsWithPath);
         } else {
-          results.push({
+          return [{
             fileName: file.name,
             filePath: dirPath,
             sheetName: "N/A",
@@ -308,13 +311,10 @@ function App() {
             etlStatus: "狀態異常",
             etlReason: `讀取錯誤 (${fileRes.error || "檔案結構損毀"})`,
             etlTimestamp: new Date().toLocaleString('zh-TW', { hour12: false })
-          });
+          }];
         }
       } catch (e) {
-        const fullPath = (file.webkitRelativePath || file.name).replace(/\\/g, '/');
-        const lastSlash = fullPath.lastIndexOf('/');
-        const dirPath = lastSlash !== -1 ? fullPath.substring(0, lastSlash) : "";
-        results.push({
+        return [{
           fileName: file.name,
           filePath: dirPath,
           sheetName: "N/A",
@@ -324,11 +324,21 @@ function App() {
           etlStatus: "狀態異常",
           etlReason: `開啟失敗 (${e.message || "未知錯誤"})`,
           etlTimestamp: new Date().toLocaleString('zh-TW', { hour12: false })
-        });
+        }];
       }
+    };
+    
+    for (let i = 0; i < excelFiles.length; i += BATCH_SIZE) {
+      const batch = excelFiles.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(batch.map(processOneFile));
+      batchResults.forEach(r => results.push(...r));
+      setScanProgress({ current: Math.min(i + BATCH_SIZE, excelFiles.length), total: excelFiles.length });
+      // ponytail: yield to event loop between batches to prevent UI freeze / browser hang
+      await new Promise(r => setTimeout(r, 0));
     }
     
     setScannedRows(results);
+    setScanProgress(null);
     setIsScanning(false);
   };
 
@@ -2005,8 +2015,13 @@ function App() {
             {isScanning ? (
               <div className="empty-state" style={{ padding: '128px 0' }}>
                 <div className="upload-icon" style={{ animation: 'spin 2s linear infinite' }}>🔄</div>
-                <p style={{ fontWeight: 500 }}>正在解析 Excel 報表，請稍候...</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>這通常只需要幾秒鐘，依檔案數量及大小與定</p>
+                <p style={{ fontWeight: 500 }}>正在解析 Excel 報表，請稍候... {scanProgress ? `(${scanProgress.current}/${scanProgress.total})` : ''}</p>
+                {scanProgress && (
+                  <div style={{ width: '280px', height: '6px', background: '#E2E8F0', borderRadius: '3px', marginTop: '12px', overflow: 'hidden', margin: '12px auto 0' }}>
+                    <div style={{ width: `${(scanProgress.current / scanProgress.total) * 100}%`, height: '100%', background: 'var(--mck-navy)', transition: 'width 0.15s ease' }}></div>
+                  </div>
+                )}
+                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '8px' }}>依檔案數量及大小而定</p>
               </div>
             ) : filteredRows.length > 0 ? (
               <div className="table-wrapper">

@@ -11,8 +11,10 @@
 ### 遇到的問題與根因分析 (RCA)
 - **問題一：取消處理按鈕點擊後後台繼續轉檔**
   - *原因*：因為非同步 ETL 迴圈執行的 callback 捕獲了舊渲染週期的 `isETLCancelled = false` 閉包，即使 state 變為 `true`，正在執行的 callback 也無法讀到最新值。
-- **問題二：SheetJS 解析大批量 Excel 效能低落**
+- **問題二：SheetJS 解析大批量 Excel 效能低落 (browserETL.js)**
   - *原因*：`XLSX.read` 預設解析公式、樣式與 HTML，耗費 CPU。且射出/押出檔案只需要工作表清單名稱，卻進行了整份檔案單元格的完整解碼。
+- **問題三：檔案掃描流程 (processFilesList) 體感效率極差** ⚡
+  - *原因*：`processFilesList` 使用 `for...of await` 串行迴圈逐一解析 2198 個檔案，完全無並行。同時 `parseExcelFile` 使用 `FileReader` callback 包裝，額外增加 `Uint8Array` 中間轉換開銷，且 `XLSX.read` 未加任何輕量化參數。此流程為使用者最直觀感受到的效能瓶頸。
 
 ### 矯正與預防措施 (CAPA)
 - **矯正措施**：
@@ -20,13 +22,17 @@
   2. **元數據預讀 (bookSheets)**：在 QIP 射出與押出中直接開啟 `{ bookSheets: true }`，完全跳過單元格解碼，解析時間趨近於 0ms。
   3. **目標工作表篩選 (sheets)**：一般品檢檔案先預讀工作表名稱進行過濾，再透過 `sheets: targetSheets` 參數僅解析目標工作表，避開無用範例與空白頁。
   4. **禁用無用特徵**：關閉樣式、公式及 HTML 解析，僅保留 Raw 數值，顯著縮減記憶體與 CPU 佔用。
-  5. **MECE 整理**：將未追蹤檔案 `狀態異常訊息.md` 移動至 `docs/狀態異常訊息.md`，保持根目錄整潔，並更新 `README.md` 目錄結構。
+  5. **分批並行掃描 (Batched Concurrency)** ⚡：將 `processFilesList` 的串行迴圈改為每批 8 個檔案並行 (`Promise.all`)，並在批次間以 `setTimeout(r, 0)` 讓渡事件循環，防止 UI 凍結與瀏覽器判斷無回應。新增 `scanProgress` 狀態與進度條 UI。
+  6. **FileReader 替換為 `file.arrayBuffer()`** ⚡：移除 `parseExcelFile` 中的 `FileReader` callback 包裝，改用現代 `file.arrayBuffer()` API，減少中間 `Uint8Array` 轉換與回調開銷。
+  7. **MECE 整理**：將未追蹤檔案 `狀態異常訊息.md` 移動至 `docs/狀態異常訊息.md`，保持根目錄整潔，並更新 `README.md` 目錄結構。
 
 ### 進度追蹤
 - [x] 在 `App.jsx` 導入 `isETLCancelledRef` 解決取消失效 bug。
 - [x] 在 `App.jsx` 中對調導航 Tab 按鈕渲染順序。
 - [x] 在 `browserETL.js` 中實現 `bookSheets: true` 與輕量化 options 解析優化。
 - [x] 移動 `狀態異常訊息.md` 至 `docs/` 文件夾下。
+- [x] 將 `processFilesList` 串行迴圈改為分批並行（每批 8 個檔案），新增 `scanProgress` 進度條 UI。
+- [x] 將 `parseExcelFile` 的 `FileReader` 替換為 `file.arrayBuffer()`，並加入 SheetJS 輕量化參數。
 - [x] 執行 `npm run build` 確效打包成功。
 
 ---

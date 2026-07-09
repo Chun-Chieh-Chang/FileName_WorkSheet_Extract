@@ -17,13 +17,16 @@ const LETTER_MONTH = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, I: 9, J: 
  * @param {number} year - The target year for ETL tracking.
  * @returns {Promise<Object>} Resolves with the parsing results.
  */
-export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
+export const parseExcelFile = async (file, mappings, year = new Date().getFullYear()) => {
+  try {
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, {
+      type: 'array',
+      cellFormula: false,
+      cellHTML: false,
+      cellStyles: false,
+      cellDates: true
+    });
         const results = [];
         
         // Track duplicates in the same file to mimic ETL deduplication
@@ -344,27 +347,15 @@ export const parseExcelFile = (file, mappings, year = new Date().getFullYear()) 
           });
         });
         
-        resolve({ success: true, fileName: file.name, sheets: results });
-      } catch (err) {
-        console.error(`Error parsing ${file.name}:`, err);
-        resolve({
-          success: false,
-          fileName: file.name,
-          error: "無法開啟 (可能損壞或格式不支援)"
-        });
-      }
+    return { success: true, fileName: file.name, sheets: results };
+  } catch (err) {
+    console.error(`Error parsing ${file.name}:`, err);
+    return {
+      success: false,
+      fileName: file.name,
+      error: "無法開啟 (可能損壞或格式不支援)"
     };
-    
-    reader.onerror = () => {
-      resolve({
-        success: false,
-        fileName: file.name,
-        error: "讀取檔案時發生錯誤"
-      });
-    };
-    
-    reader.readAsArrayBuffer(file);
-  });
+  }
 };
 
 /**

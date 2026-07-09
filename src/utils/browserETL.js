@@ -195,111 +195,51 @@ export function determineQCFromSheet(json, initialQC, relPath) {
       }
     }
     
-    // If column A doesn't have QC code, check remaining columns (B-H, indices 1-7)
-    for (let ci = 1; ci < row.length && ci < 8; ci++) {
-      const val = String(row[ci] || '').trim();
-      if (!val) continue;
-
-      if (val.indexOf('QC10002-R02') >= 0) return 'QC10002-R02';
-      if (val.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
-      if (val.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
-      if (val.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
-      if (val.indexOf('QC10007-R01') >= 0 || val.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
-      if (val.indexOf('QC10008') >= 0) return 'QC10008-R02';
-
-      if (ri === 0 || ri === 1 || ri === 2) {
-        const titleKeys = Object.keys(FORM_TITLE_MAP);
-        for (let k = 0; k < titleKeys.length; k++) {
-          if (val.indexOf(titleKeys[k]) >= 0) return FORM_TITLE_MAP[titleKeys[k]];
-        }
-      }
-    }
-  }
-
-  // Scan footer (last 30 rows) for merged or hidden sheet footprints
-  const footerStart = Math.max(0, json.length - 30);
-  for (let ri = footerStart; ri < json.length; ri++) {
-    const row = json[ri];
-    if (!row) continue;
-    
-    // OPTIMIZATION: Check column A first
-    const colA = String(row[0] || '').trim();
-    if (colA) {
-      if (colA.indexOf('QC10002-R02') >= 0) return 'QC10002-R02';
-      if (colA.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
-      if (colA.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
-      if (colA.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
-      if (colA.indexOf('QC10007-R01') >= 0 || colA.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
-      if (colA.indexOf('QC10008') >= 0) return 'QC10008-R02';
-    }
-    
-    // Check remaining columns
-    for (let ci = 1; ci < row.length && ci < 8; ci++) {
-      const val = String(row[ci] || '').trim();
-      if (!val) continue;
-      if (val.indexOf('QC10002-R02') >= 0) return 'QC10002-R02';
-      if (val.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
-      if (val.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
-      if (val.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
-      if (val.indexOf('QC10007-R01') >= 0 || val.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
-      if (val.indexOf('QC10008') >= 0) return 'QC10008-R02';
-    }
+    // Removed check for remaining columns per user confirmation that valid QC codes only appear in Column A (index 0).
   }
 
   return initialQC;
 }
 
 export function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
+  if (qc === 'QC10004-R02') return null; // Processed separately
+  if (qc === 'QC10006-R01') return '裝配巡檢'; // Always a single aggregated column
+
+  if (!relPath) return '未分類';
+
+  const parts = relPath.split('/');
+  
+  // Specific multi-level rule for QC10002-R02 (進料檢驗: 原料 vs 物料-子項)
   if (qc === 'QC10002-R02') {
-    const parts = relPath.split('/');
-    const p0 = parts[0].replace(/[-_]\d{4}$/, '').replace(/\s+/g, '');
+    const p0 = parts[0].replace(/[-_]20\d{2}$/, '').replace(/\s+/g, '');
     if (p0 === '原料') return '原料';
-    if (p0 === '物料') {
+    if (p0.includes('物料')) {
       if (parts.length > 1) {
-        const sub = parts[1].replace(/[-_]\d{4}$/, '').replace(/\s+/g, '');
-        if (sub) return '物料-' + sub;
-        return '物料-' + parts[1];
+        let sub = parts[1].replace(/[-_]20\d{2}$/, '').trim();
+        // Ensure standard prefix
+        if (!sub.startsWith('物料-') && sub !== '物料') sub = '物料-' + sub;
+        return sub;
       }
-      let name = fileName.replace(/\.xlsx$/i, '');
-      name = name.replace(/[-_]\d{4}[-_]\d{1,2}$/, '');
-      name = name.replace(/[-_]\d{4}$/, '');
-      name = name.replace(/[-_]\d{1,2}$/, '');
-      name = name.replace(/\s+/g, '');
-      return '物料-' + name;
+      return '物料';
     }
-    if (parts[0].indexOf('射出D') >= 0) return '射出D';
-    return null;
+    // Fallback if there's a new top-level folder inside 進料檢驗
+    return parts[0].replace(/[-_]?20\d{2}$/, '').trim() || '未分類';
   }
 
-  if (qc === 'QC10008-R02') {
-    return relPath.replace(/[-_](20\d{2})$/, '');
+  // Universal dynamic extraction for all other QCs (QC10006-R02, QC10007-R03, QC10008-R02, QC10007-R01)
+  // Extract the first sub-folder name and strip out year suffixes like "-2023" or "_2025"
+  let cat = parts[0].replace(/[-_]?20\d{2}$/, '').trim();
+  
+  // 排除已知的無關資料夾 (Irrelevant folders exclusion)
+  const excludeKeywords = ['空白', '舊版', '作廢', '測試', '範例', '半成品品檢表', '限組件用'];
+  for (const kw of excludeKeywords) {
+    if (cat.includes(kw)) return null; // Returning null skips the scan completely
   }
-
-  if (qc === 'QC10006-R02' || qc === 'QC10007-R01' || qc === 'QC10007-R02') {
-    return relPath.replace(/[-_](20\d{2})$/, '');
-  }
-
-  if (qc === 'QC10006-R01') {
-    return '裝配巡檢';
-  }
-
-  if (qc === 'QC10007-R03') {
-    const parts = relPath.split('/');
-    const name = parts[0].replace(/[-_](20\d{2})$/, '');
-    const catMap = {
-      '射出': '射出', '射出A': '射出A', '射出C': '射出C',
-      '射出D(組件)': '射出D(組件)', '射出D': '射出D',
-      'Tubing': 'Tubing',
-      '裝配A': '裝配A', '裝配B': '裝配B', '裝配C': '裝配C'
-    };
-    return catMap[name] || name;
-  }
-
-  if (qc === 'QC10004-R02') {
-    return null; // QC10004-R02 is processed separately via scanInjectionData and scanExtrusionData
-  }
-
-  return null;
+  
+  // 正規化某些命名差異
+  if (cat === 'MarMed GmbH') cat = 'MarMed';
+  
+  return cat || '未分類';
 }
 
 export function extractRawMonth(ws, fileName, sheetName, year, relPath, json, actualQC) {
@@ -442,6 +382,10 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
     const relPath = pathParts.slice(folderIdx + 1, pathParts.length - 1).join('/');
     const fileName = file.name;
 
+    // Early Exit: 如果在提取類別階段被判定為無關資料夾 (回傳 null)，直接跳過，不進行耗時的檔案讀取
+    const preCheckSubCat = getRawSubCategory(initialQC, relPath, fileName, '', qcFolder);
+    if (preCheckSubCat === null) continue;
+
     // Skip files with "空白" in the name (only if it is a blank template file with isolated '空白')
     const isBlankFile = (() => {
       let idx = fileName.indexOf('空白');
@@ -484,7 +428,8 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
         cellFormula: false,
         cellHTML: false,
         cellStyles: false,
-        cellDates: true
+        cellDates: true,
+        sheetRows: 100 // Optimization: 只解析前 100 行，大幅減少記憶體與 CPU 消耗
       });
       const seenQC7R1BaseNames = new Set();
 
@@ -720,23 +665,33 @@ export const exportSummaryExcelInBrowser = (counts, year) => {
   const monthArray = (data) => MONTHS.map(m => (data && data[m]) || 0);
   const totalArray = (data) => monthArray(data).reduce((a, b) => a + b, 0);
 
-  const addCategorySheet = (sheetName, columns, subCatToCol, qcCode, subCategoryFilter, titleRowText) => {
-    const colData = columns.map(() => ({}));
+  const addCategorySheet = (sheetName, qcCode, titleRowText, fixedColumns = null) => {
     const qcCounts = counts[qcCode];
-    if (qcCounts) {
-      for (let subCat in qcCounts) {
-        if (subCategoryFilter && !subCategoryFilter(subCat)) continue;
-        const colIdx = subCatToCol(subCat);
-        if (colIdx === null || colIdx === undefined) continue;
+    if (!qcCounts) return;
 
-        const monthly = qcCounts[subCat];
+    let columns = fixedColumns;
+    if (!columns) {
+      let dynamicKeys = Object.keys(qcCounts).filter(k => k !== '未分類').sort();
+      columns = dynamicKeys.map(k => ({ key: k, label: k }));
+      if (qcCounts['未分類']) {
+        columns.push({ key: '未分類', label: '未分類' });
+      }
+    }
+
+    if (columns.length === 0) return;
+
+    const colData = columns.map(() => Array(13).fill(0));
+
+    columns.forEach((col, colIdx) => {
+      const monthly = qcCounts[col.key];
+      if (monthly) {
         for (let m = 1; m <= 12; m++) {
           if (monthly[m]) {
             colData[colIdx][m] = (colData[colIdx][m] || 0) + monthly[m];
           }
         }
       }
-    }
+    });
 
     const rows = [
       [titleRowText || sheetName],
@@ -776,129 +731,29 @@ export const exportSummaryExcelInBrowser = (counts, year) => {
   };
 
   // 1. 原物料品檢 (QC10002-R02)
-  const rawCols = [
-    {key:'原料', label:'原料'}, {key:'物料-B膠', label:'物料-B膠'}, {key:'物料-收縮膜', label:'物料-收縮膜'},
-    {key:'物料-色粉', label:'物料-色粉'}, {key:'物料-空白包裝袋', label:'物料-空白包裝袋'}, {key:'物料-空白感壓紙', label:'物料-空白感壓紙'},
-    {key:'物料-塑膠袋', label:'物料-塑膠袋'}, {key:'物料-塑膠袋40X50', label:'物料-塑膠袋40X50'}, {key:'物料-紙箱', label:'物料-紙箱'},
-    {key:'物料-過濾網連蓋', label:'物料-過濾網連蓋'}, {key:'物料-標籤', label:'物料-標籤'}, {key:'射出D', label:'射出D'}
-  ];
-  const rawSubCatMap = (subCat) => {
-    if (subCat === '原料') return 0;
-    if (subCat === '物料-B膠') return 1;
-    if (subCat === '物料-收縮膜') return 2;
-    if (subCat === '物料-色粉') return 3;
-    if (subCat === '物料-空白包裝袋') return 4;
-    if (subCat === '物料-空白感壓紙') return 5;
-    if (subCat === '物料-塑膠袋') return 6;
-    if (subCat === '物料-塑膠袋40*50' || subCat === '物料-塑膠袋40X50') return 7;
-    if (subCat === '物料-紙箱') return 8;
-    if (subCat === '物料-過濾網連蓋') return 9;
-    if (subCat === '物料-標籤') return 10;
-    if (subCat === '射出D') return 11;
-    return null;
-  };
-  addCategorySheet(
-    '原物料品檢(QC10002-R02)',
-    rawCols,
-    rawSubCatMap,
-    'QC10002-R02',
-    null,
-    '原物料/配件進料品檢'
-  );
+  addCategorySheet('原物料品檢(QC10002-R02)', 'QC10002-R02', '原物料/配件進料品檢');
 
-  // 2. QIP (QC10004-R02)
+  // 2. QIP (QC10004-R02) - Kept fixed columns for specific ordering
   const qipCols = [
     {key:'QIP-Setup', label:'Setup(射出)'}, {key:'QIP-Patrol', label:'巡檢(射出)'},
     {key:'押出-Setup', label:'Setup(押出)'}, {key:'押出-Patrol', label:'巡檢(押出)'}
   ];
-  const qipSubCatMap = {
-    'QIP-Setup': 0, 'QIP-Patrol': 1, '押出-Setup': 2, '押出-Patrol': 3
-  };
-  addCategorySheet(
-    'QIP(QC10004-R02)',
-    qipCols,
-    (sub) => qipSubCatMap[sub],
-    'QC10004-R02',
-    null,
-    'QIP品檢'
-  );
+  addCategorySheet('QIP(QC10004-R02)', 'QC10004-R02', 'QIP品檢', qipCols);
 
   // 3. 裝配對樣巡檢 (QC10006-R01)
-  addCategorySheet(
-    '裝配對樣巡檢(QC10006-R01)',
-    [{key:'裝配巡檢', label:'裝配巡檢'}],
-    () => 0,
-    'QC10006-R01',
-    null,
-    '裝配對樣巡檢'
-  );
+  addCategorySheet('裝配對樣巡檢(QC10006-R01)', 'QC10006-R01', '裝配對樣巡檢');
 
   // 4. 半成品品檢 (QC10006-R02)
-  const semiCols = [
-    {key:'裝配C', label:'裝配C'}, {key:'BD', label:'BD'}, {key:'Biometrix', label:'Biometrix'},
-    {key:'MPS', label:'MPS'}, {key:'Vivus', label:'Vivus'}
-  ];
-  const semiSubCatMap = { 'BD': 1, 'Biometrix': 2, 'MPS': 3, 'Vivus': 4 };
-  addCategorySheet(
-    '半成品品檢(QC10006-R02)',
-    semiCols,
-    (sub) => {
-      const idx = semiSubCatMap[sub];
-      if (idx === undefined && sub.indexOf('裝配C') >= 0) return 0;
-      return idx;
-    },
-    'QC10006-R02',
-    null,
-    '裝配半成品品檢'
-  );
+  addCategorySheet('半成品品檢(QC10006-R02)', 'QC10006-R02', '裝配半成品品檢');
 
   // 5. 完成品品檢 (QC10007-R01 R02)
-  const finCols = [
-    {key:'Biometrix', label:'Biometrix'}, {key:'MarMed', label:'MarMed'},
-    {key:'Saxon', label:'Saxon'}, {key:'Vivus', label:'Vivus'}
-  ];
-  const finSubCatMap = { 'Biometrix': 0, 'MarMed': 1, 'Saxon': 2, 'Vivus': 3 };
-  addCategorySheet(
-    '完成品品檢(QC10007-R01 R02)',
-    finCols,
-    (sub) => finSubCatMap[sub],
-    'QC10007-R01',
-    null,
-    '裝配完成品品檢'
-  );
+  addCategorySheet('完成品品檢(QC10007-R01 R02)', 'QC10007-R01', '裝配完成品品檢');
 
   // 6. 零組件入庫品檢 (QC10007-R03)
-  const partsCols = [
-    {key:'Tubing', label:'Tubing'}, {key:'射出', label:'射出(廠內)'}, {key:'射出A', label:'射出A'},
-    {key:'射出C', label:'射出C'}, {key:'射出D(組件)', label:'射出D(組件)'}, {key:'裝配A', label:'裝配A'},
-    {key:'裝配B', label:'裝配B'}, {key:'裝配C', label:'裝配C'}
-  ];
-  const partsSubCatMap = {
-    'Tubing': 0, '射出': 1, '射出A': 2, '射出C': 3, '射出D(組件)': 4,
-    '裝配A': 5, '裝配B': 6, '裝配C': 7
-  };
-  addCategorySheet(
-    '零組件入庫品檢(QC10007-R03)',
-    partsCols,
-    (sub) => partsSubCatMap[sub],
-    'QC10007-R03',
-    null,
-    '零組件入庫檢'
-  );
+  addCategorySheet('零組件入庫品檢(QC10007-R03)', 'QC10007-R03', '零組件入庫檢');
 
   // 7. 出貨檢驗 (QC10008-R02)
-  const shipCols = [
-    {key:'ICU', label:'ICU'}, {key:'其他', label:'其他'}
-  ];
-  const shipSubCatMap = { 'ICU': 0, '其他': 1 };
-  addCategorySheet(
-    '出貨檢驗(QC10008-R02)',
-    shipCols,
-    (sub) => shipSubCatMap[sub],
-    'QC10008-R02',
-    null,
-    '出貨檢驗'
-  );
+  addCategorySheet('出貨檢驗(QC10008-R02)', 'QC10008-R02', '出貨檢驗');
 
   XLSX.writeFile(wb, `${year}品檢報表統計.xlsx`);
 };

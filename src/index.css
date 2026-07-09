@@ -377,6 +377,7 @@ body {
   gap: 16px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .search-input {
@@ -420,6 +421,7 @@ body {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   flex: 1;
+  min-height: 0;
 }
 
 .data-table {

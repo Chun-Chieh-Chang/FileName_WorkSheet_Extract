@@ -49,7 +49,8 @@ npm run build
 ```
 ├── docs/                         # 開發相關文件與 wiki
 │   ├── qc-path-analysis/         # 品檢映射路徑分析文檔
-│   └── today-requirements-*.md   # 歷史今日需求整理日誌
+│   ├── today-requirements-*.md   # 歷史今日需求整理日誌
+│   └── 狀態異常訊息.md           # 狀態異常原因與觸發條件說明文件
 ├── src/                          # React SPA 互動儀表板與前端 ETL
 │   ├── App.jsx                   # 主介面
 │   ├── index.css                 # 全域樣式 (Outfit + Noto Sans TC)

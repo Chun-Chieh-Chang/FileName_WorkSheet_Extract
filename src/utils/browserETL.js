@@ -465,16 +465,30 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
 
     try {
       const data = await file.arrayBuffer();
-      const wb = XLSX.read(data, { type: 'array' });
+      
+      // Pre-read sheet names to skip parsing non-target sheets
+      const wbHeader = XLSX.read(data, { type: 'array', bookSheets: true });
+      const targetSheets = wbHeader.SheetNames.filter(sheetName => {
+        if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別') return false;
+        if (sheetName.indexOf('Sheet') >= 0) return false; // skip any sheet with "Sheet" in name
+        if (/^QC[-_]?\d+/i.test(sheetName.trim())) return false; // skip template sheets named QC-xxx
+        if (sheetName.trim().indexOf('出貨') === 0) return false;
+        return true;
+      });
+
+      if (targetSheets.length === 0) continue;
+
+      const wb = XLSX.read(data, { 
+        type: 'array',
+        sheets: targetSheets,
+        cellFormula: false,
+        cellHTML: false,
+        cellStyles: false,
+        cellDates: true
+      });
       const seenQC7R1BaseNames = new Set();
 
-      wb.SheetNames.forEach(sheetName => {
-        // Skip non-data sheets: QC開頭、Sheet、空白
-        if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別') return;
-        if (sheetName.indexOf('Sheet') >= 0) return; // skip any sheet with "Sheet" in name
-        if (/^QC[-_]?\d+/i.test(sheetName.trim())) return; // skip template sheets named QC-xxx
-        if (sheetName.trim().indexOf('出貨') === 0) return;
-
+      targetSheets.forEach(sheetName => {
         const ws = wb.Sheets[sheetName];
         if (!ws) return;
         const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
@@ -629,7 +643,7 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
     if (isPatrol) {
       try {
         const data = await file.arrayBuffer();
-        const wb = XLSX.read(data, { type: 'array' });
+        const wb = XLSX.read(data, { type: 'array', bookSheets: true });
         const uniqueBaseInFile = {};
         wb.SheetNames.forEach(sheetName => {
           const normalizedSheetName = normalizeScientificNotation(sheetName);
@@ -672,7 +686,7 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
 
     try {
       const data = await file.arrayBuffer();
-      const wb = XLSX.read(data, { type: 'array' });
+      const wb = XLSX.read(data, { type: 'array', bookSheets: true });
       const uniqueBaseInFile = {};
       wb.SheetNames.forEach(sheetName => {
         const normalizedSheetName = normalizeScientificNotation(sheetName);

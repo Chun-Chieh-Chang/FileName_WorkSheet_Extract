@@ -37,6 +37,7 @@ function App() {
 
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
+  const isETLCancelledRef = useRef(false);
 
   // ==========================================
   // STATE FOR TAB 2: Mappings & Extractor
@@ -335,11 +336,12 @@ function App() {
     if (!uploadedFiles || uploadedFiles.length === 0) return;
     setIsProcessingETL(true);
     setIsETLCancelled(false);
+    isETLCancelledRef.current = false;
     setEtlProgress({ current: 0, total: uploadedFiles.length, filename: "初始化中..." });
     
     try {
       const counts = await runETLInBrowser(uploadedFiles, year, (current, total, filename) => {
-        if (isETLCancelled) {
+        if (isETLCancelledRef.current) {
           setIsProcessingETL(false);
           throw new Error('ETL cancelled by user');
         }
@@ -369,12 +371,13 @@ function App() {
     }
     setIsProcessingETL(true);
     setIsETLCancelled(false);
+    isETLCancelledRef.current = false;
     setEtlProgress({ current: 0, total: uploadedFiles.length, filename: "初始化中..." });
     
     (async () => {
       try {
         const counts = await runETLInBrowser(uploadedFiles, year, (current, total, filename) => {
-          if (isETLCancelled) {
+          if (isETLCancelledRef.current) {
             setIsProcessingETL(false);
             throw new Error('ETL cancelled by user');
           }
@@ -1304,16 +1307,16 @@ function App() {
       {/* Main Tab Mode Toggle */}
       <nav className="app-nav">
         <button 
-          className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dashboard')}
-        >
-          📊 McKinsey 品檢分析儀表板
-        </button>
-        <button 
           className={`nav-tab ${activeTab === 'extractor' ? 'active' : ''}`}
           onClick={() => setActiveTab('extractor')}
         >
           ⚙️ 品檢編碼對照與提取工具
+        </button>
+        <button 
+          className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          📊 McKinsey 品檢分析儀表板
         </button>
       </nav>
 
@@ -1731,7 +1734,10 @@ function App() {
                     </div>
                     <button 
                       className="btn btn-danger" 
-                      onClick={() => setIsETLCancelled(true)}
+                      onClick={() => {
+                        setIsETLCancelled(true);
+                        isETLCancelledRef.current = true;
+                      }}
                       style={{ marginTop: '12px' }}
                     >
                       ❌ 取消處理

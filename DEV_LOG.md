@@ -1,5 +1,36 @@
 # 開發日誌 (DEV_LOG.md)
 
+## 2026-07-09 ETL 效能優化、取消處理修復與佈局微調
+
+### 需求說明
+1. 修正「取消處理」按鈕無效之 React 閉包 Bug，確保可隨時中止執行中的 ETL 運算。
+2. 將主要導覽按鈕「品檢編碼對照與提取工具」與「McKinsey 品檢分析儀表板」之順序對調。
+3. 優化瀏覽器端 Excel 轉檔 ETL 效能，在不影響任何數據處理準確度的前提下，提升檔案解析速度。
+4. 進行專案整理（MECE）及過時檔案清理。
+
+### 遇到的問題與根因分析 (RCA)
+- **問題一：取消處理按鈕點擊後後台繼續轉檔**
+  - *原因*：因為非同步 ETL 迴圈執行的 callback 捕獲了舊渲染週期的 `isETLCancelled = false` 閉包，即使 state 變為 `true`，正在執行的 callback 也無法讀到最新值。
+- **問題二：SheetJS 解析大批量 Excel 效能低落**
+  - *原因*：`XLSX.read` 預設解析公式、樣式與 HTML，耗費 CPU。且射出/押出檔案只需要工作表清單名稱，卻進行了整份檔案單元格的完整解碼。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. **React 閉包修復**：引入 `isETLCancelledRef = useRef(false)` 繞過閉包快照，並於點擊按鈕時同步更新 Ref，使執行中的 callback 能即時讀取最新狀態以拋出 Cancel 異常。
+  2. **元數據預讀 (bookSheets)**：在 QIP 射出與押出中直接開啟 `{ bookSheets: true }`，完全跳過單元格解碼，解析時間趨近於 0ms。
+  3. **目標工作表篩選 (sheets)**：一般品檢檔案先預讀工作表名稱進行過濾，再透過 `sheets: targetSheets` 參數僅解析目標工作表，避開無用範例與空白頁。
+  4. **禁用無用特徵**：關閉樣式、公式及 HTML 解析，僅保留 Raw 數值，顯著縮減記憶體與 CPU 佔用。
+  5. **MECE 整理**：將未追蹤檔案 `狀態異常訊息.md` 移動至 `docs/狀態異常訊息.md`，保持根目錄整潔，並更新 `README.md` 目錄結構。
+
+### 進度追蹤
+- [x] 在 `App.jsx` 導入 `isETLCancelledRef` 解決取消失效 bug。
+- [x] 在 `App.jsx` 中對調導航 Tab 按鈕渲染順序。
+- [x] 在 `browserETL.js` 中實現 `bookSheets: true` 與輕量化 options 解析優化。
+- [x] 移動 `狀態異常訊息.md` 至 `docs/` 文件夾下。
+- [x] 執行 `npm run build` 確效打包成功。
+
+---
+
 ## 2026-06-28 Excel 報表結構與欄位重構
 
 ### 需求說明

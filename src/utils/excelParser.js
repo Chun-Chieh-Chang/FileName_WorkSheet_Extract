@@ -49,7 +49,6 @@ export const parseExcelFile = async (file, mappings, year = new Date().getFullYe
           
           if (ws) {
             const regEx = /QC\d{5}-R\d{2}/i;
-            const cellKeys = Object.keys(ws);
             for (let key of cellKeys) {
               if (key.startsWith('!')) continue;
               // Optimization: Only scan Column A

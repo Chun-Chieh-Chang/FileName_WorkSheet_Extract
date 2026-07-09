@@ -171,12 +171,14 @@ export function determineQCFromSheet(json, initialQC, relPath) {
   if (initialQC === 'QC10006-R01') return 'QC10006-R01';
   if (initialQC === 'QC10004-R02') return 'QC10004-R02';
 
-  const scanLimit = Math.min(15, json.length);
+  // 掃描範圍擴大：依據 XLSX.read 的 sheetRows: 100，這裡最高會掃描到 100 行
+  // 這樣就能正確捕捉到位於表單底部的 QC 編碼 (例如 A51)
+  const scanLimit = json.length;
   for (let ri = 0; ri < scanLimit; ri++) {
     const row = json[ri];
     if (!row) continue;
     
-    // OPTIMIZATION: Check column A first (index 0), return immediately if QC code found
+    // 使用者確認：QC編碼必定在 A 欄，因此我們直接鎖定 Column A 進行極速掃描
     const colA = String(row[0] || '').trim();
     if (colA) {
       if (colA.indexOf('QC10002-R02') >= 0) return 'QC10002-R02';
@@ -185,17 +187,15 @@ export function determineQCFromSheet(json, initialQC, relPath) {
       if (colA.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
       if (colA.indexOf('QC10007-R01') >= 0 || colA.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
       if (colA.indexOf('QC10008') >= 0) return 'QC10008-R02';
-      
-      // Check for form title in column A (header only)
-      if (ri === 0) {
+
+      // Check for form title in column A (header only, restricted to first 3 rows)
+      if (ri < 3) {
         const titleKeys = Object.keys(FORM_TITLE_MAP);
         for (let k = 0; k < titleKeys.length; k++) {
           if (colA.indexOf(titleKeys[k]) >= 0) return FORM_TITLE_MAP[titleKeys[k]];
         }
       }
     }
-    
-    // Removed check for remaining columns per user confirmation that valid QC codes only appear in Column A (index 0).
   }
 
   return initialQC;
@@ -220,7 +220,13 @@ export function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
         if (!sub.startsWith('物料-') && sub !== '物料') sub = '物料-' + sub;
         return sub;
       }
-      return '物料';
+      // 如果檔案直接放在「物料」資料夾底下，則取其「檔名」作為子類別 (恢復舊有邏輯，以展開細項)
+      let name = fileName.replace(/\.xlsx$/i, '');
+      name = name.replace(/[-_]\d{4}[-_]\d{1,2}$/, '');
+      name = name.replace(/[-_]\d{4}$/, '');
+      name = name.replace(/[-_]\d{1,2}$/, '');
+      name = name.replace(/\s+/g, '');
+      return '物料-' + name;
     }
     // Fallback if there's a new top-level folder inside 進料檢驗
     return parts[0].replace(/[-_]?20\d{2}$/, '').trim() || '未分類';
@@ -231,13 +237,16 @@ export function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
   let cat = parts[0].replace(/[-_]?20\d{2}$/, '').trim();
   
   // 排除已知的無關資料夾 (Irrelevant folders exclusion)
-  const excludeKeywords = ['空白', '舊版', '作廢', '測試', '範例', '半成品品檢表', '限組件用'];
+  // 移除 '半成品品檢表'，避免誤殺 QC10006-R02 核心數據
+  const excludeKeywords = ['空白', '舊版', '作廢', '測試', '範例'];
   for (const kw of excludeKeywords) {
     if (cat.includes(kw)) return null; // Returning null skips the scan completely
   }
   
   // 正規化某些命名差異
   if (cat === 'MarMed GmbH') cat = 'MarMed';
+  if (cat === '物料-塑膠袋40*50') cat = '物料-塑膠袋40X50';
+  if (cat === '半成品品檢表2023(限組件用)' || cat.includes('(限組件用)')) return null; // 特殊排除此垃圾資料夾
   
   return cat || '未分類';
 }
@@ -666,8 +675,10 @@ export const exportSummaryExcelInBrowser = (counts, year) => {
   const totalArray = (data) => monthArray(data).reduce((a, b) => a + b, 0);
 
   const addCategorySheet = (sheetName, qcCode, titleRowText, fixedColumns = null) => {
-    const qcCounts = counts[qcCode];
-    if (!qcCounts) return;
+    const qcCounts = counts[qcCode] || {};
+    
+    // 如果沒有資料，且也沒有指定固定欄位，則不產生工作表 (完全動態情況)
+    if (Object.keys(qcCounts).length === 0 && !fixedColumns) return;
 
     let columns = fixedColumns;
     if (!columns) {
@@ -747,7 +758,12 @@ export const exportSummaryExcelInBrowser = (counts, year) => {
   addCategorySheet('半成品品檢(QC10006-R02)', 'QC10006-R02', '裝配半成品品檢');
 
   // 5. 完成品品檢 (QC10007-R01 R02)
-  addCategorySheet('完成品品檢(QC10007-R01 R02)', 'QC10007-R01', '裝配完成品品檢');
+  // 如果此項目沒有資料，依舊建立固定欄位的空表單以維持報表結構
+  const finCols = [
+    {key:'Biometrix', label:'Biometrix'}, {key:'MarMed', label:'MarMed'},
+    {key:'Saxon', label:'Saxon'}, {key:'Vivus', label:'Vivus'}
+  ];
+  addCategorySheet('完成品品檢(QC10007-R01 R02)', 'QC10007-R01', '裝配完成品品檢', finCols);
 
   // 6. 零組件入庫品檢 (QC10007-R03)
   addCategorySheet('零組件入庫品檢(QC10007-R03)', 'QC10007-R03', '零組件入庫檢');

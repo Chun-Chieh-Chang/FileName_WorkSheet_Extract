@@ -397,8 +397,8 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
     const normalizedPath = file.webkitRelativePath.replace(/\\/g, '/');
     const pathLower = normalizedPath.toLowerCase();
     
-    const isExtrusion = pathLower.includes('押出檢驗-' + year);
-    const isInjection = pathLower.includes('射出檢驗-' + year);
+    const isExtrusion = pathLower.includes('押出檢驗-' + year) || pathLower.includes('押出機台-' + year);
+    const isInjection = pathLower.includes('射出檢驗-' + year) || pathLower.includes('射出機台-' + year);
     
     if (isInjection) {
       qipInjFiles.push(file);

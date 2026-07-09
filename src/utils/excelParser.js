@@ -38,8 +38,8 @@ export const parseExcelFile = async (file, mappings, year = new Date().getFullYe
         const normalizedPath = filePath.replace(/\\/g, '/');
         const pathLower = normalizedPath.toLowerCase();
         
-        const isInjection = pathLower.includes('射出檢驗-' + year);
-        const isExtrusion = pathLower.includes('押出檢驗-' + year);
+        const isInjection = pathLower.includes('射出檢驗-' + year) || pathLower.includes('射出機台-' + year);
+        const isExtrusion = pathLower.includes('押出檢驗-' + year) || pathLower.includes('押出機台-' + year);
         
         workbook.SheetNames.forEach((sheetName) => {
           const normalizedSheetName = normalizeScientificNotation(sheetName);

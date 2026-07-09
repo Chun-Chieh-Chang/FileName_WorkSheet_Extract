@@ -1274,7 +1274,7 @@ function App() {
   const renderFilterableHeader = (label, fieldKey) => {
     const isFiltered = columnFilters[fieldKey] && columnFilters[fieldKey].length > 0;
     return (
-      <th style={{ position: 'relative', paddingRight: '8px' }}>
+      <th style={{ paddingRight: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
           <span style={{ whiteSpace: 'nowrap' }}>{label}</span>
           <button 

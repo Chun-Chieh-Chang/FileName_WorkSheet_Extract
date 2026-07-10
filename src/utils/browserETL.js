@@ -299,7 +299,7 @@ export function getRawSubCategory(qc, relPath, fileName, sheetName, qcFolder) {
   // 正規化某些命名差異
   if (cat === 'MarMed GmbH') cat = 'MarMed';
   if (cat === '物料-塑膠袋40*50') cat = '物料-塑膠袋40X50';
-  if (cat === '半成品品檢表2023(限組件用)' || cat.includes('(限組件用)')) return null; // 特殊排除此垃圾資料夾
+  if (cat === '半成品品檢表2023(限組件用)' || cat.includes('(限組件用)')) cat = '裝配C'; // 映射為裝配C，避免遺漏此年度資料夾
   
   return cat || '未分類';
 }

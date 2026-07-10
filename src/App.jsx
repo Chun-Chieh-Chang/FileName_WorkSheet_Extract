@@ -482,104 +482,57 @@ function App() {
   const exportIndividualReports = async (counts, year, outputDirHandle = null) => {
     const MONTHS_ARR = ["1","2","3","4","5","6","7","8","9","10","11","12"];
     
-    const reports = [
-      {
-        name: `進料檢驗-${year}`,
-        qcCode: 'QC10002-R02',
-        categories: ['原料','物料-B膠','物料-收縮膜','物料-色粉','物料-空白包裝袋','物料-空白感壓紙','物料-塑膠袋','物料-塑膠袋40X50','物料-紙箱','物料-過濾網連蓋','物料-標籤','射出D'],
-        title: '原物料/配件進料品檢'
-      },
-      {
-        name: `QIP尺寸檢驗-${year}`,
-        qcCode: 'QC10004-R02',
-        categories: ['QIP-Setup','QIP-Patrol','押出-Setup','押出-Patrol'],
-        title: 'QIP尺寸檢驗'
-      },
-      {
-        name: `裝配巡檢-${year}`,
-        qcCode: 'QC10006-R01',
-        categories: ['裝配巡檢'],
-        title: '裝配對樣巡檢'
-      },
-      {
-        name: `裝配檢驗-${year}`,
-        qcCode: 'QC10006-R02',
-        categories: ['裝配C','BD','Biometrix','MPS','Vivus'],
-        title: '半成品品檢'
-      },
-      {
-        name: `完成品品檢-${year}`,
-        qcCode: 'QC10007-R01',
-        categories: ['Biometrix','MarMed','Saxon','Vivus'],
-        title: '完成品品檢'
-      },
-      {
-        name: `零組件入庫-${year}_Tubing`,
-        qcCode: 'QC10007-R03',
-        categories: ['Tubing'],
-        title: '零組件入庫品檢'
-      },
-      {
-        name: `零組件入庫-${year}_射出`,
-        qcCode: 'QC10007-R03',
-        categories: ['射出'],
-        title: '零組件入庫品檢'
-      },
-      {
-        name: `零組件入庫-${year}_射出A`,
-        qcCode: 'QC10007-R03',
-        categories: ['射出A'],
-        title: '零組件入庫品檢'
-      },
-      {
-        name: `零組件入庫-${year}_射出C`,
-        qcCode: 'QC10007-R03',
-        categories: ['射出C'],
-        title: '零組件入庫品檢'
-      },
-      {
-        name: `零組件入庫-${year}_射出D(組件)`,
-        qcCode: 'QC10007-R03',
-        categories: ['射出D(組件)'],
-        title: '零組件入庫品檢'
-      },
-      {
-        name: `零組件入庫-${year}_射出D`,
-        qcCode: 'QC10007-R03',
-        categories: ['射出D'],
-        title: '零組件入庫品檢'
-      },
-      {
-        name: `零組件入庫-${year}_裝配A`,
-        qcCode: 'QC10007-R03',
-        categories: ['裝配A'],
-        title: '零組件入庫品檢'
-      },
-      {
-        name: `零組件入庫-${year}_裝配B`,
-        qcCode: 'QC10007-R03',
-        categories: ['裝配B'],
-        title: '零組件入庫品檢'
-      },
-      {
-        name: `零組件入庫-${year}_裝配C`,
-        qcCode: 'QC10007-R03',
-        categories: ['裝配C'],
-        title: '零組件入庫品檢'
-      },
-      {
-        name: `出貨檢驗-${year}`,
-        qcCode: 'QC10008-R02',
-        categories: ['ICU','其他'],
-        title: '出貨檢驗'
-      }
+    const baseReports = [
+      { qcCode: 'QC10002-R02', title: '原物料/配件進料品檢', namePrefix: '進料檢驗' },
+      { qcCode: 'QC10004-R02', title: 'QIP尺寸檢驗', namePrefix: 'QIP尺寸檢驗', fixed: ['QIP-Setup','QIP-Patrol','押出-Setup','押出-Patrol'] },
+      { qcCode: 'QC10006-R01', title: '裝配對樣巡檢', namePrefix: '裝配巡檢' },
+      { qcCode: 'QC10006-R02', title: '半成品品檢', namePrefix: '裝配檢驗' },
+      { qcCode: 'QC10007-R01', title: '完成品品檢', namePrefix: '完成品品檢' },
+      { qcCode: 'QC10007-R03', title: '零組件入庫品檢', namePrefix: '零組件入庫', splitSubCats: true }, // Split subcats into separate files
+      { qcCode: 'QC10008-R02', title: '出貨檢驗', namePrefix: '出貨檢驗' }
     ];
 
-    for (let report of reports) {
-      const { name, qcCode, categories, title } = report;
-      const qcCounts = counts[qcCode] || {};
+    const generatedReports = [];
+
+    for (let base of baseReports) {
+      const qcCounts = counts[base.qcCode] || {};
+      const subCats = Object.keys(qcCounts).filter(k => k !== '未分類').sort();
+      if (qcCounts['未分類']) subCats.push('未分類');
+
+      if (base.fixed) {
+        generatedReports.push({
+          name: `${base.namePrefix}-${year}`,
+          title: base.title,
+          qcCode: base.qcCode,
+          categories: base.fixed,
+          qcCounts: qcCounts
+        });
+      } else if (base.splitSubCats) {
+        subCats.forEach(sub => {
+          generatedReports.push({
+            name: `${base.namePrefix}-${year}_${sub}`,
+            title: base.title,
+            qcCode: base.qcCode,
+            categories: [sub],
+            qcCounts: qcCounts
+          });
+        });
+      } else {
+        if (subCats.length > 0) {
+          generatedReports.push({
+            name: `${base.namePrefix}-${year}`,
+            title: base.title,
+            qcCode: base.qcCode,
+            categories: subCats,
+            qcCounts: qcCounts
+          });
+        }
+      }
+    }
+
+    for (let report of generatedReports) {
+      const { name, categories, title, qcCounts, qcCode } = report;
       
-      // Aggregate data for this report's categories
       const colData = categories.map(() => ({}));
       
       for (let subCat in qcCounts) {
@@ -594,6 +547,8 @@ function App() {
       }
 
       const rows = [[title], ['月份', ...categories]];
+      if (qcCode !== 'QC10006-R01') rows[1].push('小計');
+
       for (let m = 1; m <= 12; m++) {
         const row = [`${MONTHS_ARR[m-1]}月`];
         let total = 0;
@@ -602,11 +557,10 @@ function App() {
           row.push(v);
           total += v;
         });
-        row.push(total);
+        if (qcCode !== 'QC10006-R01') row.push(total);
         rows.push(row);
       }
       
-      // Total row
       const totalRow = ['小計'];
       let grandTotal = 0;
       categories.forEach((_, ci) => {
@@ -615,7 +569,7 @@ function App() {
         totalRow.push(t);
         grandTotal += t;
       });
-      totalRow.push(grandTotal);
+      if (qcCode !== 'QC10006-R01') totalRow.push(grandTotal);
       rows.push(totalRow);
 
       const wb = XLSX.utils.book_new();

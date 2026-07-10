@@ -34,7 +34,20 @@ export const parseExcelFile = async (file, mappings, year = new Date().getFullYe
         const seenInjPatrolBaseNames = new Set();
         const seenExtPatrolBaseNames = new Set();
 
-        const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim()) || /^[0-9a-f]{32}$/i.test(str.trim());
+        const isUUID = (str) => {
+          if (!str) return false;
+          const s = str.trim().toLowerCase();
+          if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s)) return true;
+          if (/^[0-9a-f]{32}$/.test(s)) return true;
+          if (s.length === 36 && /^[0-9a-f\-]+$/.test(s)) return true;
+          if (s.length >= 24 && /^[a-z0-9\-]+$/.test(s)) {
+            const hasDigit = /[0-9]/.test(s);
+            const hasAlpha = /[a-z]/.test(s);
+            const hasHyphen = /-/.test(s);
+            if ((hasDigit && hasAlpha) || hasHyphen) return true;
+          }
+          return false;
+        };
         const filePath = file.webkitRelativePath || file.name;
         const normalizedPath = filePath.replace(/\\/g, '/').split('/').filter(p => !isUUID(p)).join('/');
         const pathLower = normalizedPath.toLowerCase();

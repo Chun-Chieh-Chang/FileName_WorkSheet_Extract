@@ -5,9 +5,30 @@ const LETTER_MONTH = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, I: 9, J: 
 
 const isUUID = (str) => {
   if (!str) return false;
-  const s = str.trim();
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s) ||
-         /^[0-9a-f]{32}$/i.test(s);
+  const s = str.trim().toLowerCase();
+  
+  // 1. Standard UUID: 8-4-4-4-12 hex chars (e.g. f81d4fae-7dec-11d0-a765-00a0c91e6bf6)
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s)) return true;
+  
+  // 2. 32-char hex string (e.g. f81d4fae7dec11d0a76500a0c91e6bf6)
+  if (/^[0-9a-f]{32}$/.test(s)) return true;
+  
+  // 3. Looser GUID pattern: Any 36-char string consisting of only hex, digits and hyphens
+  if (s.length === 36 && /^[0-9a-f\-]+$/.test(s)) return true;
+  
+  // 4. General browser/system generated random directory format (typically fffffff-ffff...)
+  // Check if it matches a string of letters, numbers, and hyphens with length >= 24, 
+  // and doesn't contain any Chinese characters or common business keywords.
+  if (s.length >= 24 && /^[a-z0-9\-]+$/.test(s)) {
+    const hasDigit = /[0-9]/.test(s);
+    const hasAlpha = /[a-z]/.test(s);
+    const hasHyphen = /-/.test(s);
+    if ((hasDigit && hasAlpha) || hasHyphen) {
+      return true;
+    }
+  }
+  
+  return false;
 };
 
 const FOLDER_QC_MAP = {

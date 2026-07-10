@@ -7,6 +7,21 @@ import * as XLSX from 'xlsx';
 
 const MONTH_LABELS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
 
+const isUUID = (str) => {
+  if (!str) return false;
+  const s = str.trim().toLowerCase();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s)) return true;
+  if (/^[0-9a-f]{32}$/.test(s)) return true;
+  if (s.length === 36 && /^[0-9a-f\-]+$/.test(s)) return true;
+  if (s.length >= 24 && /^[a-z0-9\-]+$/.test(s)) {
+    const hasDigit = /[0-9]/.test(s);
+    const hasAlpha = /[a-z]/.test(s);
+    const hasHyphen = /-/.test(s);
+    if ((hasDigit && hasAlpha) || hasHyphen) return true;
+  }
+  return false;
+};
+
 const MCK_COLORS = [
   '#002D62', // McKinsey Navy
   '#D4AF37', // Consulting Gold
@@ -293,9 +308,8 @@ function App() {
     
     const processOneFile = async (file) => {
       const filePath = file.webkitRelativePath || file.name;
-      const fullPath = filePath.replace(/\\/g, '/');
-      const lastSlash = fullPath.lastIndexOf('/');
-      const dirPath = lastSlash !== -1 ? fullPath.substring(0, lastSlash) : "";
+      const pathParts = filePath.replace(/\\/g, '/').split('/').filter(p => !isUUID(p));
+      const dirPath = pathParts.length > 1 ? pathParts.slice(0, pathParts.length - 1).join('/') : "";
       
       try {
         const fileRes = await parseExcelFile(file, mappings, yearForParse);
@@ -643,7 +657,8 @@ function App() {
     if (e.target.files.length === 0) return;
     const firstFile = e.target.files[0];
     const path = firstFile.webkitRelativePath || "";
-    const folder = path.split('/')[0] || "資料夾夾檔案統計";
+    const parts = path.split(/[\\/]/).filter(p => !isUUID(p));
+    const folder = parts[0] || "資料夾檔案統計";
     processFilesList(e.target.files, folder);
   };
 

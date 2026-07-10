@@ -1859,9 +1859,9 @@ function App() {
                               padding: '6px 24px 6px 12px',
                               fontSize: '13px',
                               borderRadius: '6px',
-                              border: '1px solid var(--mck-accent-gold)',
+                              border: `1px solid ${engineVersion === 'new' ? 'var(--mck-accent-gold)' : '#4A5568'}`,
                               background: '#ffffff',
-                              color: 'var(--mck-navy)',
+                              color: engineVersion === 'new' ? 'var(--mck-navy)' : '#4A5568',
                               fontWeight: 600,
                               cursor: isScanning ? 'not-allowed' : 'pointer',
                               opacity: isScanning ? 0.6 : 1,
@@ -1880,10 +1880,11 @@ function App() {
                           onClick={() => handleRunBrowserETL(etlYear)}
                           disabled={isScanning}
                           style={{ 
-                            background: 'var(--mck-navy)', 
-                            borderColor: 'var(--mck-navy)',
+                            background: engineVersion === 'new' ? 'var(--mck-navy)' : '#4A5568', 
+                            borderColor: engineVersion === 'new' ? 'var(--mck-navy)' : '#4A5568',
                             opacity: isScanning ? 0.6 : 1,
-                            cursor: isScanning ? 'not-allowed' : 'pointer'
+                            cursor: isScanning ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s'
                           }}
                         >
                           {isScanning ? '🔍 正在解析原始檔案中...' : `📊 輸出 ${etlYear} 品檢報表統計`}
@@ -1894,10 +1895,11 @@ function App() {
                           onClick={() => handleExportIndividualReports(etlYear)}
                           disabled={isScanning}
                           style={{ 
-                            borderColor: 'var(--mck-navy)',
-                            color: 'var(--mck-navy)',
+                            borderColor: engineVersion === 'new' ? 'var(--mck-navy)' : '#4A5568',
+                            color: engineVersion === 'new' ? 'var(--mck-navy)' : '#4A5568',
                             opacity: isScanning ? 0.6 : 1,
-                            cursor: isScanning ? 'not-allowed' : 'pointer'
+                            cursor: isScanning ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s'
                           }}
                         >
                           {isScanning ? '🔍 解析中...' : `📦 輸出 ${etlYear} 獨立報表 (全部 QC)`}

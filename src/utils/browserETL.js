@@ -104,12 +104,24 @@ export function detectQCFromFolder(dirname) {
 export function parseDateFromString(str) {
   if (!str) return null;
   str = normalizeScientificNotation(String(str).trim());
-  let m = str.match(/\b(20\d{2})[-/](\d{1,2})[-/]\d{1,2}\b/);
+  
+  // 1. ROC date with 3-digit year (e.g., 112/03/15, 112.03.15, 112-3-15)
+  let rocMatch = str.match(/\b(1\d{2})[-/.](\d{1,2})[-/.]\d{1,2}\b/);
+  if (rocMatch) {
+    const rocYear = parseInt(rocMatch[1], 10);
+    const adYear = rocYear + 1911;
+    return { year: adYear, month: parseInt(rocMatch[2], 10) };
+  }
+
+  // 2. Standard 4-digit AD year (e.g., 2025/03/15, 2025.03.15)
+  let m = str.match(/\b(20\d{2})[-/.](\d{1,2})[-/.]\d{1,2}\b/);
   if (m) return { year: parseInt(m[1], 10), month: parseInt(m[2], 10) };
   
-  let m2 = str.match(/\b(\d{2})[-/](\d{1,2})[-/]\d{1,2}\b/);
+  // 3. 2-digit AD year (e.g., 25/03/15, 25-03-15)
+  let m2 = str.match(/\b(\d{2})[-/.](\d{1,2})[-/.]\d{1,2}\b/);
   if (m2) return { year: 2000 + parseInt(m2[1], 10), month: parseInt(m2[2], 10) };
   
+  // 4. 6-digit compact date code (e.g., 250315)
   let m3 = str.match(/\b(\d{2})(\d{2})(\d{2})[A-Za-z]?\b/);
   if (m3) {
     const mm = parseInt(m3[2], 10);
@@ -165,6 +177,10 @@ export function findDateInSheet(ws, qc) {
     case 'QC10007-R03': // 零組件入庫品檢表
       cellInfo = getCellValAndFormatted('O4');
       dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
+      if (!dateInfo) {
+        cellInfo = getCellValAndFormatted('N4');
+        dateInfo = parseDateFromValue(cellInfo.val, cellInfo.formatted);
+      }
       break;
     case 'QC10008-R02': // 出貨檢驗報告
       cellInfo = getCellValAndFormatted('R6');
@@ -182,14 +198,41 @@ export function findDateInSheetFallback(json) {
     if (!row || !row.length) continue;
     for (let c = 0; c < row.length; c++) {
       const v = String(row[c] || '');
-      let d = v.match(/(20\d{2})[-/](\d{1,2})[-/]\d{1,2}/);
-      if (d) { const mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
-      d = v.match(/(\d{2})[-/](\d{1,2})[-/]\d{1,2}/);
-      if (d) { const mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
-      d = v.match(/(\d{2})(\d{2})(\d{2})/);
-      if (d) { const mn = parseInt(d[2], 10); if (mn >= 1 && mn <= 12) return mn; }
+      
+      // 1. ROC calendar date (e.g. 112/03/15 or 112.03.15)
+      let d = v.match(/\b(1\d{2})[-/.](\d{1,2})[-/.]\d{1,2}\b/);
+      if (d) {
+        const mn = parseInt(d[2], 10);
+        if (mn >= 1 && mn <= 12) return mn;
+      }
+      
+      // 2. Standard 4-digit AD year (e.g. 2025/03/15 or 2025.03.15)
+      d = v.match(/\b(20\d{2})[-/.](\d{1,2})[-/.]\d{1,2}\b/);
+      if (d) {
+        const mn = parseInt(d[2], 10);
+        if (mn >= 1 && mn <= 12) return mn;
+      }
+      
+      // 3. 2-digit AD year (e.g. 25/03/15 or 25.03.15)
+      d = v.match(/\b(\d{2})[-/.](\d{1,2})[-/.]\d{1,2}\b/);
+      if (d) {
+        const mn = parseInt(d[2], 10);
+        if (mn >= 1 && mn <= 12) return mn;
+      }
+      
+      // 4. 6-digit compact date code (e.g. 250315)
+      d = v.match(/\b(\d{2})(\d{2})(\d{2})\b/);
+      if (d) {
+        const mn = parseInt(d[2], 10);
+        if (mn >= 1 && mn <= 12) return mn;
+      }
+      
+      // 5. Month name fallback (e.g. 3月)
       d = v.match(/(\d{1,2})月/);
-      if (d) { const mn = parseInt(d[1], 10); if (mn >= 1 && mn <= 12) return mn; }
+      if (d) {
+        const mn = parseInt(d[1], 10);
+        if (mn >= 1 && mn <= 12) return mn;
+      }
     }
   }
   return null;

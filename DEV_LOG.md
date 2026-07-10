@@ -1336,9 +1336,32 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
   2. 重構為「單次讀取前 100 行」方案：直接用 `sheetRows: 100` 解析 Excel 全表，並在內存中過濾目標工作表進行統計。
   3. 保留現有的源頭檔案與 Setup/Patrol 檔案分流邏輯，不解析 Setup 檔案，只讀取 Patrol 檔案的工作表名。
 
-### 進度追蹤
 - [x] 更新開發日誌 (DEV_LOG.md)
 - [x] 修改 `src/utils/browserETL.js` 以實現單次讀取優化
+- [x] 重構品檢獨立報表輸出為「資料夾直接寫入」以修復 Chrome 存檔異常
+
+---
+
+## 2026-07-10 引入 showDirectoryPicker 以修復 Chrome 瀏覽器輸出獨立報表無法存檔問題
+
+### 需求說明
+修正使用者在 Chrome 瀏覽器中點擊「輸出獨立報表」後，雖然能成功開啟 SaveFilePicker 選擇檔案，但最後卻無法成功存檔/下載，而 Edge 瀏覽器則不受影響的問題。
+
+### 原因分析 (RCA)
+原先程式碼在輸出獨立報表（多檔案寫入）時，誤用了 `showSaveFilePicker`（選取單一檔案）來作為目標目錄，並以 `${outputPath}/${fileName}`（如 `統計表.xlsx/進料檢驗-2025.xlsx`）的字串路徑拼接方式傳給 `XLSX.writeFile`。
+* **Chrome** 的安全下載機制嚴格限制並拒絕帶有正斜線 `/`（代表目錄結構）的 filename 下載屬性，因此直接靜默攔截，導致存檔失敗。
+* **Edge** 則是對路徑斜線進行了自動替換（轉為下劃線），使其能下載但檔名混亂。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. 在 `src/App.jsx` 中，將 `promptExportDirectory` 改為呼叫 `window.showDirectoryPicker()`，以讓使用者選擇一個**真實的本地資料夾**，並回傳 `FileSystemDirectoryHandle`。
+  2. 重構 `exportIndividualReports` 為 `async` 異步寫入模式。
+  3. 遍歷報表時，調用 `outputDirHandle.getFileHandle(fileName, { create: true })` 與 `writable.write()` 直接將 Excel 二進制數據（ArrayBuffer/Uint8Array）寫入硬碟指定目錄下。
+  4. 如果瀏覽器不支援 Directory Picker 或寫入失敗，則無縫 fallback 至標準順序下載（Downloads 資料夾）。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 修改 `src/App.jsx` 以實現資料夾直接寫入功能
 
 
 

@@ -400,8 +400,8 @@ function App() {
         try {
           const outputPath = await promptExportDirectory();
           if (!outputPath) return;
-          exportIndividualReports(cachedCounts.data, year, outputPath);
-          alert(`🎉 ${year} 年度獨立報表全部匯出成功！\n已儲存至：${outputPath}`);
+          await exportIndividualReports(cachedCounts.data, year, outputPath);
+          alert(`🎉 ${year} 年度獨立報表全部匯出成功！\n已儲存至您選擇的資料夾。`);
         } catch (e) {
           console.error(e);
           alert("匯出失敗，請確認選取的是正確的目標資料夾。");
@@ -434,8 +434,8 @@ function App() {
         // Ask user for output directory
         const outputPath = await promptExportDirectory();
         if (!outputPath) return;
-        exportIndividualReports(counts, year, outputPath);
-        alert(`🎉 ${year} 年度獨立報表全部匯出成功！\n已儲存至：${outputPath}`);
+        await exportIndividualReports(counts, year, outputPath);
+        alert(`🎉 ${year} 年度獨立報表全部匯出成功！\n已儲存至您選擇的資料夾。`);
       } catch (e) {
         if (e.message !== 'ETL cancelled by user') {
           console.error(e);
@@ -451,18 +451,13 @@ function App() {
   // Prompt user to select export directory
   const promptExportDirectory = async () => {
     // Try File System Access API first (Chrome/Edge)
-    if (window.showSaveFilePicker) {
+    if (window.showDirectoryPicker) {
       try {
-        const handle = await window.showSaveFilePicker({
-          suggestedName: `${Date.now()}_品檢報表統計.xlsx`,
-          types: [{
-            description: 'Excel Files',
-            accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] }
-          }]
-        });
-        return handle.name;
+        const handle = await window.showDirectoryPicker();
+        return handle;
       } catch (e) {
         if (e.name === 'AbortError') return null; // User cancelled
+        console.error("Directory picker error:", e);
       }
     }
     // Fallback: return null to use default download location
@@ -470,7 +465,7 @@ function App() {
   };
 
   // Helper: export individual QC reports as separate Excel files
-  const exportIndividualReports = (counts, year, outputPath = null) => {
+  const exportIndividualReports = async (counts, year, outputDirHandle = null) => {
     const MONTHS_ARR = ["1","2","3","4","5","6","7","8","9","10","11","12"];
     
     const reports = [
@@ -566,7 +561,7 @@ function App() {
       }
     ];
 
-    reports.forEach(report => {
+    for (let report of reports) {
       const { name, qcCode, categories, title } = report;
       const qcCounts = counts[qcCode] || {};
       
@@ -612,14 +607,22 @@ function App() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
       const fileName = `${name}.xlsx`;
-      if (outputPath) {
-        // Use File System Access API to save to specific location
-        XLSX.writeFile(wb, `${outputPath}/${fileName}`);
+      
+      if (outputDirHandle) {
+        try {
+          const fileHandle = await outputDirHandle.getFileHandle(fileName, { create: true });
+          const writable = await fileHandle.createWritable();
+          const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+          await writable.write(wbout);
+          await writable.close();
+        } catch (err) {
+          console.error(`Failed to write file ${fileName} directly to directory:`, err);
+          XLSX.writeFile(wb, fileName);
+        }
       } else {
-        // Default: browser downloads to Downloads folder
         XLSX.writeFile(wb, fileName);
       }
-    });
+    }
   };
 
   const handleFolderChange = (e) => {

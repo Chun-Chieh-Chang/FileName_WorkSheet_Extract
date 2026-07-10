@@ -4,7 +4,7 @@
 - **專案名稱**：FileName_WorkSheet_Extract
 - **分支**：`feature/dynamic-columns`（已合併至 `main`）
 - **部署**：GitHub Pages（透過 GitHub Actions 自動部署）
-- **最新完成進度**：雙引擎切換、民國年日期支援、Chrome UUID 防禦、半成品雙重驗證
+- **最新完成進度**：民國年日期支援、Chrome UUID 防禦、半成品雙重驗證
 
 ## 核心架構摘要
 
@@ -17,37 +17,31 @@
 - `getRawSubCategory` 自動動態解析所有出現的品檢子類別
 - 新品項無須手動新增至代碼，自動展開為 Excel 欄位
 
-### 3. 雙引擎切換
-- `browserETL.js`：優化版（動態欄位 + 民國年 + 雙重驗證）
-- `browserETLLegacy.js`：主線舊版（靜態欄位，向下相容）
-- 使用者可透過 UI 下拉選單即時切換，按鈕顏色會隨引擎版本動態變化
-
-### 4. UUID 路徑防禦
+### 3. UUID 路徑防禦
 - `isUUID` 過濾器支援標準 UUID、32 位十六進位、及長度 ≥ 24 的系統生成隨機字串
 - 應用於 `browserETL.js`、`excelParser.js`、`App.jsx` 三處
 
-### 5. 民國年 (ROC Year) 日期支援
+### 4. 民國年 (ROC Year) 日期支援
 - `parseDateFromString` 與 `findDateInSheetFallback` 支援三位數民國年（如 `112/03/15`）
 - 支援 `.`（點號）作為日期分隔符
 
-### 6. 半成品品檢表雙重驗證
+### 5. 半成品品檢表雙重驗證
 - 要求工作表內容的 QC 編碼為 `QC10006-R02` **且** 檔名/路徑含 `半成品品檢表`
 - 不再需要硬編碼黑名單來排除特定資料夾
 
-### 7. QC 編碼混合式掃描
+### 6. QC 編碼混合式掃描
 - 第一階段：Column A 極速掃描（最多 100 行）
 - 第二階段回退：前 15 行的 Columns B-H 掃描（舊版 2023 表格相容）
 
-### 8. ETL 計算結果緩存
+### 7. ETL 計算結果緩存
 - `cachedCounts` 狀態避免重複掃描，支援即時重複匯出
 
 ## 關鍵檔案索引
 
 | 檔案 | 職責 |
 |---|---|
-| `src/App.jsx` | 主介面、雙引擎調度、快取、UI 控制 |
-| `src/utils/browserETL.js` | 優化版 ETL 核心引擎 |
-| `src/utils/browserETLLegacy.js` | 舊版主線 ETL 引擎 |
+| `src/App.jsx` | 主介面、快取、UI 控制 |
+| `src/utils/browserETL.js` | ETL 核心引擎 |
 | `src/utils/excelParser.js` | Tab 2 數據表的 Excel 解析器 |
 | `src/utils/db.js` | QC 編碼對照表持久化 |
 | `scratch/validate_qc_etl.cjs` | 自動確效測試工具 |

@@ -13,7 +13,6 @@
   - 零組件入庫品檢 (QC10007-R03)
   - 出貨檢驗 (QC10008-R02)
 - **智能分類統計**：按月份、品項/類別自動統計筆數。
-- **雙引擎切換**：提供「本地優化版」與「GitHub 主分支」兩套 ETL 引擎，使用者可即時切換並以按鈕顏色區分版本。
 - **民國年日期支援**：自動解析民國年格式（如 `112/03/15` → 2023 年 3 月）及點號分隔（如 `112.03.15`），涵蓋 `parseDateFromString` 與 `findDateInSheetFallback`。
 - **半成品品檢雙重驗證**：要求工作表 QC 編碼為 `QC10006-R02` **且** 檔名/路徑含 `半成品品檢表`，避免誤判。
 - **空白樣板守衛**：自動識別並跳過批號（儲存格 `G4`）為空的空白樣板檔案，防禦幻象數據（特定射出類別豁免）。
@@ -57,12 +56,11 @@ npm run build
 │   ├── 狀態異常訊息.md           # ETL 狀態異常觸發條件說明
 │   └── handover_resume_guide.md  # 交接與重啟指南
 ├── src/                          # React SPA 互動儀表板與前端 ETL
-│   ├── App.jsx                   # 主介面（含雙引擎調度、快取、UI 控制）
+│   ├── App.jsx                   # 主介面（含快取與 UI 控制）
 │   ├── index.css                 # 全域樣式 (Outfit + Noto Sans TC)
 │   ├── main.jsx                  # React 入口
 │   └── utils/
-│       ├── browserETL.js         # 優化版 ETL 核心（動態欄位 + 民國年）
-│       ├── browserETLLegacy.js   # 舊版主線 ETL（靜態欄位，向下相容）
+│       ├── browserETL.js         # ETL 核心（動態欄位 + 民國年）
 │       ├── db.js                 # QC 表單編號對照表 (localStorage)
 │       └── excelParser.js        # 瀏覽器端 Excel 檔案解析器
 ├── public/                       # 靜態資源

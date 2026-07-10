@@ -1,25 +1,44 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
 
 :root {
-  --bg-base: #F8FAFC;
+  /* Approachable Luxury: Morandi Colors & Watercolor Wash Tones */
+  --bg-base: #F0F4F8; /* Soft Alabaster / Sea Salt */
   --bg-surface: #FFFFFF;
-  --text-primary: #0F172A;
-  --text-secondary: #64748B;
-  --accent-brand: #2563EB;
-  --accent-brand-hover: #1D4ED8;
+  --bg-glass: rgba(255, 255, 255, 0.75); /* High-End Order: Glass Background */
+  --bg-glass-strong: rgba(255, 255, 255, 0.9);
+  
+  --text-primary: #1A3A5F; /* Deep Marine / Morandi Navy */
+  --text-secondary: #5A7D9A; /* Muted Slate */
+  --text-muted: #8E9EAB;
+
+  /* Accent: McKinsey Navy / Ocean Blue */
+  --accent-brand: #3A7CA8;
+  --accent-hover: #5A99C2;
+  --mck-navy: #1A3A5F;
+  --mck-navy-dark: #122B48;
+
+  /* State Colors */
   --color-success: #10B981;
   --color-success-bg: #ECFDF5;
   --color-warning: #F59E0B;
   --color-warning-bg: #FEF3C7;
   --color-error: #EF4444;
   --color-error-bg: #FEF2F2;
-  --color-border: #E2E8F0;
+
+  /* Refined Borders */
+  --color-border: rgba(90, 125, 154, 0.15); /* Soft border */
+  --glass-border: rgba(255, 255, 255, 0.6);
   
-  --font-family: 'Outfit', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
-  --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+  --font-family: 'Outfit', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  
+  /* Smooth interactions (150-300ms ease-out) */
+  --transition-smooth: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --transition-fast: all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
+  
+  /* Premium Layered Shadows */
+  --shadow-sm: 0 2px 8px rgba(26, 58, 95, 0.04), 0 1px 2px rgba(26, 58, 95, 0.02);
+  --shadow-md: 0 8px 24px rgba(26, 58, 95, 0.06), 0 2px 8px rgba(26, 58, 95, 0.03);
+  --shadow-lg: 0 16px 40px rgba(26, 58, 95, 0.08), 0 4px 12px rgba(26, 58, 95, 0.04);
 }
 
 * {
@@ -30,10 +49,14 @@
 
 body {
   background-color: var(--bg-base);
+  /* Add subtle background pattern or gradient for premium feel */
+  background-image: radial-gradient(at 0% 0%, rgba(58, 124, 168, 0.05) 0px, transparent 50%),
+                    radial-gradient(at 100% 100%, rgba(26, 58, 95, 0.03) 0px, transparent 50%);
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-family);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -42,23 +65,29 @@ body {
 .app-container {
   max-width: 1600px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 32px 48px; /* Generous whitespace */
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
 }
 
-/* Header */
+/* Glass Header */
 .app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 16px;
+  padding: 16px 24px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 8px;
 }
 
 .app-title-group h1 {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.5px;
@@ -95,18 +124,21 @@ body {
   }
 }
 
-/* Card Common Style */
-.panel-card {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 24px;
+/* Glass Card Style */
+.panel-card, .mck-card {
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px; /* High-end rounded corners */
+  padding: 24px 32px;
   box-shadow: var(--shadow-md);
   transition: var(--transition-smooth);
 }
 
-.panel-card:hover {
+.panel-card:hover, .mck-card:hover {
   box-shadow: var(--shadow-lg);
+  transform: translateY(-2px); /* Micro-interaction lift */
 }
 
 .card-title {
@@ -153,28 +185,28 @@ body {
 
 .btn {
   font-family: var(--font-family);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  padding: 8px 16px;
+  padding: 10px 20px;
   border-radius: 8px;
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   cursor: pointer;
   transition: var(--transition-smooth);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 38px;
+  min-height: 40px;
   user-select: none;
 }
 
 .btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .btn:active {
-  transform: translateY(0) scale(0.98);
+  transform: translateY(0);
 }
 
 .btn-primary {
@@ -533,18 +565,7 @@ body {
    MCKINSEY CONSULTING STYLE SYSTEM (Mck-Style)
    ============================================================ */
 
-/* Design Tokens & Colors */
-:root {
-  --mck-navy: #0A2540;
-  --mck-navy-dark: #071D33;
-  --mck-accent-gold: #C5A059;
-  --mck-gold-light: #FAF6EE;
-  --mck-slate: #5E6E82;
-  --mck-bg: #F8FAFC;
-  --mck-border: #E6ECF5;
-  --mck-text: #071D33;
-  --font-serif: "Georgia", "Times New Roman", serif;
-}
+/* Design Tokens & Colors integrated into main :root */
 
 /* Serif Heading overrides */
 .mck-serif-title {
@@ -558,13 +579,13 @@ body {
 .app-nav {
   display: inline-flex;
   gap: 4px;
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), var(--shadow-sm);
-  padding: 4px;
-  border-radius: 30px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-sm);
+  padding: 6px;
+  border-radius: 32px;
   margin-bottom: 24px;
   align-self: flex-start;
 }
@@ -612,13 +633,15 @@ body {
 
 /* McKinsey Sidebar */
 .mck-sidebar {
-  background-color: #FFFFFF;
-  border: 1px solid var(--mck-border);
-  border-radius: 12px;
-  padding: 16px;
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 24px 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   box-shadow: var(--shadow-sm);
   max-height: 700px;
   overflow-y: auto;
@@ -627,6 +650,7 @@ body {
 
 .mck-sidebar:hover {
   box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 .mck-sheet-btn {
@@ -666,10 +690,12 @@ body {
 }
 
 .mck-card {
-  background-color: #FFFFFF;
-  border: 1px solid var(--mck-border);
-  border-radius: 12px;
-  padding: 24px;
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 32px;
   box-shadow: var(--shadow-sm);
   position: relative;
   transition: var(--transition-smooth);
@@ -677,7 +703,7 @@ body {
 
 .mck-card:hover {
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .mck-card-header {
@@ -714,23 +740,23 @@ body {
   font-family: var(--font-family);
   font-size: 13px;
   font-weight: 500;
-  padding: 6px 14px;
-  border-radius: 20px;
-  border: 1px solid var(--mck-border);
-  background-color: #FFFFFF;
-  color: #334155;
+  padding: 8px 16px;
+  border-radius: 24px;
+  border: 1px solid var(--color-border);
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: var(--transition-smooth);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   user-select: none;
 }
 
 .mck-pill:hover {
   border-color: var(--mck-navy);
   color: var(--mck-navy);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-sm);
 }
 
@@ -738,7 +764,7 @@ body {
   background-color: var(--mck-navy);
   color: #FFFFFF;
   border-color: var(--mck-navy);
-  box-shadow: 0 4px 8px rgba(10, 37, 64, 0.15);
+  box-shadow: 0 4px 12px rgba(26, 58, 95, 0.2);
 }
 
 .mck-pill-checkbox {

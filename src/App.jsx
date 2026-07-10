@@ -22,15 +22,15 @@ const isUUID = (str) => {
 };
 
 const MCK_COLORS = [
-  '#002D62', // McKinsey Navy
-  '#D4AF37', // Consulting Gold
-  '#4A5568', // Slate Gray
-  '#0EA5E9', // Sky Blue
-  '#10B981', // Emerald Green
-  '#8B5CF6', // Royal Purple
-  '#EF4444', // Coral Red
-  '#EC4899', // Magenta Pink
-  '#F59E0B', // Warm Amber
+  '#1A3A5F', // Deep Marine
+  '#5A7D9A', // Muted Slate
+  '#3A7CA8', // Ocean Blue
+  '#7A9E9F', // Sage Green
+  '#B8A29C', // Dusty Rose
+  '#C8B8A6', // Warm Sand
+  '#6B7A8F', // Steel Blue
+  '#A88C8C', // Muted Clay
+  '#A3B8CC', // Frost Blue
 ];
 
 function App() {

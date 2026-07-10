@@ -1783,7 +1783,7 @@ function App() {
                   🛠️ 年度統計報表一鍵生成器
                 </h2>
                 <p style={{ fontSize: '13px', color: '#664d03', marginBottom: '16px', lineHeight: '1.5' }}>
-                  偵測到載入的資料夾包含 <strong>{uploadedFiles.length}</strong> 個品檢檔案。您可以在此一鍵執行與後端相同的 ETL 運算，並輸出含有完整分流彙整版面的年度 Excel 統計檔。
+                  偵測到載入的資料夾包含 <strong>{uploadedFiles.length}</strong> 個品檢檔案。您可以在此選取解析引擎並一鍵執行瀏覽器端原生的 ETL 運算，輸出含有完整分流彙整版面的年度 Excel 統計檔。
                 </p>
                 
                 {isProcessingETL ? (

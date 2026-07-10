@@ -426,9 +426,18 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
     try {
       const data = await file.arrayBuffer();
       
-      // Pre-read sheet names to skip parsing non-target sheets
-      const wbHeader = XLSX.read(data, { type: 'array', bookSheets: true });
-      const targetSheets = wbHeader.SheetNames.filter(sheetName => {
+      // Single-read parsing of the first 100 rows for all sheets
+      const wb = XLSX.read(data, { 
+        type: 'array',
+        cellFormula: false,
+        cellHTML: false,
+        cellStyles: false,
+        cellDates: true,
+        sheetRows: 100 // Optimization: Only parse first 100 rows
+      });
+
+      // Filter target sheets in memory
+      const targetSheets = wb.SheetNames.filter(sheetName => {
         if (sheetName === 'DATE' || sheetName === '空白' || sheetName === '範例' || sheetName === '客戶別') return false;
         if (sheetName.indexOf('Sheet') >= 0) return false; // skip any sheet with "Sheet" in name
         if (/^QC[-_]?\d+/i.test(sheetName.trim())) return false; // skip template sheets named QC-xxx
@@ -438,15 +447,6 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
 
       if (targetSheets.length === 0) continue;
 
-      const wb = XLSX.read(data, { 
-        type: 'array',
-        sheets: targetSheets,
-        cellFormula: false,
-        cellHTML: false,
-        cellStyles: false,
-        cellDates: true,
-        sheetRows: 100 // Optimization: 只解析前 100 行，大幅減少記憶體與 CPU 消耗
-      });
       const seenQC7R1BaseNames = new Set();
 
       targetSheets.forEach(sheetName => {

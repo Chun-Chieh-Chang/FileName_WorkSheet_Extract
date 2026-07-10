@@ -199,8 +199,7 @@ export function determineQCFromSheet(json, initialQC, relPath) {
   if (initialQC === 'QC10006-R01') return 'QC10006-R01';
   if (initialQC === 'QC10004-R02') return 'QC10004-R02';
 
-  // 掃描範圍擴大：依據 XLSX.read 的 sheetRows: 100，這裡最高會掃描到 100 行
-  // 這樣就能正確捕捉到位於表單底部的 QC 編碼 (例如 A51)
+  // 1. Scan Column A for the entire parsed rows (up to 100 rows)
   const scanLimit = json.length;
   for (let ri = 0; ri < scanLimit; ri++) {
     const row = json[ri];
@@ -221,6 +220,32 @@ export function determineQCFromSheet(json, initialQC, relPath) {
         const titleKeys = Object.keys(FORM_TITLE_MAP);
         for (let k = 0; k < titleKeys.length; k++) {
           if (colA.indexOf(titleKeys[k]) >= 0) return FORM_TITLE_MAP[titleKeys[k]];
+        }
+      }
+    }
+  }
+
+  // 2. Fallback: Scan Columns B-H (indices 1-7) for the first 15 rows (header area)
+  // This handles legacy formats (like 2023) where the QC code was in Column B/C header cells.
+  const fallbackLimit = Math.min(15, json.length);
+  for (let ri = 0; ri < fallbackLimit; ri++) {
+    const row = json[ri];
+    if (!row) continue;
+    for (let ci = 1; ci < row.length && ci < 8; ci++) {
+      const val = String(row[ci] || '').trim();
+      if (!val) continue;
+
+      if (val.indexOf('QC10002-R02') >= 0) return 'QC10002-R02';
+      if (val.indexOf('QC10006-R01') >= 0) return 'QC10006-R01';
+      if (val.indexOf('QC10006-R02') >= 0) return 'QC10006-R02';
+      if (val.indexOf('QC10007-R03') >= 0) return 'QC10007-R03';
+      if (val.indexOf('QC10007-R01') >= 0 || val.indexOf('QC10007-R02') >= 0) return 'QC10007-R01';
+      if (val.indexOf('QC10008') >= 0) return 'QC10008-R02';
+
+      if (ri < 3) {
+        const titleKeys = Object.keys(FORM_TITLE_MAP);
+        for (let k = 0; k < titleKeys.length; k++) {
+          if (val.indexOf(titleKeys[k]) >= 0) return FORM_TITLE_MAP[titleKeys[k]];
         }
       }
     }

@@ -592,7 +592,7 @@ body {
   border-left-color: var(--glass-border-light);
   box-shadow: var(--shadow-sm), var(--glass-highlight);
   padding: 6px;
-  border-radius: 32px;
+  border-radius: 12px; /* Adjusted from 32px to match 8px inner tabs */
   margin-bottom: 24px;
   align-self: flex-start;
 }
@@ -605,7 +605,7 @@ body {
   background: transparent;
   border: none;
   padding: 8px 20px;
-  border-radius: 20px;
+  border-radius: 8px; /* Standard 8px radius */
   cursor: pointer;
   transition: var(--transition-smooth);
   display: flex;
@@ -752,7 +752,7 @@ body {
   font-size: 13px;
   font-weight: 500;
   padding: 8px 16px;
-  border-radius: 24px;
+  border-radius: 8px; /* Standard 8px radius */
   border: 1px solid var(--color-border);
   background-color: var(--bg-surface);
   color: var(--text-secondary);

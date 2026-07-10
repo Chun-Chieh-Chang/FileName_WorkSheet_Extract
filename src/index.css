@@ -190,11 +190,12 @@ body {
 }
 
 .btn {
+  position: relative;
   font-family: var(--font-family);
   font-size: 14px;
   font-weight: 600;
   padding: 10px 20px;
-  border-radius: 8px;
+  border-radius: 999px; /* Pill shape for optimal glass reflection */
   cursor: pointer;
   transition: var(--transition-smooth);
   display: inline-flex;
@@ -204,21 +205,35 @@ body {
   min-height: 40px;
   user-select: none;
   
-  /* Transparent Liquid Glass Base */
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 100%);
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-top-color: rgba(255, 255, 255, 0.7);
-  border-left-color: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 4px 10px rgba(26, 58, 95, 0.05), inset 0 2px 4px rgba(255, 255, 255, 0.5);
-  color: var(--text-primary);
+  /* Deep Liquid Glass Base */
+  background: transparent;
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 1;
+  
+  box-shadow: 
+    inset 0 3px 4px rgba(255, 255, 255, 0.8),
+    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
+    0 15px 25px -10px rgba(0, 0, 0, 0.5);
+    
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 4px; left: 4px; right: 4px; bottom: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(30, 30, 35, 0.7) 0%, rgba(15, 15, 20, 0.85) 100%);
+  z-index: -1;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.8), 0 1px 2px rgba(255, 255, 255, 0.15);
+  transition: var(--transition-smooth);
 }
 
 .btn:hover {
   transform: translateY(-2px);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.2) 100%);
-  box-shadow: 0 6px 14px rgba(26, 58, 95, 0.08), inset 0 2px 4px rgba(255, 255, 255, 0.7);
+  filter: brightness(1.1);
 }
 
 .btn:active {
@@ -226,71 +241,60 @@ body {
 }
 
 .btn-primary {
-  color: var(--mck-navy);
-  border-bottom-color: rgba(26, 58, 95, 0.2);
-  border-right-color: rgba(26, 58, 95, 0.2);
-}
-
-.btn-primary:hover {
-  color: var(--mck-navy-dark);
+  box-shadow: 
+    inset 0 3px 4px rgba(255, 255, 255, 0.8),
+    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
+    0 15px 25px -5px rgba(10, 132, 255, 0.6), /* Vivid Blue Glow */
+    0 15px 25px -10px rgba(0, 0, 0, 0.5);
 }
 
 .btn-secondary {
-  color: var(--text-secondary);
-}
-
-.btn-secondary:hover {
-  color: var(--text-primary);
+  box-shadow: 
+    inset 0 3px 4px rgba(255, 255, 255, 0.8),
+    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
+    0 20px 30px -5px rgba(236, 72, 153, 0.6), /* Pink Glow */
+    0 10px 15px -5px rgba(245, 158, 11, 0.5), /* Orange Glow */
+    0 15px 25px -10px rgba(0, 0, 0, 0.5);
 }
 
 .btn-danger {
-  color: var(--color-error);
-  border-bottom-color: rgba(239, 68, 68, 0.2);
-  border-right-color: rgba(239, 68, 68, 0.2);
-}
-
-.btn-danger:hover {
-  color: #DC2626; /* Darker red */
+  box-shadow: 
+    inset 0 3px 4px rgba(255, 255, 255, 0.8),
+    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
+    0 15px 25px -5px rgba(255, 69, 58, 0.6), /* Vivid Red Glow */
+    0 15px 25px -10px rgba(0, 0, 0, 0.5);
 }
 
 .btn-warning {
-  color: #f59e0b;
-  border-bottom-color: rgba(245, 158, 11, 0.2);
-  border-right-color: rgba(245, 158, 11, 0.2);
-}
-
-.btn-warning:hover {
-  color: #D97706;
+  box-shadow: 
+    inset 0 3px 4px rgba(255, 255, 255, 0.8),
+    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
+    0 15px 25px -5px rgba(255, 159, 10, 0.6), /* Vivid Orange Glow */
+    0 15px 25px -10px rgba(0, 0, 0, 0.5);
 }
 
 .btn-info {
-  color: #0ea5e9;
-  border-bottom-color: rgba(14, 165, 233, 0.2);
-  border-right-color: rgba(14, 165, 233, 0.2);
-}
-
-.btn-info:hover {
-  color: #0284C7;
+  box-shadow: 
+    inset 0 3px 4px rgba(255, 255, 255, 0.8),
+    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
+    0 15px 25px -5px rgba(90, 200, 250, 0.6), /* Vivid Cyan Glow */
+    0 15px 25px -10px rgba(0, 0, 0, 0.5);
 }
 
 .btn-success {
-  color: var(--color-success);
-  border-bottom-color: rgba(16, 185, 129, 0.2);
-  border-right-color: rgba(16, 185, 129, 0.2);
-}
-
-.btn-success:hover {
-  color: #059669;
+  box-shadow: 
+    inset 0 3px 4px rgba(255, 255, 255, 0.8),
+    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
+    0 15px 25px -5px rgba(48, 209, 88, 0.6), /* Vivid Green Glow */
+    0 15px 25px -10px rgba(0, 0, 0, 0.5);
 }
 
 .btn-dark {
-  color: #374151;
-  border-bottom-color: rgba(55, 65, 81, 0.2);
-  border-right-color: rgba(55, 65, 81, 0.2);
-}
-
-.btn-dark:hover {
-  color: #1F2937;
+  box-shadow: 
+    inset 0 3px 4px rgba(255, 255, 255, 0.8),
+    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
+    0 15px 25px -5px rgba(255, 255, 255, 0.2), /* White/Silver Glow */
+    0 15px 25px -10px rgba(0, 0, 0, 0.5);
 }
 
 /* Mapping Editor */

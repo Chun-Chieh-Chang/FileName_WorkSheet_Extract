@@ -22,15 +22,15 @@ const isUUID = (str) => {
 };
 
 const MCK_COLORS = [
-  '#1A3A5F', // Deep Marine
-  '#5A7D9A', // Muted Slate
-  '#3A7CA8', // Ocean Blue
-  '#7A9E9F', // Sage Green
-  '#B8A29C', // Dusty Rose
-  '#C8B8A6', // Warm Sand
-  '#6B7A8F', // Steel Blue
-  '#A88C8C', // Muted Clay
-  '#A3B8CC', // Frost Blue
+  '#007AFF', // Vivid Blue
+  '#FF3B30', // Vivid Red
+  '#34C759', // Vivid Green
+  '#FF9500', // Vivid Orange
+  '#AF52DE', // Vivid Purple
+  '#5AC8FA', // Vivid Cyan
+  '#FF2D55', // Vivid Pink
+  '#5856D6', // Vivid Indigo
+  '#FFCC00', // Vivid Yellow
 ];
 
 function App() {

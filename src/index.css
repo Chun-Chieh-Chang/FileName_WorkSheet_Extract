@@ -195,7 +195,6 @@ body {
   font-weight: 600;
   padding: 10px 20px;
   border-radius: 8px;
-  border: 1px solid transparent;
   cursor: pointer;
   transition: var(--transition-smooth);
   display: inline-flex;
@@ -204,11 +203,22 @@ body {
   gap: 8px;
   min-height: 40px;
   user-select: none;
+  
+  /* Transparent Liquid Glass Base */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 100%);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-top-color: rgba(255, 255, 255, 0.7);
+  border-left-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 10px rgba(26, 58, 95, 0.05), inset 0 2px 4px rgba(255, 255, 255, 0.5);
+  color: var(--text-primary);
 }
 
 .btn:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.2) 100%);
+  box-shadow: 0 6px 14px rgba(26, 58, 95, 0.08), inset 0 2px 4px rgba(255, 255, 255, 0.7);
 }
 
 .btn:active {
@@ -216,97 +226,71 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, rgba(26, 58, 95, 0.85) 0%, rgba(26, 58, 95, 0.65) 100%);
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-  color: #FFFFFF;
-  border-top: 1px solid rgba(255, 255, 255, 0.4);
-  border-left: 1px solid rgba(255, 255, 255, 0.4);
-  border-bottom: 1px solid rgba(26, 58, 95, 0.8);
-  border-right: 1px solid rgba(26, 58, 95, 0.8);
-  box-shadow: 0 4px 12px rgba(26, 58, 95, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.3);
+  color: var(--mck-navy);
+  border-bottom-color: rgba(26, 58, 95, 0.2);
+  border-right-color: rgba(26, 58, 95, 0.2);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, rgba(26, 58, 95, 0.95) 0%, rgba(26, 58, 95, 0.75) 100%);
-  box-shadow: 0 6px 16px rgba(26, 58, 95, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.4);
+  color: var(--mck-navy-dark);
 }
 
 .btn-secondary {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.3) 100%);
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-  color: var(--text-primary);
-  border-top: 1px solid rgba(255, 255, 255, 0.8);
-  border-left: 1px solid rgba(255, 255, 255, 0.8);
-  border-bottom: 1px solid rgba(90, 125, 154, 0.2);
-  border-right: 1px solid rgba(90, 125, 154, 0.2);
-  box-shadow: 0 4px 10px rgba(26, 58, 95, 0.05), inset 0 2px 4px rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
 }
 
 .btn-secondary:hover {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.5) 100%);
-  box-shadow: 0 6px 14px rgba(26, 58, 95, 0.08), inset 0 2px 4px rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
 }
 
 .btn-danger {
-  background-color: #FFF5F5;
   color: var(--color-error);
-  border-color: #FEB2B2;
+  border-bottom-color: rgba(239, 68, 68, 0.2);
+  border-right-color: rgba(239, 68, 68, 0.2);
 }
 
 .btn-danger:hover {
-  background-color: var(--color-error-bg);
-  border-color: var(--color-error);
-  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.12);
+  color: #DC2626; /* Darker red */
 }
 
 .btn-warning {
-  background-color: #FFFBEB;
   color: #f59e0b;
-  border-color: #FCD34D;
+  border-bottom-color: rgba(245, 158, 11, 0.2);
+  border-right-color: rgba(245, 158, 11, 0.2);
 }
 
 .btn-warning:hover {
-  background-color: #FEF3C7;
-  border-color: #f59e0b;
-  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.12);
+  color: #D97706;
 }
 
 .btn-info {
-  background-color: #F0F9FF;
   color: #0ea5e9;
-  border-color: #7DD3FC;
+  border-bottom-color: rgba(14, 165, 233, 0.2);
+  border-right-color: rgba(14, 165, 233, 0.2);
 }
 
 .btn-info:hover {
-  background-color: #E0F2FE;
-  border-color: #0ea5e9;
-  box-shadow: 0 4px 10px rgba(14, 165, 233, 0.12);
+  color: #0284C7;
 }
 
 .btn-success {
-  background-color: #ECFDF5;
-  color: var(--success);
-  border-color: #6EE7B7;
+  color: var(--color-success);
+  border-bottom-color: rgba(16, 185, 129, 0.2);
+  border-right-color: rgba(16, 185, 129, 0.2);
 }
 
 .btn-success:hover {
-  background-color: #D1FAE5;
-  border-color: var(--success);
-  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.12);
+  color: #059669;
 }
 
 .btn-dark {
-  background-color: #F9FAFB;
   color: #374151;
-  border-color: #D1D5DB;
+  border-bottom-color: rgba(55, 65, 81, 0.2);
+  border-right-color: rgba(55, 65, 81, 0.2);
 }
 
 .btn-dark:hover {
-  background-color: #F3F4F6;
-  border-color: #374151;
-  box-shadow: 0 4px 10px rgba(55, 65, 81, 0.12);
+  color: #1F2937;
 }
 
 /* Mapping Editor */

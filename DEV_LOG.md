@@ -1268,13 +1268,36 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
   3. 修改 `README.md`，刪除已棄用的 `etl_pipeline.cjs` 和 `generate_styled_reports.cjs` 相關內容，詳細描述最新的 `QC10007-R03` 的各子類別（裝配、Tubing、射出、射出D組件等）的取捨與月份判定規則。
 
 ### 進度追蹤
-- [/] 更新開發日誌 (DEV_LOG.md)
-- [ ] 整合並移動 `today-requirements-2026-07-06.md` 到 `docs/`，並刪除根目錄的檔案
-- [ ] 將 `scratch/_test_tubing_etl.cjs` 更名為 `scratch/validate_qc_etl.cjs`
-- [ ] 檢視並更新 `README.md`
-- [ ] 執行確效測試及打包建構
-- [ ] 提交 Git 變更並寫入 `walkthrough.md`
-- [ ] 獲得使用者許可後推送至 GitHub 遠端倉庫
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 整合並移動 `today-requirements-2026-07-06.md` 到 `docs/`，並刪除根目錄的檔案
+- [x] 將 `scratch/_test_tubing_etl.cjs` 更名為 `scratch/validate_qc_etl.cjs`
+- [x] 檢視並更新 `README.md`
+- [x] 執行確效測試及打包建構
+- [x] 提交 Git 變更並寫入 `walkthrough.md`
+- [x] 獲得使用者許可後推送至 GitHub 遠端倉庫
+
+---
+
+## 2026-07-09 修復 Excel 讀取異常與 UUID 欄位問題
+
+### 需求說明
+1. 修正「工作表表單編碼提取結果」中全部為狀態異常且報錯 `ReferenceError: cellKeys is not defined` 的問題。
+2. 修正動態欄位架構下，若檔案父路徑中包含隨機產生的 UUID 資料夾名稱，會被識別為品檢子類別（甚至可能干擾月份解析），進而導致產出的 Excel/CSV 報表中出現 UUID 欄位的問題。
+
+### 原因分析 (RCA)
+1. **ReferenceError**: 在 `feature/dynamic-columns` 分支上一版優化 A 欄專屬掃描時，誤刪了 `const cellKeys = Object.keys(ws);`，但底下的 `for (let key of cellKeys)` 依舊存在，導致遍歷時拋出未定義變數錯誤，使所有 Excel 檔案解析失敗。
+2. **UUID 欄位干擾**: 當檔案結構包含暫存或系統隨機生成的 UUID 資料夾時，`getRawSubCategory` 會取得該 UUID 資料夾名稱作為品檢子類別；同時若 UUID 剛好以數值（如 `-12`）結尾，還會被 `extractRawMonth` 誤判為月份。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. **補回變數宣告**：在 `src/utils/excelParser.js` 重新定義 `cellKeys = Object.keys(ws)`。
+  2. **路徑過濾 UUID**：在 `browserETL.js` 與 `excelParser.js` 中，解析 `pathParts` 時過濾掉符合 UUID 格式的資料夾（如 `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` 或 `32位十六進制` 格式），避免 UUID 資訊污染子類別與月份解析。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 修改 `src/utils/excelParser.js`
+- [x] 修改 `src/utils/browserETL.js`
+
 
 
 

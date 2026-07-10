@@ -34,8 +34,9 @@ export const parseExcelFile = async (file, mappings, year = new Date().getFullYe
         const seenInjPatrolBaseNames = new Set();
         const seenExtPatrolBaseNames = new Set();
 
+        const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim()) || /^[0-9a-f]{32}$/i.test(str.trim());
         const filePath = file.webkitRelativePath || file.name;
-        const normalizedPath = filePath.replace(/\\/g, '/');
+        const normalizedPath = filePath.replace(/\\/g, '/').split('/').filter(p => !isUUID(p)).join('/');
         const pathLower = normalizedPath.toLowerCase();
         
         const isInjection = pathLower.includes('射出檢驗-' + year) || pathLower.includes('射出機台-' + year);
@@ -49,6 +50,7 @@ export const parseExcelFile = async (file, mappings, year = new Date().getFullYe
           
           if (ws) {
             const regEx = /QC\d{5}-R\d{2}/i;
+            const cellKeys = Object.keys(ws);
             for (let key of cellKeys) {
               if (key.startsWith('!')) continue;
               // Optimization: Only scan Column A

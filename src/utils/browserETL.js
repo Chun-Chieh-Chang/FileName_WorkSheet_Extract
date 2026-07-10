@@ -3,6 +3,13 @@ import * as XLSX from 'xlsx';
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const LETTER_MONTH = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, I: 9, J: 10, K: 11, L: 12 };
 
+const isUUID = (str) => {
+  if (!str) return false;
+  const s = str.trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s) ||
+         /^[0-9a-f]{32}$/i.test(s);
+};
+
 const FOLDER_QC_MAP = {
   '半成品品檢表': 'QC10006-R02',  // Keyword-driven: matches filename OR folder path (PRIORITY over 零組件入庫)
   '原物料品檢': 'QC10002-R02',
@@ -343,7 +350,7 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
   const generalFiles = [];
 
   activeFiles.forEach(file => {
-    const normalizedPath = file.webkitRelativePath.replace(/\\/g, '/');
+    const normalizedPath = file.webkitRelativePath.replace(/\\/g, '/').split('/').filter(p => !isUUID(p)).join('/');
     const pathLower = normalizedPath.toLowerCase();
     
     const isExtrusion = pathLower.includes('押出檢驗-' + year) || pathLower.includes('押出機台-' + year);
@@ -370,7 +377,7 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
     updateProgress(file.name);
     
     // Determine initialQC and relPath
-    const pathParts = file.webkitRelativePath.split('/');
+    const pathParts = file.webkitRelativePath.split('/').filter(p => !isUUID(p));
     // Extract qcFolder and relPath
     let qcFolder = "";
     let initialQC = null;
@@ -578,7 +585,7 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
 
   for (let file of qipInjFiles) {
     updateProgress(file.name);
-    const normalizedPath = file.webkitRelativePath.replace(/\\/g, '/');
+    const normalizedPath = file.webkitRelativePath.replace(/\\/g, '/').split('/').filter(p => !isUUID(p)).join('/');
     const parts = normalizedPath.split('/');
     if (parts.length < 2) continue;
     
@@ -623,7 +630,7 @@ export const runETLInBrowser = async (filesList, year, onProgress) => {
 
   for (let file of qipExtFiles) {
     updateProgress(file.name);
-    const normalizedPath = file.webkitRelativePath.replace(/\\/g, '/');
+    const normalizedPath = file.webkitRelativePath.replace(/\\/g, '/').split('/').filter(p => !isUUID(p)).join('/');
     const parts = normalizedPath.split('/');
     if (parts.length < 2) continue;
     

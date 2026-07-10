@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getMappings, saveMappings, resetMappings } from './utils/db';
 import { parseExcelFile, parseSummaryExcel } from './utils/excelParser';
 import { runETLInBrowser, exportSummaryExcelInBrowser } from './utils/browserETL';
+import { runETLInBrowser as runETLInBrowserLegacy, exportSummaryExcelInBrowser as exportSummaryExcelInBrowserLegacy } from './utils/browserETLLegacy';
 import * as XLSX from 'xlsx';
 
 const MONTH_LABELS = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
@@ -57,6 +58,7 @@ function App() {
   const [etlYear, setEtlYear] = useState(2025);
   const [isETLCancelled, setIsETLCancelled] = useState(false);
   const [cachedCounts, setCachedCounts] = useState(null);
+  const [engineVersion, setEngineVersion] = useState("new"); // "new" for optimized dynamic columns, "old" for legacy main branch
   const [columnFilters, setColumnFilters] = useState({
     fileName: [],
     filePath: [],
@@ -347,8 +349,12 @@ function App() {
   const handleRunBrowserETL = async (year) => {
     if (!uploadedFiles || uploadedFiles.length === 0) return;
     
-    if (cachedCounts && cachedCounts.year === year && cachedCounts.filesCount === uploadedFiles.length) {
-      exportSummaryExcelInBrowser(cachedCounts.data, year);
+    if (cachedCounts && cachedCounts.year === year && cachedCounts.filesCount === uploadedFiles.length && cachedCounts.version === engineVersion) {
+      if (engineVersion === "new") {
+        exportSummaryExcelInBrowser(cachedCounts.data, year);
+      } else {
+        exportSummaryExcelInBrowserLegacy(cachedCounts.data, year);
+      }
       alert(`🎉 ${year} 年度品檢報表統計.xlsx 匯出成功！已下載至您的電腦。`);
       return;
     }
@@ -359,7 +365,8 @@ function App() {
     setEtlProgress({ current: 0, total: uploadedFiles.length, filename: "初始化中..." });
     
     try {
-      const counts = await runETLInBrowser(uploadedFiles, year, (current, total, filename) => {
+      const etlFn = engineVersion === "new" ? runETLInBrowser : runETLInBrowserLegacy;
+      const counts = await etlFn(uploadedFiles, year, (current, total, filename) => {
         if (isETLCancelledRef.current) {
           setIsProcessingETL(false);
           throw new Error('ETL cancelled by user');
@@ -370,10 +377,15 @@ function App() {
       setCachedCounts({
         data: counts,
         year: year,
-        filesCount: uploadedFiles.length
+        filesCount: uploadedFiles.length,
+        version: engineVersion
       });
 
-      exportSummaryExcelInBrowser(counts, year);
+      if (engineVersion === "new") {
+        exportSummaryExcelInBrowser(counts, year);
+      } else {
+        exportSummaryExcelInBrowserLegacy(counts, year);
+      }
       alert(`🎉 ${year} 年度品檢報表統計.xlsx 匯出成功！已下載至您的電腦。`);
     } catch (e) {
       if (e.message === 'ETL cancelled by user') {
@@ -395,7 +407,7 @@ function App() {
       return;
     }
 
-    if (cachedCounts && cachedCounts.year === year && cachedCounts.filesCount === uploadedFiles.length) {
+    if (cachedCounts && cachedCounts.year === year && cachedCounts.filesCount === uploadedFiles.length && cachedCounts.version === engineVersion) {
       (async () => {
         try {
           const outputPath = await promptExportDirectory();
@@ -417,7 +429,8 @@ function App() {
     
     (async () => {
       try {
-        const counts = await runETLInBrowser(uploadedFiles, year, (current, total, filename) => {
+        const etlFn = engineVersion === "new" ? runETLInBrowser : runETLInBrowserLegacy;
+        const counts = await etlFn(uploadedFiles, year, (current, total, filename) => {
           if (isETLCancelledRef.current) {
             setIsProcessingETL(false);
             throw new Error('ETL cancelled by user');
@@ -428,7 +441,8 @@ function App() {
         setCachedCounts({
           data: counts,
           year: year,
-          filesCount: uploadedFiles.length
+          filesCount: uploadedFiles.length,
+          version: engineVersion
         });
 
         // Ask user for output directory
@@ -1829,6 +1843,35 @@ function App() {
                             {Array.from({ length: 31 }, (_, i) => 2010 + i).map(year => (
                               <option key={year} value={year}>{year} 年</option>
                             ))}
+                          </select>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#664d03' }}>解析引擎：</span>
+                          <select 
+                            value={engineVersion}
+                            onChange={(e) => {
+                              setEngineVersion(e.target.value);
+                              setCachedCounts(null);
+                            }}
+                            disabled={isScanning}
+                            style={{
+                              padding: '6px 24px 6px 12px',
+                              fontSize: '13px',
+                              borderRadius: '6px',
+                              border: '1px solid var(--mck-accent-gold)',
+                              background: '#ffffff',
+                              color: 'var(--mck-navy)',
+                              fontWeight: 600,
+                              cursor: isScanning ? 'not-allowed' : 'pointer',
+                              opacity: isScanning ? 0.6 : 1,
+                              outline: 'none',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <option value="new">本地優化版 (新版動態欄位)</option>
+                            <option value="old">GitHub主分支 (舊版靜態欄位)</option>
                           </select>
                         </div>
                         

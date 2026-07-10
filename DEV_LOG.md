@@ -1381,9 +1381,28 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
   2. 第一次使用 `bookSheets: true` 僅讀取目錄結構，獲取 SheetNames。
   3. 過濾出 `targetSheets` 後，第二次僅對該目標工作表傳入 `sheets: targetSheets` 進行 `sheetRows: 100` 的精準解析。
 
-### 進度追蹤
 - [x] 更新開發日誌 (DEV_LOG.md)
 - [x] 還原 `browserETL.js` 中的雙次讀取邏輯
+- [x] 引入「解析引擎」切換選單以支援新舊引擎無縫切換
+
+---
+
+## 2026-07-10 引入雙解析引擎切換機制以支援單一頁面切換版本
+
+### 需求說明
+使用者希望能在同一個網頁頁面中，自由切換使用「本地優化版本 (新版)」與「GitHub 主分支版本 (舊版)」以方便對比轉換結果與效能。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. 使用 Git CMD 將 `main` 分支的 `browserETL.js` 導出為 `src/utils/browserETLLegacy.js`，保留其 100% 原始解析邏輯（包含舊版靜態欄位定義與規則）。
+  2. 在 `src/App.jsx` 中，引入 `engineVersion` 狀態（`"new"` 代表本地優化版，`"old"` 代表主分支舊版）。
+  3. 根據 `engineVersion` 狀態，動態分配 `runETLInBrowser` / `exportSummaryExcelInBrowser` 以及對應的快取生命週期，防止數據混亂。
+  4. 在介面操作區域，於「報表年度」旁新增「解析引擎」下拉選單，提供使用者無縫且優雅的切換體驗。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 新增 `src/utils/browserETLLegacy.js`
+- [x] 修改 `src/App.jsx` 實現動態引擎調度與 UI 切換選單
 
 
 

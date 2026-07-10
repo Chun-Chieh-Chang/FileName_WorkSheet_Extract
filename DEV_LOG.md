@@ -1293,10 +1293,31 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
   1. **補回變數宣告**：在 `src/utils/excelParser.js` 重新定義 `cellKeys = Object.keys(ws)`。
   2. **路徑過濾 UUID**：在 `browserETL.js` 與 `excelParser.js` 中，解析 `pathParts` 時過濾掉符合 UUID 格式的資料夾（如 `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` 或 `32位十六進制` 格式），避免 UUID 資訊污染子類別與月份解析。
 
-### 進度追蹤
 - [x] 更新開發日誌 (DEV_LOG.md)
 - [x] 修改 `src/utils/excelParser.js`
 - [x] 修改 `src/utils/browserETL.js`
+- [x] 新增 ETL 轉換結果緩存機制以避免重複掃描資料夾
+
+---
+
+## 2026-07-10 引入 ETL 轉換數據緩存機制以優化重複輸出體驗
+
+### 需求說明
+修正使用者反映「ETL 轉換完畢後無法重複輸出，轉換一次輸出存檔後，若要再次輸出其他格式或個別報表，必須重新跑整套 ETL 轉換」的耗時問題。
+
+### 原因分析 (RCA)
+原先的匯出按鈕處理常式 `handleRunBrowserETL` 與 `handleExportIndividualReports` 在每次被觸發時，都會硬性呼叫 `runETLInBrowser` 重新解壓並解析所有檔案，沒有緩存已計算出的 counts 數據，導致大量重複計算與時間浪費。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. 在 `src/App.jsx` 引入 `cachedCounts` 狀態變數。
+  2. 當初次執行 `runETLInBrowser` 完成後，將結果、對應年份與檔案數存入緩存。
+  3. 當下次觸發任何一個輸出按鈕時，優先檢查緩存是否有效（即緩存年份與檔案數與當前狀態匹配）。若有效，則直接利用緩存數據產生 Excel 報表並儲存，免去資料夾掃描與解析步驟。
+  4. 當使用者重新上傳/拖入新資料夾或在下拉選單中手動變更報表年度時，自動清空緩存，防止使用到過期數據。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 修改 `src/App.jsx` 以實現 ETL 緩存
 
 
 

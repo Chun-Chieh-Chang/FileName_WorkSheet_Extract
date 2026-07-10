@@ -56,6 +56,7 @@ function App() {
   const [isProcessingETL, setIsProcessingETL] = useState(false);
   const [etlYear, setEtlYear] = useState(2025);
   const [isETLCancelled, setIsETLCancelled] = useState(false);
+  const [cachedCounts, setCachedCounts] = useState(null);
   const [columnFilters, setColumnFilters] = useState({
     fileName: [],
     filePath: [],
@@ -241,6 +242,7 @@ function App() {
   const processFilesList = async (files, nameOfFolder) => {
     if (files.length === 0) return;
     setUploadedFiles(files);
+    setCachedCounts(null);
     setIsScanning(true);
     setFolderName(nameOfFolder || "個別檔案統計");
     
@@ -344,6 +346,13 @@ function App() {
 
   const handleRunBrowserETL = async (year) => {
     if (!uploadedFiles || uploadedFiles.length === 0) return;
+    
+    if (cachedCounts && cachedCounts.year === year && cachedCounts.filesCount === uploadedFiles.length) {
+      exportSummaryExcelInBrowser(cachedCounts.data, year);
+      alert(`🎉 ${year} 年度品檢報表統計.xlsx 匯出成功！已下載至您的電腦。`);
+      return;
+    }
+
     setIsProcessingETL(true);
     setIsETLCancelled(false);
     isETLCancelledRef.current = false;
@@ -358,6 +367,12 @@ function App() {
         setEtlProgress({ current, total, filename });
       });
       
+      setCachedCounts({
+        data: counts,
+        year: year,
+        filesCount: uploadedFiles.length
+      });
+
       exportSummaryExcelInBrowser(counts, year);
       alert(`🎉 ${year} 年度品檢報表統計.xlsx 匯出成功！已下載至您的電腦。`);
     } catch (e) {
@@ -379,6 +394,22 @@ function App() {
       alert("請先選取或拖入原始品檢資料夾以執行 ETL。");
       return;
     }
+
+    if (cachedCounts && cachedCounts.year === year && cachedCounts.filesCount === uploadedFiles.length) {
+      (async () => {
+        try {
+          const outputPath = await promptExportDirectory();
+          if (!outputPath) return;
+          exportIndividualReports(cachedCounts.data, year, outputPath);
+          alert(`🎉 ${year} 年度獨立報表全部匯出成功！\n已儲存至：${outputPath}`);
+        } catch (e) {
+          console.error(e);
+          alert("匯出失敗，請確認選取的是正確的目標資料夾。");
+        }
+      })();
+      return;
+    }
+
     setIsProcessingETL(true);
     setIsETLCancelled(false);
     isETLCancelledRef.current = false;
@@ -394,8 +425,15 @@ function App() {
           setEtlProgress({ current, total, filename });
         });
         
+        setCachedCounts({
+          data: counts,
+          year: year,
+          filesCount: uploadedFiles.length
+        });
+
         // Ask user for output directory
         const outputPath = await promptExportDirectory();
+        if (!outputPath) return;
         exportIndividualReports(counts, year, outputPath);
         alert(`🎉 ${year} 年度獨立報表全部匯出成功！\n已儲存至：${outputPath}`);
       } catch (e) {
@@ -1765,7 +1803,10 @@ function App() {
                           <span style={{ fontSize: '13px', fontWeight: 600, color: '#664d03' }}>報表年度：</span>
                           <select 
                             value={etlYear}
-                            onChange={(e) => setEtlYear(parseInt(e.target.value, 10))}
+                            onChange={(e) => {
+                              setEtlYear(parseInt(e.target.value, 10));
+                              setCachedCounts(null);
+                            }}
                             disabled={isScanning}
                             style={{
                               padding: '6px 24px 6px 12px',

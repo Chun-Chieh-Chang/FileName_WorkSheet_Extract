@@ -1021,11 +1021,19 @@ function App() {
         const dataPoints = years.map((yr) => {
           const rowsYr = summaryFiles[yr] ? summaryFiles[yr][activeSheet] : null;
           let sum = 0;
-          for (let m = 2; m <= 13; m++) {
-            // Respect month filter
-            if (selectedMonth > 0 && m - 1 !== selectedMonth) continue;
-            const val = rowsYr && rowsYr[m] ? Number(rowsYr[m][item.idx]) || 0 : 0;
-            sum += val;
+          let targetIdx = -1;
+          
+          if (rowsYr && rowsYr.length >= 2 && rowsYr[1]) {
+            targetIdx = rowsYr[1].findIndex(h => String(h || '').trim() === item.name);
+          }
+          
+          if (targetIdx !== -1) {
+            for (let m = 2; m <= 13; m++) {
+              // Respect month filter
+              if (selectedMonth > 0 && m - 1 !== selectedMonth) continue;
+              const val = rowsYr[m] ? Number(rowsYr[m][targetIdx]) || 0 : 0;
+              sum += val;
+            }
           }
           return sum;
         });

@@ -1359,9 +1359,31 @@ if (actualQC === 'QC10007-R03' && json && json.length > 3) {
   3. 遍歷報表時，調用 `outputDirHandle.getFileHandle(fileName, { create: true })` 與 `writable.write()` 直接將 Excel 二進制數據（ArrayBuffer/Uint8Array）寫入硬碟指定目錄下。
   4. 如果瀏覽器不支援 Directory Picker 或寫入失敗，則無縫 fallback 至標準順序下載（Downloads 資料夾）。
 
-### 進度追蹤
 - [x] 更新開發日誌 (DEV_LOG.md)
 - [x] 修改 `src/App.jsx` 以實現資料夾直接寫入功能
+- [x] 還原為「雙次選讀」邏輯以極大化實際多表檔案解析速度
+
+---
+
+## 2026-07-10 還原「雙次選讀」工作表優化方案以提升真實場景 ETL 效能
+
+### 需求說明
+修正實施單次讀取後，使用者反映「ETL 轉換速度反而更慢了，遠不及 github 主分支的版本」的嚴重效能退化。
+
+### 原因分析 (RCA)
+1. **XML 解析瓶頸**：在真實的品檢資料夾中，許多 Excel 檔案包含大量的輔助或範本分頁（例如：`DATE`、`空白`、`客戶別` 等）。
+2. 在「單次讀取」方案中，因為沒有傳入 `sheets` 過濾參數，SheetJS 會強制**解壓縮並解析該 Excel 內的所有工作表 XML 檔案**（即使限制了 `sheetRows: 100`）。
+3. 在「雙次選讀」方案中，雖然進行了兩次 `XLSX.read`，但第二次只傳入了 `sheets: targetSheets`。SheetJS **僅會解析目標工作表的一個 XML**，跳過所有其他 5~10 個非目標工作表的解碼與 XML 解析。對於包含多個分頁的 Excel 來說，少解析 80% 的工作表 XML 所省下的時間，遠遠大於二次解壓縮 ZIP 的開銷。
+
+### 矯正與預防措施 (CAPA)
+- **矯正措施**：
+  1. 還原 [browserETL.js](file:///d:/Self-developed_Apps/FileName_WorkSheet_Extract/src/utils/browserETL.js) 中的雙次讀取邏輯。
+  2. 第一次使用 `bookSheets: true` 僅讀取目錄結構，獲取 SheetNames。
+  3. 過濾出 `targetSheets` 後，第二次僅對該目標工作表傳入 `sheets: targetSheets` 進行 `sheetRows: 100` 的精準解析。
+
+### 進度追蹤
+- [x] 更新開發日誌 (DEV_LOG.md)
+- [x] 還原 `browserETL.js` 中的雙次讀取邏輯
 
 
 

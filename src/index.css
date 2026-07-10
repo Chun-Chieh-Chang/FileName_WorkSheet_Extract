@@ -4,8 +4,8 @@
   /* Approachable Luxury: Morandi Colors & Watercolor Wash Tones */
   --bg-base: #F0F4F8; /* Soft Alabaster / Sea Salt */
   --bg-surface: #FFFFFF;
-  --bg-glass: rgba(255, 255, 255, 0.75); /* High-End Order: Glass Background */
-  --bg-glass-strong: rgba(255, 255, 255, 0.9);
+  --bg-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.15) 100%); /* Liquid Glass Background */
+  --bg-glass-strong: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.3) 100%);
   
   --text-primary: #1A3A5F; /* Deep Marine / Morandi Navy */
   --text-secondary: #5A7D9A; /* Muted Slate */
@@ -27,7 +27,9 @@
 
   /* Refined Borders */
   --color-border: rgba(90, 125, 154, 0.15); /* Soft border */
-  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-border-light: rgba(255, 255, 255, 0.85); /* Liquid Glass inner edge reflection */
+  --glass-highlight: inset 0 2px 4px rgba(255, 255, 255, 0.6), inset 0 -1px 2px rgba(255, 255, 255, 0.1);
   
   --font-family: 'Outfit', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
   
@@ -78,11 +80,13 @@ body {
   align-items: center;
   padding: 16px 24px;
   background: var(--bg-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
   border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-light);
+  border-left-color: var(--glass-border-light);
   border-radius: 16px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm), var(--glass-highlight);
   margin-bottom: 8px;
 }
 
@@ -126,13 +130,15 @@ body {
 
 /* Glass Card Style */
 .panel-card, .mck-card {
-  background-color: var(--bg-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-light);
+  border-left-color: var(--glass-border-light);
   border-radius: 16px; /* High-end rounded corners */
   padding: 24px 32px;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md), var(--glass-highlight);
   transition: var(--transition-smooth);
 }
 
@@ -583,7 +589,9 @@ body {
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-sm);
+  border-top-color: var(--glass-border-light);
+  border-left-color: var(--glass-border-light);
+  box-shadow: var(--shadow-sm), var(--glass-highlight);
   padding: 6px;
   border-radius: 32px;
   margin-bottom: 24px;
@@ -633,16 +641,18 @@ body {
 
 /* McKinsey Sidebar */
 .mck-sidebar {
-  background-color: var(--bg-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-light);
+  border-left-color: var(--glass-border-light);
   border-radius: 16px;
   padding: 24px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm), var(--glass-highlight);
   max-height: 700px;
   overflow-y: auto;
   transition: var(--transition-smooth);
@@ -690,13 +700,15 @@ body {
 }
 
 .mck-card {
-  background-color: var(--bg-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-light);
+  border-left-color: var(--glass-border-light);
   border-radius: 16px;
   padding: 32px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm), var(--glass-highlight);
   position: relative;
   transition: var(--transition-smooth);
 }

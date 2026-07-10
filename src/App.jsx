@@ -1439,7 +1439,7 @@ function App() {
                   {Object.keys(summaryFiles).sort().map(year => (
                     <button 
                       key={year}
-                      className={`btn ${activeYear === year ? 'btn-primary' : 'btn-secondary'}`}
+                      className={`btn ${activeYear === year ? 'btn-primary active' : 'btn-secondary'}`}
                       onClick={() => setActiveYear(year)}
                       style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
                     >
@@ -1447,7 +1447,7 @@ function App() {
                     </button>
                   ))}
                   <button 
-                    className={`btn ${activeYear === 'compare' ? 'btn-primary' : 'btn-secondary'}`}
+                    className={`btn ${activeYear === 'compare' ? 'btn-primary active' : 'btn-secondary'}`}
                     onClick={() => setActiveYear('compare')}
                     disabled={Object.keys(summaryFiles).length < 2}
                     style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}

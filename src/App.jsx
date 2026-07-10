@@ -1443,7 +1443,7 @@ function App() {
                       onClick={() => setActiveYear(year)}
                       style={{ minHeight: '36px', height: '36px', padding: '0 16px', fontSize: '13px' }}
                     >
-                      {year} 年度 ✓
+                      {year} 年度 {activeYear === year ? '✓' : ''}
                     </button>
                   ))}
                   <button 

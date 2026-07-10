@@ -2,22 +2,69 @@
 
 ## 當前專案狀態
 - **專案名稱**：FileName_WorkSheet_Extract
-- **最新完成進度**：已完成「全動態欄位架構」、「精準度與效能優化（單次讀取與 100 行限制）」以及「Chrome 本地資料夾儲存與快取優化」。
-- **代碼庫狀態**：功能已驗證並整理完畢。
+- **分支**：`feature/dynamic-columns`（已合併至 `main`）
+- **部署**：GitHub Pages（透過 GitHub Actions 自動部署）
+- **最新完成進度**：雙引擎切換、民國年日期支援、Chrome UUID 防禦、半成品雙重驗證
 
-## 核心架構變更摘要
-1. **動態欄位解析 (Dynamic Columns)**：
-   - 移除了原先寫死 (hardcoded) 的欄位定義。
-   - `getRawSubCategory` 自動動態解析並累積所有出現過的欄位，不受限於預定義。
-2. **單次讀取效能重構 (Single-Read Optimization)**：
-   - 移除雙重 `XLSX.read` 設計，改為單次 `sheetRows: 100` 載入，減少約 50% 的 ZIP 解碼與 XML 解析 CPU 開銷。
-3. **UUID 路徑防禦**：
-   - 內建 `isUUID` 路徑過濾器，自動在 `browserETL.js` 與 `excelParser.js` 剔除 Chrome 等瀏覽器臨時虛擬化產生的 UUID 資料夾層級，防禦資料污染。
-4. **ETL 計算結果緩存 (Caching)**：
-   - 在 `App.jsx` 引入 `cachedCounts` 狀態，使重複點擊輸出或個別報表時能以 `0ms` 速度即時下載，免除重複掃描時間。
-5. **Chrome 資料夾原生寫入**：
-   - 重構 `promptExportDirectory` 使用 `showDirectoryPicker()`，解決了 Chrome 安全阻斷帶斜線下載屬性的問題，實現多個 Excel 檔案直接原生寫入本地資料夾。
+## 核心架構摘要
 
-## 下一步開發建議 (Next Steps)
-1. **GitHub 合併**：在遠端倉庫將 `feature/dynamic-columns` 合併 (PR/Merge) 至 `main` 分支。
-2. **UAT 測試**：使用其他年份資料庫進行大規模回歸測試 (Regression Test)，確保沒有其他極端格式的表單被遺漏。
+### 1. 雙次選讀效能架構 (Double-Read Selective Parsing)
+- 第一次 `XLSX.read` 使用 `bookSheets: true` 僅讀取工作表目錄
+- 過濾出目標工作表後，第二次使用 `sheets: targetSheets` + `sheetRows: 100` 精準解析
+- 避免解壓縮與解析非目標工作表的 XML，大幅提升效能
+
+### 2. 動態欄位解析 (Dynamic Columns)
+- `getRawSubCategory` 自動動態解析所有出現的品檢子類別
+- 新品項無須手動新增至代碼，自動展開為 Excel 欄位
+
+### 3. 雙引擎切換
+- `browserETL.js`：優化版（動態欄位 + 民國年 + 雙重驗證）
+- `browserETLLegacy.js`：主線舊版（靜態欄位，向下相容）
+- 使用者可透過 UI 下拉選單即時切換，按鈕顏色會隨引擎版本動態變化
+
+### 4. UUID 路徑防禦
+- `isUUID` 過濾器支援標準 UUID、32 位十六進位、及長度 ≥ 24 的系統生成隨機字串
+- 應用於 `browserETL.js`、`excelParser.js`、`App.jsx` 三處
+
+### 5. 民國年 (ROC Year) 日期支援
+- `parseDateFromString` 與 `findDateInSheetFallback` 支援三位數民國年（如 `112/03/15`）
+- 支援 `.`（點號）作為日期分隔符
+
+### 6. 半成品品檢表雙重驗證
+- 要求工作表內容的 QC 編碼為 `QC10006-R02` **且** 檔名/路徑含 `半成品品檢表`
+- 不再需要硬編碼黑名單來排除特定資料夾
+
+### 7. QC 編碼混合式掃描
+- 第一階段：Column A 極速掃描（最多 100 行）
+- 第二階段回退：前 15 行的 Columns B-H 掃描（舊版 2023 表格相容）
+
+### 8. ETL 計算結果緩存
+- `cachedCounts` 狀態避免重複掃描，支援即時重複匯出
+
+## 關鍵檔案索引
+
+| 檔案 | 職責 |
+|---|---|
+| `src/App.jsx` | 主介面、雙引擎調度、快取、UI 控制 |
+| `src/utils/browserETL.js` | 優化版 ETL 核心引擎 |
+| `src/utils/browserETLLegacy.js` | 舊版主線 ETL 引擎 |
+| `src/utils/excelParser.js` | Tab 2 數據表的 Excel 解析器 |
+| `src/utils/db.js` | QC 編碼對照表持久化 |
+| `scratch/validate_qc_etl.cjs` | 自動確效測試工具 |
+| `DEV_LOG.md` | 開發日誌（含 RCA + CAPA） |
+
+## 開發與部署流程
+
+```bash
+# 本地開發
+npm install && npm run dev
+
+# 生產建構
+npm run build
+
+# 確效測試
+node scratch/validate_qc_etl.cjs
+
+# 推送部署（GitHub Actions 自動觸發 GitHub Pages）
+git push origin main
+```

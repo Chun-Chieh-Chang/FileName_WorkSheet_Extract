@@ -13,10 +13,14 @@
   - 零組件入庫品檢 (QC10007-R03)
   - 出貨檢驗 (QC10008-R02)
 - **智能分類統計**：按月份、品項/類別自動統計筆數。
-- **空白樣板守衛**：自動識別並跳過批號（儲存格 `G4`）為空的空白樣板檔案，防禦未來的幻象數據（特定射出類別除外）。
+- **雙引擎切換**：提供「本地優化版」與「GitHub 主分支」兩套 ETL 引擎，使用者可即時切換並以按鈕顏色區分版本。
+- **民國年日期支援**：自動解析民國年格式（如 `112/03/15` → 2023 年 3 月）及點號分隔（如 `112.03.15`），涵蓋 `parseDateFromString` 與 `findDateInSheetFallback`。
+- **半成品品檢雙重驗證**：要求工作表 QC 編碼為 `QC10006-R02` **且** 檔名/路徑含 `半成品品檢表`，避免誤判。
+- **空白樣板守衛**：自動識別並跳過批號（儲存格 `G4`）為空的空白樣板檔案，防禦幻象數據（特定射出類別豁免）。
 - **McKinsey 互動儀表板**：React 應用，使用者可任意勾選品項、以月份為 X 軸生成堆疊柱狀圖，支援跨年度對比模式與月份篩選。
 - **品檢對照提取與過濾**：瀏覽器端 ETL 列出每個工作表是否已被納入 ETL 統計之「原因說明」，並配備獨立下拉篩選器。
 - **獨立報表統計**：一次產出年度品檢報表統計 Excel 檔案。
+- **GitHub Pages 自動部署**：推送至 `main` 分支後，透過 GitHub Actions 自動構建並部署至 GitHub Pages。
 
 ## 使用方式
 
@@ -49,19 +53,22 @@ npm run build
 ```
 ├── docs/                         # 開發相關文件與 wiki
 │   ├── qc-path-analysis/         # 品檢映射路徑分析文檔
-│   ├── today-requirements-*.md   # 歷史今日需求整理日誌
-│   ├── 狀態異常訊息.md           # 狀態異常原因與觸發條件說明文件
-│   └── handover_resume_guide.md  # 交接與重啟指南文件
+│   ├── today-requirements-*.md   # 歷史需求追溯日誌
+│   ├── 狀態異常訊息.md           # ETL 狀態異常觸發條件說明
+│   └── handover_resume_guide.md  # 交接與重啟指南
 ├── src/                          # React SPA 互動儀表板與前端 ETL
-│   ├── App.jsx                   # 主介面
+│   ├── App.jsx                   # 主介面（含雙引擎調度、快取、UI 控制）
 │   ├── index.css                 # 全域樣式 (Outfit + Noto Sans TC)
+│   ├── main.jsx                  # React 入口
 │   └── utils/
+│       ├── browserETL.js         # 優化版 ETL 核心（動態欄位 + 民國年）
+│       ├── browserETLLegacy.js   # 舊版主線 ETL（靜態欄位，向下相容）
 │       ├── db.js                 # QC 表單編號對照表 (localStorage)
-│       ├── excelParser.js        # 瀏覽器端 Excel 檔案解析器 (ESM)
-│       └── browserETL.js         # 前端 ETL 與月份、子分類統計核心邏輯 (ESM)
+│       └── excelParser.js        # 瀏覽器端 Excel 檔案解析器
 ├── public/                       # 靜態資源
 ├── scratch/                      # 開發與確效測試腳本 (gitignored)
 │   └── validate_qc_etl.cjs       # QC ETL 數據映射規則自動確效工具
+├── .github/workflows/            # GitHub Actions 自動部署配置
 ├── DEV_LOG.md                    # 開發日誌（含 RCA + CAPA 歷史記錄）
 ├── package.json
 ├── vite.config.js
@@ -74,18 +81,21 @@ npm run build
 - **SheetJS (xlsx)** — 瀏覽器端 Excel 檔案讀寫
 - **Chart.js** — 堆疊柱狀圖與 KPI 圖表呈現
 - **Google Fonts** — Outfit 與 Noto Sans TC 高級字型
+- **GitHub Actions** — 自動化構建與 GitHub Pages 部署
 
 ## 輸出 Excel 報表結構
 
-| 工作表 | 欄位結構 |
+> **注意**：使用優化版引擎時，欄位為動態生成，下表為典型品項；實際欄位會依掃描到的品項自動展開。
+
+| 工作表 | 典型欄位結構 |
 |---|---|
-| 原物料品檢(QC10002-R02) | 月份 + 原料 + B膠/收縮膜/色粉/空白包裝袋/空白感壓紙/塑膠袋/塑膠袋40*50/紙箱/過濾網連蓋/標籤/射出D + 小計 |
+| 原物料品檢(QC10002-R02) | 月份 + 原料 + 物料-* + 射出D + 小計 |
 | QIP(QC10004-R02) | 押出/射出 Setup + 押出/射出 巡檢（4欄 + 4欄 並列） |
 | 裝配對樣巡檢(QC10006-R01) | 月份 + 裝配巡檢 |
-| 半成品品檢(QC10006-R02) | 月份 + 裝配C + BD + Biometrix + MPS + Vivus |
-| 完成品品檢(QC10007-R01 R02) | 月份 + Biometrix + MarMed + Saxon + Vivus |
+| 半成品品檢(QC10006-R02) | 月份 + 裝配C + (動態品項) + 小計 |
+| 完成品品檢(QC10007-R01 R02) | 月份 + (動態品項) + 小計 |
 | 零組件入庫品檢(QC10007-R03) | 月份 + Tubing + 射出 + 射出A + 射出C + 射出D(組件) + 裝配A + 裝配B + 裝配C |
-| 出貨檢驗(QC10008-R02) | 月份 + ICU + 其他 |
+| 出貨檢驗(QC10008-R02) | 月份 + (動態品項) + 小計 |
 
 ---
 

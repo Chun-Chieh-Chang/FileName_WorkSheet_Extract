@@ -205,96 +205,53 @@ body {
   min-height: 40px;
   user-select: none;
   
-  /* Deep Liquid Glass Base */
-  background: transparent;
+  /* 2D Flat Design Base */
+  background: var(--mck-navy);
   color: #FFFFFF;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: none;
   z-index: 1;
   
-  box-shadow: 
-    inset 0 3px 4px rgba(255, 255, 255, 0.8),
-    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
-    0 15px 25px -10px rgba(0, 0, 0, 0.5);
-    
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
-}
-
-.btn::before {
-  content: '';
-  position: absolute;
-  top: 4px; left: 4px; right: 4px; bottom: 4px;
-  border-radius: 4px; /* Inner radius is outer radius (8px) - inset (4px) */
-  background: linear-gradient(180deg, rgba(120, 200, 255, 0.75) 0%, rgba(40, 140, 235, 0.9) 100%);
-  z-index: -1;
-  box-shadow: inset 0 1px 1px rgba(0, 70, 150, 0.5), 0 1px 2px rgba(255, 255, 255, 0.3);
-  transition: var(--transition-smooth);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .btn:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.1);
+  transform: translateY(-1px);
+  filter: brightness(1.15);
 }
 
 .btn:active {
-  transform: translateY(1px);
+  transform: translateY(0);
 }
 
+/* === Button Variants (2D Flat) === */
+
+/* Primary: Main action (navy blue) */
+.btn-primary {
+  background: var(--mck-navy);
+}
 .btn-primary:hover, .btn-primary:active, .btn-primary.active {
-  box-shadow: 
-    inset 0 3px 4px rgba(255, 255, 255, 0.8),
-    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
-    0 15px 25px -5px rgba(10, 132, 255, 0.6), /* Vivid Blue Glow */
-    0 15px 25px -10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 8px rgba(26, 58, 95, 0.25);
 }
 
+/* Secondary: Less prominent actions (light gray) */
+.btn-secondary {
+  background: transparent;
+  color: var(--mck-navy);
+  border: 1px solid var(--mck-navy);
+}
 .btn-secondary:hover, .btn-secondary:active, .btn-secondary.active {
-  box-shadow: 
-    inset 0 3px 4px rgba(255, 255, 255, 0.8),
-    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
-    0 20px 30px -5px rgba(236, 72, 153, 0.6), /* Pink Glow */
-    0 10px 15px -5px rgba(245, 158, 11, 0.5), /* Orange Glow */
-    0 15px 25px -10px rgba(0, 0, 0, 0.5);
+  background: var(--mck-navy);
+  color: #FFFFFF;
+  box-shadow: 0 2px 4px rgba(26, 58, 95, 0.15);
 }
 
+/* Danger: Same as primary but with subtle visual distinction */
+.btn-danger {
+  background: var(--mck-navy);
+}
 .btn-danger:hover, .btn-danger:active, .btn-danger.active {
-  box-shadow: 
-    inset 0 3px 4px rgba(255, 255, 255, 0.8),
-    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
-    0 15px 25px -5px rgba(255, 69, 58, 0.6), /* Vivid Red Glow */
-    0 15px 25px -10px rgba(0, 0, 0, 0.5);
-}
-
-.btn-warning:hover, .btn-warning:active, .btn-warning.active {
-  box-shadow: 
-    inset 0 3px 4px rgba(255, 255, 255, 0.8),
-    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
-    0 15px 25px -5px rgba(255, 159, 10, 0.6), /* Vivid Orange Glow */
-    0 15px 25px -10px rgba(0, 0, 0, 0.5);
-}
-
-.btn-info:hover, .btn-info:active, .btn-info.active {
-  box-shadow: 
-    inset 0 3px 4px rgba(255, 255, 255, 0.8),
-    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
-    0 15px 25px -5px rgba(90, 200, 250, 0.6), /* Vivid Cyan Glow */
-    0 15px 25px -10px rgba(0, 0, 0, 0.5);
-}
-
-.btn-success:hover, .btn-success:active, .btn-success.active {
-  box-shadow: 
-    inset 0 3px 4px rgba(255, 255, 255, 0.8),
-    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
-    0 15px 25px -5px rgba(48, 209, 88, 0.6), /* Vivid Green Glow */
-    0 15px 25px -10px rgba(0, 0, 0, 0.5);
-}
-
-.btn-dark:hover, .btn-dark:active, .btn-dark.active {
-  box-shadow: 
-    inset 0 3px 4px rgba(255, 255, 255, 0.8),
-    inset 0 -3px 5px rgba(255, 255, 255, 0.3),
-    0 15px 25px -5px rgba(255, 255, 255, 0.2), /* White/Silver Glow */
-    0 15px 25px -10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 8px rgba(26, 58, 95, 0.25);
+  filter: brightness(1.15);
 }
 
 /* Mapping Editor */
@@ -845,6 +802,93 @@ body {
   color: var(--mck-slate);
 }
 
+/* Card Variants */
+.mck-card--flat {
+  background-color: #F8FAFC !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.mck-card--compact {
+  padding: 16px !important;
+}
+
+.mck-card-header--compact {
+  margin-bottom: 12px !important;
+}
+
+.mck-status-success {
+  font-size: 13px;
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.mck-text-slate {
+  font-size: 13px;
+  color: var(--mck-slate);
+}
+
+.mck-flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.mck-border-gold {
+  border: 1px solid var(--mck-accent-gold);
+  background: #FDFCF7;
+}
+
+.mck-label-sm {
+  font-size: 12px;
+  color: var(--mck-slate);
+  font-weight: 600;
+}
+
+/* Common inline style replacements */
+.mck-empty-text {
+  font-size: 13px;
+  color: var(--mck-slate);
+}
+
+.mck-desc-text {
+  font-size: 14px;
+  color: var(--mck-slate);
+  max-width: 500px;
+  margin: 0 auto 24px auto;
+}
+
+.mck-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mck-section-divider {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.mck-select-gold {
+  padding: 6px 24px 6px 12px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid var(--mck-accent-gold);
+  background: #ffffff;
+  color: var(--mck-navy);
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: all 0.2s;
+}
+
 /* McKinsey Clean Data Tables */
 .mck-table-wrapper {
   overflow-x: auto;
@@ -1056,6 +1100,36 @@ body {
   word-break: break-all;
   max-width: 280px;
   min-width: 150px;
+}
+
+/* ============================================================
+   ACCESSIBILITY (focus-visible, aria support)
+   ============================================================ */
+
+/* Focus ring for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--accent-brand);
+  outline-offset: 2px;
+}
+
+/* Remove default outline on mouse click, keep on keyboard */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Enhanced focus for interactive elements */
+.btn:focus-visible,
+.filter-trigger-btn:focus-visible,
+.mck-pill:focus-visible,
+.nav-tab:focus-visible,
+.mck-sheet-btn:focus-visible {
+  outline: 2px solid var(--accent-brand);
+  outline-offset: 2px;
+}
+
+/* Table row focus for keyboard navigation */
+.data-table tr:focus-within td {
+  background-color: rgba(58, 124, 168, 0.05);
 }
 
 

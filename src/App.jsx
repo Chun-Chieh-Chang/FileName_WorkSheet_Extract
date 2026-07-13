@@ -1303,6 +1303,8 @@ function App() {
               setActiveFilterPopover(activeFilterPopover === fieldKey ? null : fieldKey);
             }}
             title={`篩選${label}`}
+            aria-label={`篩選${label}`}
+            aria-expanded={activeFilterPopover === fieldKey}
           >
             ▼
           </button>
@@ -1333,16 +1335,22 @@ function App() {
       </header>
 
       {/* Main Tab Mode Toggle */}
-      <nav className="app-nav">
+      <nav className="app-nav" role="tablist" aria-label="主要功能切換">
         <button 
           className={`nav-tab ${activeTab === 'extractor' ? 'active' : ''}`}
           onClick={() => setActiveTab('extractor')}
+          role="tab"
+          aria-selected={activeTab === 'extractor'}
+          aria-controls="panel-extractor"
         >
           ⚙️ 品檢編碼對照與提取工具
         </button>
         <button 
           className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
           onClick={() => setActiveTab('dashboard')}
+          role="tab"
+          aria-selected={activeTab === 'dashboard'}
+          aria-controls="panel-dashboard"
         >
           📊 McKinsey 品檢分析儀表板
         </button>
@@ -1350,16 +1358,16 @@ function App() {
 
       {/* Tab 1: McKinsey Dashboard */}
       {activeTab === 'dashboard' && (
-        <div className="mck-main-content">
+        <div id="panel-dashboard" role="tabpanel" className="mck-main-content">
           {/* Uploader Card */}
-          <div className="mck-card" style={{ backgroundColor: '#F8FAFC' }}>
-            <div className="mck-card-header" style={{ marginBottom: '12px' }}>
+          <div className="mck-card mck-card--flat">
+            <div className="mck-card-header mck-card-header--compact">
               <div>
                 <h2 className="mck-card-title">匯入年度報表統計檔</h2>
                 <div className="mck-card-subtitle">請上傳由 ETL Pipeline 產出的品檢報表統計 .xlsx 檔案</div>
               </div>
               {Object.keys(summaryFiles).length > 0 && (
-                <div style={{ fontSize: '13px', color: 'var(--color-success)', fontWeight: '600' }}>
+                <div className="mck-status-success">
                   ✓ 已載入 {Object.keys(summaryFiles).length} 個檔案: {Object.keys(summaryFiles).sort().join(', ')}
                 </div>
               )}
@@ -1378,6 +1386,7 @@ function App() {
                 htmlFor="summary-file-input" 
                 className="btn btn-primary"
                 style={{ minHeight: '40px', padding: '8px 16px', fontSize: '13px' }}
+                aria-label="選擇報表檔案"
               >
                 📁 選擇報表檔案...
               </label>
@@ -1393,11 +1402,12 @@ function App() {
                     }
                   }}
                   style={{ minHeight: '40px', padding: '8px 16px', fontSize: '13px' }}
+                  aria-label="清空所有報表"
                 >
                   🗑 清空所有報表
                 </button>
               )}
-              <span style={{ fontSize: '13px', color: 'var(--mck-slate)' }}>
+              <span className="mck-text-slate">
                 直接在下方選取或拖曳包含 QC 報表的資料夾即可開始分析。
               </span>
             </div>
@@ -1405,13 +1415,13 @@ function App() {
 
           {/* Year Switcher Selector */}
           {Object.keys(summaryFiles).length > 0 && (
-            <div className="mck-card" style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+            <div className="mck-card mck-card--compact mck-flex-center">
               <div>
                 <h3 className="mck-card-title" style={{ fontSize: '15px' }}>📅 選擇分析年度與跨年對比</h3>
                 <div className="mck-card-subtitle" style={{ marginTop: '2px' }}>切換單一年度數據，或啟動跨年度數據對比</div>
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--mck-slate)', fontWeight: 600 }}>月份篩選：</span>
+                  <span className="mck-label-sm">月份篩選：</span>
                   <select 
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
@@ -1459,7 +1469,7 @@ function App() {
                 {/* Year selector for cross-year comparison */}
                 {activeYear === 'compare' && (
                   <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--mck-border)', width: '100%' }}>
-                    <span style={{ fontSize: '12px', color: 'var(--mck-slate)', fontWeight: 600 }}>選擇對比年份：</span>
+                    <span className="mck-label-sm">選擇對比年份：</span>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
                       {Object.keys(summaryFiles).sort().map(year => {
                         const isSelected = compareYearSelection[year];
@@ -1490,7 +1500,7 @@ function App() {
             <div className="mck-dashboard">
               {/* Sidebar Tabs */}
               <aside className="mck-sidebar">
-                <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--mck-slate)', padding: '0 8px 8px 8px', borderBottom: '1px solid var(--mck-border)' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.6px', padding: '0 8px 8px 8px', borderBottom: '1px solid var(--mck-border)', color: 'var(--mck-slate)' }}>
                   品檢報表工作表
                 </div>
                 {Object.keys(summaryData).map((sheetName) => (
@@ -1560,7 +1570,7 @@ function App() {
                   <div className="mck-pill-container">
                     {(() => {
                       const rows = summaryData[activeSheet];
-                      if (!rows || rows.length < 2) return <p style={{ fontSize: '13px', color: 'var(--mck-slate)' }}>該工作表無有效數據欄位</p>;
+                      if (!rows || rows.length < 2) return <p className="mck-empty-text">該工作表無有效數據欄位</p>;
                       const headerRow = rows[1] || [];
                       const items = [];
                       headerRow.forEach((h, idx) => {
@@ -1599,7 +1609,7 @@ function App() {
                       <canvas ref={chartRef}></canvas>
                     </div>
                   ) : (
-                    <div style={{ textAlign: 'center', padding: '64px 0', color: 'var(--mck-slate)' }}>
+                    <div className="mck-empty-text" style={{ textAlign: 'center', padding: '64px 0' }}>
                       ⚠️ 請在上方選擇至少一個分析項目以繪製圖表。
                     </div>
                   )}
@@ -1667,7 +1677,7 @@ function App() {
             <div className="panel-card" style={{ padding: '64px', textAlign: 'center' }}>
               <span style={{ fontSize: '48px' }}>📂</span>
               <h3 style={{ margin: '16px 0 8px 0', fontSize: '18px', fontWeight: '600' }}>尚未載入品檢統計報表</h3>
-              <p style={{ color: 'var(--mck-slate)', maxWidth: '500px', margin: '0 auto 24px auto', fontSize: '14px' }}>
+              <p className="mck-desc-text">
                 請點擊上方按鈕，載入生成的品檢報表統計 .xlsx 檔案。載入後，系統將依麥肯錫風格為您呈現自訂動態製圖與數據分析。
               </p>
             </div>
@@ -1688,6 +1698,8 @@ function App() {
                 className="upload-zone"
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
+                role="region"
+                aria-label="檔案上傳區域"
               >
                 <div className="upload-icon">📥</div>
                 <p style={{ fontWeight: 500 }}>拖曳檔案或資料夾至此</p>
@@ -1698,6 +1710,7 @@ function App() {
                     className="btn btn-primary" 
                     style={{ flex: 1 }}
                     onClick={() => folderInputRef.current.click()}
+                    aria-label="選取資料夾"
                   >
                     📂 選取資料夾
                   </button>
@@ -1721,27 +1734,29 @@ function App() {
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button 
-                      className="btn btn-primary" 
-                      style={{ flex: 1, minHeight: '36px' }}
-                      onClick={() => exportToCSV(filteredRows, folderName || "品管報表")}
-                    >
-                      📄 匯出 CSV
-                    </button>
+                    className="btn btn-primary" 
+                    style={{ flex: 1, minHeight: '36px' }}
+                    onClick={() => exportToCSV(filteredRows, folderName || "品管報表")}
+                    aria-label="匯出 CSV"
+                  >
+                    📄 匯出 CSV
+                  </button>
 
-                    <button 
-                      className="btn btn-danger btn-icon" 
-                      onClick={() => setScannedRows([])}
-                      title="清除結果"
-                    >
-                      🗑
-                    </button>
+                  <button 
+                    className="btn btn-danger btn-icon" 
+                    onClick={() => setScannedRows([])}
+                    title="清除結果"
+                    aria-label="清除結果"
+                  >
+                    🗑
+                  </button>
                   </div>
                 </div>
               )}
             </section>
 
             {uploadedFiles.length > 0 && (
-              <section className="panel-card" style={{ border: '1px solid var(--mck-accent-gold)', background: '#FDFCF7' }}>
+              <section className="panel-card mck-border-gold">
                 <h2 className="card-title" style={{ color: '#856404', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   🛠️ 年度統計報表一鍵生成器
                 </h2>
@@ -1754,7 +1769,7 @@ function App() {
                     <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--mck-navy)', marginBottom: '8px' }}>
                       ⚙️ 正在執行品管資料 ETL 轉換中... ({etlProgress?.current}/{etlProgress?.total})
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--mck-slate)', overflow: 'hidden', textOverlap: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--mck-slate)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       處理檔案: {etlProgress?.filename}
                     </div>
                     <div style={{ width: '100%', height: '8px', background: '#E2E8F0', borderRadius: '4px', marginTop: '8px', overflow: 'hidden' }}>
@@ -1774,34 +1789,22 @@ function App() {
                 ) : (
                   <div>
                     {/* 主流程操作區 */}
-                    <div style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <div className="mck-section-divider">
+                      <div className="mck-section-label">
                         🚀 主流程操作
                       </div>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ fontSize: '13px', fontWeight: 600, color: '#664d03' }}>報表年度：</span>
                           <select 
+                            className="mck-select-gold"
                             value={etlYear}
                             onChange={(e) => {
                               setEtlYear(parseInt(e.target.value, 10));
                               setCachedCounts(null);
                             }}
                             disabled={isScanning}
-                            style={{
-                              padding: '6px 24px 6px 12px',
-                              fontSize: '13px',
-                              borderRadius: '6px',
-                              border: '1px solid var(--mck-accent-gold)',
-                              background: '#ffffff',
-                              color: 'var(--mck-navy)',
-                              fontWeight: 600,
-                              cursor: isScanning ? 'not-allowed' : 'pointer',
-                              opacity: isScanning ? 0.6 : 1,
-                              outline: 'none',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                              transition: 'all 0.2s'
-                            }}
+                            style={{ opacity: isScanning ? 0.6 : 1, cursor: isScanning ? 'not-allowed' : 'pointer' }}
                           >
                             {Array.from({ length: 31 }, (_, i) => 2010 + i).map(year => (
                               <option key={year} value={year}>{year} 年</option>
@@ -1810,31 +1813,19 @@ function App() {
                         </div>
 
                         <button 
-                          className="btn btn-primary" 
+                          className="btn btn-primary"
                           onClick={() => handleRunBrowserETL(etlYear)}
                           disabled={isScanning}
-                          style={{ 
-                            background: 'var(--mck-navy)', 
-                            borderColor: 'var(--mck-navy)',
-                            opacity: isScanning ? 0.6 : 1,
-                            cursor: isScanning ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.2s'
-                          }}
+                          style={{ opacity: isScanning ? 0.6 : 1, cursor: isScanning ? 'not-allowed' : 'pointer' }}
                         >
                           {isScanning ? '🔍 正在解析原始檔案中...' : `📊 輸出 ${etlYear} 品檢報表統計`}
                         </button>
                         
                         <button 
-                          className="btn btn-secondary" 
+                          className="btn btn-secondary"
                           onClick={() => handleExportIndividualReports(etlYear)}
                           disabled={isScanning}
-                          style={{ 
-                            borderColor: 'var(--mck-navy)',
-                            color: 'var(--mck-navy)',
-                            opacity: isScanning ? 0.6 : 1,
-                            cursor: isScanning ? 'not-allowed' : 'pointer',
-                            transition: 'all 0.2s'
-                          }}
+                          style={{ opacity: isScanning ? 0.6 : 1, cursor: isScanning ? 'not-allowed' : 'pointer' }}
                         >
                           {isScanning ? '🔍 解析中...' : `📦 輸出 ${etlYear} 獨立報表 (全部 QC)`}
                         </button>
@@ -1842,8 +1833,8 @@ function App() {
                     </div>
 
                     {/* 資料分析工具區 - 已整合到「品管檔案夾掃描」中 */}
-                    <div style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border-color)' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <div className="mck-section-divider">
+                      <div className="mck-section-label">
                         🔍 資料分析工具
                       </div>
                       <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0' }}>
@@ -1853,7 +1844,7 @@ function App() {
 
                     {/* 資料管理工具區 - 已整合到「品管檔案夾掃描」中 */}
                     <div>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <div className="mck-section-label">
                         🗂 資料管理工具
                       </div>
                       <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0' }}>
@@ -1954,12 +1945,14 @@ function App() {
                   placeholder="搜尋結果..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  aria-label="搜尋結果"
                 />
                 
                 <select 
                   className="filter-select"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  aria-label="狀態篩選"
                 >
                   <option value="all">所有狀態</option>
                   <option value="matched">成功識別</option>
@@ -1993,6 +1986,7 @@ function App() {
                       setActiveFilterPopover(null);
                     }}
                     title="重設所有欄位篩選條件"
+                    aria-label="重設所有欄位篩選條件"
                   >
                     🧹 重設篩選
                   </button>
